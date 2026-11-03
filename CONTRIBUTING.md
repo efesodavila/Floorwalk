@@ -99,6 +99,9 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
   Os exemplos do pedido à IA precisam passar nas mesmas regras (um teste confere).
   Falhou duas vezes: plano B com um móvel do catálogo e outro nome.
 - Móvel novo no catálogo? Rode `npm test` (confere a ligação servidor ↔ página) e `npm run check:layouts`.
+- **Visual 3D do móvel:** acrescente um modelo em `MODELS` de `web/js3d/moveis3d.js` (peças no espaço do item, sem
+  giro: `box`, `cyl`, `lathe`, `ball`, `rod`, `leaf`, `garment`, `base()` para reaproveitar caixas do catálogo).
+  Sem modelo, o item aparece com as caixas do catálogo. `test/moveis3d.test.mjs` confere área e giro.
 
 ## Modelo: estados, papéis e tipos
 

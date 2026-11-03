@@ -30,6 +30,7 @@ async function start() {
   const { SMAAPass } = await import('three/addons/postprocessing/SMAAPass.js');
   const { RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js');
   const { mergeGeometries, mergeVertices } = await import('three/addons/utils/BufferGeometryUtils.js');
+  const { furnitureKit } = await import('./moveis3d.js');
   // linha visual dos personagens: meshy (padrão: modelos gerados com acessórios) | lowpoly (?estilo=lowpoly)
   // caminhos fixos (não variáveis): o empacotador do arquivo único (scripts/build-single.mjs) consegue segui-los
   const ESTILOS = { lowpoly: () => import('./personagens3d-lowpoly.js'), meshy: () => import('./personagens3d-meshy.js') };
@@ -81,6 +82,13 @@ async function start() {
   const glassMat = new THREE.MeshBasicMaterial({ color: '#BFE4EF', transparent: true, opacity: .24, depthWrite: false, side: THREE.DoubleSide });
   const steamMat = new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: .6, depthWrite: false });
   const matFor = (b, screenOn) => b.glass ? glassMat : b.g ? glow(b.g, b.screen && !screenOn) : toon(String(b.c || '#888888'));
+  // móveis: folhas e roupas com as duas faces (o facetado vem das normais por face, em addOwned)
+  const toonF = (color, double = false) => {
+    const k = (double ? 'fd' : 'f') + color;
+    if (!mats.has(k)) mats.set(k, new THREE.MeshToonMaterial({ color: new THREE.Color(color), gradientMap, side: double ? THREE.DoubleSide : THREE.FrontSide }));
+    return mats.get(k);
+  };
+  const pieceMat = (pc) => pc.glass ? glassMat : pc.glow ? glow(pc.glow) : toonF(String(pc.c || '#888888'), pc.double);
 
   /* ---------- geometria ---------- */
   const geos = new Map();
@@ -91,7 +99,26 @@ async function start() {
   }
   // paredes: caixa reta (cantos arredondados deixariam emendas visíveis entre os trechos)
   const box = (w, h, d) => { const k = `b${w},${h},${d}`; if (!geos.has(k)) geos.set(k, new THREE.BoxGeometry(w, h, d)); return geos.get(k); };
-  const unit = new THREE.BoxGeometry(1, 1, 1);
+  // móveis com o mesmo contorno preto dos personagens; ?contornoMoveis=0 desliga
+  const FURN_OUTLINE = qs.get('contornoMoveis') !== '0', OUTLINE_LAYER = 3;
+  const unit = new THREE.BoxGeometry(1, 1, 1), unitBall = new THREE.IcosahedronGeometry(.5, 0);
+  const FK = furnitureKit({ THREE, RoundedBoxGeometry, isAnim: (b) => ANIM(b) });
+  // um móvel inteiro (modelo 3D ou caixas do catálogo), girado e posicionado
+  function addObject(o, at, opaque, glassB) {
+    const M = FK.matrix(o.item, o.rot || 0, at ? at.x : o.x, at ? at.z : o.z);
+    for (const pc of FK.pieces(o.item, objColor(o))) { pc.geo.applyMatrix4(M); (pc.glass ? glassB : opaque).addOwned(pc.geo, pieceMat(pc)); }
+  }
+  // partes animadas paradas (miniaturas e fantasma do editor): telas, LEDs, luz colorida
+  function addAnimStatic(o, at, opaque, glassB) {
+    const model = FK.hasModel(o.item);
+    for (const bx of worldBoxes(o, at)) {
+      if (!ANIM(bx) || (bx.sway && model) || (bx.steam && model) || bx.w <= 0 || bx.h <= 0 || bx.d <= 0) continue;
+      const [x, y, z] = center(bx);
+      (bx.glass ? glassB : opaque).add(bx.pulse ? unitBall.clone().scale(bx.w, bx.h, bx.d) : rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z);
+    }
+  }
+  // no editor, o que está sendo arrastado sai do lugar (aparece no fantasma, onde vai ficar)
+  const movingId = () => (mode === 'build' && drag?.kind === 'move' && drag.moved) ? drag.sel.id : null;
   // agrupa caixas por material e junta numa malha só (uma chamada de desenho por material)
   function batcher() {
     const groups = new Map();
@@ -101,10 +128,20 @@ async function start() {
         for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
         if (!groups.has(mat)) groups.set(mat, []); groups.get(mat).push(g);
       },
-      flush(parent, { shadows = true, layer = 0 } = {}) {
+      // geometria já posicionada (é consumida)
+      addOwned(g, mat) {
+        if (g.index) { const n = g.toNonIndexed(); g.dispose(); g = n; }
+        g.computeVertexNormals(); // sem vértices compartilhados: normal por face = facetado, como os personagens
+        for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+        if (!groups.has(mat)) groups.set(mat, []); groups.get(mat).push(g);
+      },
+      flush(parent, { shadows = true, layer = 0, outline = false } = {}) {
         for (const [mat, list] of groups) {
           const m = new THREE.Mesh(mergeGeometries(list, false), mat);
           m.castShadow = shadows; m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.layers.set(layer);
+          // contorno preto fino, como o dos personagens (entra na máscara do contorno)
+          if (outline && FURN_OUTLINE) m.layers.enable(OUTLINE_LAYER);
           parent.add(m); list.forEach(g => g.dispose());
         }
         groups.clear();
@@ -165,27 +202,31 @@ async function start() {
       if (!has(x - 1, z)) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
     }
     WB.flush(sides.z); XB.flush(sides.x); world.add(sides.z, sides.x); wallGroups = [sides.z, sides.x];
-    // móveis e divisórias
+    // móveis e divisórias (paredes de vidro/divisórias também entram no contorno)
     const rest = batcher(), glassOnly = batcher();
     const addStatic = (bx) => {
       if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) return;
       const [x, y, z] = center(bx);
       (bx.glass ? glassOnly : rest).add(rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z);
     };
+    const hid = movingId();
     for (const o of W.objects) {
-      const it = ITEMS[o.item]; if (!it) continue;
+      const it = ITEMS[o.item]; if (!it || o.id === hid) continue;
       if (it.dyn === 'kanban') { const g = new THREE.Group(); world.add(g); kanbans.push({ o, g, sig: '' }); continue; }
+      addObject(o, null, rest, glassOnly);
+      const model = FK.hasModel(o.item);
       for (const bx of worldBoxes(o)) {
-        if (!ANIM(bx)) { addStatic(bx); continue; }
-        if (bx.steam) { addStatic(bx); steams.push({ b: bx, parts: [0, 1, 2, 3].map(() => { const m = new THREE.Mesh(unit, steamMat); m.layers.set(1); world.add(m); return m; }) }); continue; }
-        const m = new THREE.Mesh(unit, matFor(bx, false)); m.castShadow = !bx.g; m.receiveShadow = true; world.add(m); animated.push({ b: bx, m });
+        if (!ANIM(bx) || (bx.sway && model)) continue;
+        if (bx.steam) { if (!model) addStatic(bx); steams.push({ b: bx, parts: [0, 1, 2, 3].map(() => { const m = new THREE.Mesh(unit, steamMat); m.layers.set(1); world.add(m); return m; }) }); continue; }
+        const m = new THREE.Mesh(bx.pulse ? unitBall : unit, matFor(bx, false)); m.castShadow = !bx.g; m.receiveShadow = true; if (FURN_OUTLINE) m.layers.enable(OUTLINE_LAYER); world.add(m); animated.push({ b: bx, m });
       }
     }
     for (const s of W.walls) {
+      if (s.id === hid) continue;
       if (s.kind === 'porta' || s.kind === 'vidro_porta') { const g = new THREE.Group(); world.add(g); doors.push({ s, g, open: -1 }); continue; }
       for (const bx of segBoxes(s, null, 0)) addStatic(bx);
     }
-    rest.flush(world); glassOnly.flush(world, { shadows: false, layer: 1 });
+    rest.flush(world, { outline: true }); glassOnly.flush(world, { shadows: false, layer: 1 });
     // sol e sombra ajustados ao tamanho da sala
     const c = new THREE.Vector3(room.cx, 0, room.cz), dir = new THREE.Vector3(-11, 19, 15).normalize();
     sun.position.copy(c).addScaledVector(dir, room.span * 1.6); sun.target.position.copy(c);
@@ -196,7 +237,7 @@ async function start() {
     g.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); g.clear();
     const opaque = batcher(), glass = batcher();
     for (const bx of boxes) { if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) continue; const [x, y, z] = center(bx); (bx.glass ? glass : opaque).add(rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z); }
-    opaque.flush(g); glass.flush(g, { shadows: false, layer: 1 });
+    opaque.flush(g, { outline: true }); glass.flush(g, { shadows: false, layer: 1 });
   }
 
   /* ---------- animações dos móveis (as mesmas regras do 2D, via animBox) ---------- */
@@ -267,6 +308,46 @@ async function start() {
     function refresh() { try { if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards(); } catch {} }
     refresh();
   }
+  // miniaturas do editor (Elementos, paredes, pisos) feitas com os mesmos modelos 3D da sala
+  const thumbs3d = (() => {
+    const tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    tr.outputColorSpace = THREE.SRGBColorSpace; tr.setPixelRatio(1);
+    const ts = new THREE.Scene();
+    ts.add(new THREE.HemisphereLight(0xFFFFFF, 0xCFC2EC, 1.45));
+    const tl = new THREE.DirectionalLight(0xFFE3C2, 1.5); tl.position.set(-11, 19, 15); ts.add(tl);
+    const tc = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
+    const TP = Math.PI / 6, dir = new THREE.Vector3(Math.sin(Math.PI / 4) * Math.cos(TP), Math.sin(TP), Math.cos(Math.PI / 4) * Math.cos(TP));
+    const S = typeof TS === 'number' ? TS : 2;
+    function shoot(fill, w, h) {
+      const g = new THREE.Group(), op = batcher(), gl = batcher(); fill(op, gl); op.flush(g, { shadows: false }); gl.flush(g, { shadows: false });
+      ts.add(g); g.updateMatrixWorld(true);
+      const bb = new THREE.Box3().setFromObject(g), c = bb.getCenter(new THREE.Vector3());
+      tc.position.copy(c).addScaledVector(dir, 30); tc.up.set(0, 1, 0); tc.lookAt(c); tc.updateMatrixWorld();
+      // extensão na tela: projeta os 8 cantos no espaço da câmera
+      const inv = tc.matrixWorldInverse; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i < 8; i++) { const v = new THREE.Vector3(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).applyMatrix4(inv); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+      const pad = 1.12, hw = Math.max((x1 - x0) / 2, (y1 - y0) / 2 * w / h) * pad, hh = hw * h / w, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      Object.assign(tc, { left: mx - hw, right: mx + hw, top: my + hh, bottom: my - hh }); tc.updateProjectionMatrix();
+      tr.setSize(w * S, h * S, false); tr.setClearColor(0x000000, 0); tr.render(ts, tc);
+      const url = tr.domElement.toDataURL('image/png');
+      ts.remove(g); g.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+      return url;
+    }
+    const item = (k) => shoot((op, gl) => { const o = { item: k, rot: 0, color: ITEMS[k].color }; addObject(o, { x: 0, z: 0 }, op, gl); addAnimStatic(o, { x: 0, z: 0 }, op, gl); }, 120, 90);
+    const wall = (k) => shoot((op, gl) => { for (const bx of segBoxes({ id: 't', kind: k, a: [0, 0], b: [3, 0] })) { if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) continue; const [x, y, z] = center(bx); (bx.glass ? gl : op).add(rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z); } }, 120, 90);
+    const floor = (m) => shoot((op) => { const tile = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2); for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) { op.add(tile, toon('#FFFFFF', floorTexture(m)), x + .5, .001, z + .5); op.add(box(1, .12, 1), toon('#D3C9CE'), x + .5, -.06, z + .5); } }, 96, 72);
+    return { item, wall, floor };
+  })();
+  try {
+    for (const k in ITEMS) THUMBS[k] = thumbs3d.item(k);
+    for (const k in WALLKINDS) THUMBS['w:' + k] = thumbs3d.wall(k);
+    for (const k in MATS) MTHUMBS[k] = thumbs3d.floor(k);
+    if (mode === 'build' && typeof renderPanel === 'function') renderPanel();
+  } catch (e) { console.warn('[3D] miniaturas 3D falharam; ficam as 2D:', e); }
+  // móveis criados pela IA depois do início também ganham miniatura 3D
+  const reg0 = window.registerCustom;
+  if (typeof reg0 === 'function') window.registerCustom = (c) => { const r = reg0(c); if (r) try { THUMBS[c.id] = thumbs3d.item(c.id); } catch {} return r; };
+
   // contorno dos personagens: ligado por padrão; ?contorno=0 desliga (para comparar)
   const CHAR_OUTLINE = qs.get('contorno') !== '0';
   const people = new Map(); // id → { v (modelo), visible, headY }
@@ -479,28 +560,28 @@ async function start() {
   const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ray = new THREE.Raycaster(), _g = new THREE.Vector3();
   const ndc = (x, y) => new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
   const groundAt = (x, y) => { ray.setFromCamera(ndc(x, y), camera); return ray.ray.intersectPlane(ground, _g) ? _g.clone() : null; };
-  let drag = null, rot = null;
+  let vdrag = null, rot = null;
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     if (e.button === 2 || e.shiftKey) { rot = { x: e.clientX, yaw: cam.yaw }; canvas.classList.add('rotating'); return; }
-    drag = { x: e.clientX, y: e.clientY, start: groundAt(e.clientX, e.clientY), px: cam.panX, pz: cam.panZ, moved: false };
+    vdrag = { x: e.clientX, y: e.clientY, start: groundAt(e.clientX, e.clientY), px: cam.panX, pz: cam.panZ, moved: false };
     canvas.classList.add('dragging');
   });
   canvas.addEventListener('pointermove', (e) => {
     if (rot) { cam.yaw = rot.yaw - (e.clientX - rot.x) * .008; cam.yawGoal = cam.yaw; return; }
-    if (!drag) return;
-    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4) drag.moved = true;
-    if (!drag.moved || !drag.start) return;
+    if (!vdrag) return;
+    if (Math.hypot(e.clientX - vdrag.x, e.clientY - vdrag.y) > 4) vdrag.moved = true;
+    if (!vdrag.moved || !vdrag.start) return;
     // o ponto do chão que estava sob o cursor continua sob o cursor
-    cam.panX = drag.px; cam.panZ = drag.pz; updateCamera();
+    cam.panX = vdrag.px; cam.panZ = vdrag.pz; updateCamera();
     const now = groundAt(e.clientX, e.clientY); if (!now) return;
-    cam.panX = drag.px + drag.start.x - now.x; cam.panZ = drag.pz + drag.start.z - now.z;
+    cam.panX = vdrag.px + vdrag.start.x - now.x; cam.panZ = vdrag.pz + vdrag.start.z - now.z;
   });
   const endPointer = (e) => {
     canvas.classList.remove('dragging', 'rotating');
     if (rot) { rot = null; cam.yawGoal = snapYaw(cam.yaw); return; } // encaixa no ângulo isométrico mais próximo
-    const was = drag; drag = null; if (!was || was.moved || e.type !== 'pointerup') return;
+    const was = vdrag; vdrag = null; if (!was || was.moved || e.type !== 'pointerup') return;
     ray.setFromCamera(ndc(e.clientX, e.clientY), camera);
     const hit = ray.intersectObjects([...people.values()].filter(p => p.visible).map(p => p.v.root), true)[0];
     let o = hit?.object; while (o && !o.userData.id) o = o.parent;
@@ -572,11 +653,38 @@ async function start() {
     },
   };
 
+  /* ---------- fantasma do editor (móvel ou parede sendo arrastado, colocado ou desenhado), no próprio 3D ---------- */
+  const ghost = new THREE.Group(); scene.add(ghost);
+  let ghostSig = '';
+  function ghostState() {
+    if (mode !== 'build') return null;
+    if (drag?.kind === 'move' && drag.moved) {
+      if (drag.sel.type === 'obj') { const o = objById(drag.sel.id); return o && { obj: { item: o.item, rot: o.rot, color: o.color }, at: drag.at }; }
+      const s = wallById(drag.sel.id); return s && { wall: { ...s, a: [s.a[0] + drag.off[0], s.a[1] + drag.off[1]], b: [s.b[0] + drag.off[0], s.b[1] + drag.off[1]] } };
+    }
+    if (placing && hover) {
+      const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, [w, d] = dims(o);
+      return { obj: o, at: { x: Math.floor(hover.x - w / 2 + .5), z: Math.floor(hover.z - d / 2 + .5) } };
+    }
+    const gw = wallGhost(); if (gw && segInfo(gw).len > 0) return { wall: gw };
+    return null;
+  }
+  function updateGhost() {
+    const g = ghostState(), k = g ? JSON.stringify(g) : '';
+    if (k === ghostSig) return; ghostSig = k;
+    ghost.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); ghost.clear();
+    if (!g) return;
+    const op = batcher(), gl = batcher();
+    if (g.obj) { addObject(g.obj, g.at, op, gl); addAnimStatic(g.obj, g.at, op, gl); }
+    else for (const bx of segBoxes(g.wall)) { if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) continue; const [x, y, z] = center(bx); (bx.glass ? gl : op).add(rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z); }
+    op.flush(ghost, { outline: true }); gl.flush(ghost, { shadows: false, layer: 1 });
+  }
+
   /* ---------- laço ---------- */
   // 3D nos dois modos: ao vivo e no editor (Construir)
   const active = () => mode === 'live' || mode === 'build';
   window.R3D = { active, editing, wanted: true, stats: { fps: 0 }, fit: fit3d, ...camAPI };
-  let sig = '', frames = 0, fpsT = performance.now(), n = 0;
+  let sig = '', frames = 0, fpsT = performance.now(), n = 0, lastHid = null;
   function loop(now) {
     requestAnimationFrame(loop);
     const on = active();
@@ -587,7 +695,9 @@ async function start() {
     scene2d.style.zIndex = ed ? '2' : '';
     if (!on) return;
     const T = now / 1000;
-    if (n++ % 20 === 0) { const s = JSON.stringify([W.objects, W.walls, W.wall, W.tiles]); if (s !== sig) { sig = s; rebuild(); } }
+    const hid = movingId();
+    if (hid !== lastHid || n++ % 20 === 0) { const s = JSON.stringify([W.objects, W.walls, W.wall, W.tiles, hid]); lastHid = hid; if (s !== sig) { sig = s; rebuild(); } }
+    updateGhost();
     updateLights(); updateAnimations(T); updatePeople(T); updateCamera(); composer.render(); drawTags(T);
     frames++; if (now - fpsT > 1000) { window.R3D.stats.fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; }
   }

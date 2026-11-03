@@ -133,6 +133,16 @@ ativo; sem WebGL cai para o 2D). Pontos-chave:
   sem mudança. Roda/botão direito/pan vão para `R3D.zoomAt/rotStart/panStart` (`17-entrada.js`).
 - **Arquivo único:** `scripts/build-single.mjs` empacota `cena3d.js` + three com esbuild e embute os GLB como
   `data:` em `window.PIXELHQ_MODELOS`; `PIXELHQ_MODELOS=false` (`--sem-modelos`) começa no low-poly.
+- **Móveis 3D** (`web/js3d/moveis3d.js`): cada item do catálogo pode ter um MODELO low-poly (vasos torneados,
+  troncos em gomos, folhas recortadas, roupas no cabide, cadeiras com base em estrela, estofados chanfrados). O
+  catálogo continua mandando em tamanho, colisão, pontos de uso e no 2D; sem modelo, o item usa as caixas do
+  catálogo chanfradas. As cadeiras das mesas são marcadas com `ch` em `chair()` e viram modelo. Normais por face
+  (facetado como os personagens) e **contorno preto** (os móveis entram na camada 3 da máscara;
+  `?contornoMoveis=0` desliga). Partes animadas (telas, LEDs, vapor) seguem vindo das caixas.
+  Teste: `test/moveis3d.test.mjs` (peças válidas, dentro da área, giro igual ao `rotRect`).
+- **Editor só 3D:** o fantasma do móvel/parede arrastado ou sendo colocado é desenhado na cena 3D
+  (`ghost` em `cena3d.js`; o original some enquanto arrasta) e as miniaturas de Elementos, paredes e pisos são
+  renderizadas com os modelos 3D (`thumbs3d`). O 2D só desenha marcas no piso (seleção, área verde/vermelha).
 - **Carregamento sob demanda:** o kit Meshy só baixa o modelo de um penteado quando alguém o usa (`ready/load`);
   enquanto isso o personagem não aparece e o retrato usa o 2D.
 - **Contorno dos personagens:** cada malha de personagem tem `userData.idMat` (cor de id da região) e a camada 3;
@@ -339,7 +349,7 @@ disse que está **ótimo**).
 ## 15. Estado e pendências (atualize aqui)
 
 - Commits em `main`: inicial, documento de continuação e a entrega dos itens 2, 3 e 4 (2026-11-03). Sem remoto.
-- `npm test`: 72 passando. `npm run check:layouts`: 145 combinações válidas.
+- `npm test`: 75 passando. `npm run check:layouts`: 145 combinações válidas.
 - Saldo Meshy: 557 créditos (23 gastos no raspado novo).
 - Estilo padrão: Meshy; reserva: low-poly. A sala abre sem precisar de `?estilo=`.
 - Próximo passo recomendado: **trocar o nome**, **confirmar licenças**, **criar o remoto**, depois **testar a busca

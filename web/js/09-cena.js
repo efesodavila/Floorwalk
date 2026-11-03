@@ -118,18 +118,20 @@ function drawMarks() {
 
 }
 function drawEditing(T, V = view) {
+  // com o 3D, o móvel/parede fantasma é desenhado na própria cena 3D; aqui ficam só as marcas no piso
+  const in3d = !!window.R3D?.editing?.();
   // item sendo arrastado
   if (drag?.kind === 'move' && drag.moved) {
     if (drag.sel.type === 'obj') {
       const o = objById(drag.sel.id), ok = footprintOk(o, drag.at, o.id) === 'ok', [w, d] = dims(o);
       poly(ctx, footPoly(drag.at.x, drag.at.z, w, d), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)', ok ? '#2F7A3E' : '#E0473B', 2);
-      for (const b of depthSort(worldBoxes(o, drag.at), V)) drawBox(ctx, b, V, .85);
+      if (!in3d) for (const b of depthSort(worldBoxes(o, drag.at), V)) drawBox(ctx, b, V, .85);
     } else {
       const s = wallById(drag.sel.id), m = { ...s, a: [s.a[0] + drag.off[0], s.a[1] + drag.off[1]], b: [s.b[0] + drag.off[0], s.b[1] + drag.off[1]] }, ok = !wallProblem(m, s.id);
       const I = segInfo(m); poly(ctx, I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)');
-      for (const b of depthSort(segBoxes(m), V)) drawBox(ctx, b, V, .85);
+      if (!in3d) for (const b of depthSort(segBoxes(m), V)) drawBox(ctx, b, V, .85);
     }
-  } else if (drag?.kind === 'move' && !window.R3D?.editing?.()) {
+  } else if (drag?.kind === 'move' && !in3d) {
     const target = drag.sel.type === 'obj' ? depthSort(worldBoxes(objById(drag.sel.id)), V) : depthSort(segBoxes(wallById(drag.sel.id)), V);
     for (const b of target) drawBox(ctx, b, V);
   }
@@ -139,7 +141,7 @@ function drawEditing(T, V = view) {
     const at = { x: Math.floor(hover.x - w / 2 + .5), z: Math.floor(hover.z - d / 2 + .5) };
     const ok = footprintOk(o, at) === 'ok';
     poly(ctx, footPoly(at.x, at.z, w, d), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)', ok ? '#2F7A3E' : '#E0473B', 2);
-    for (const b of depthSort(worldBoxes(o, at), V)) drawBox(ctx, b, V, .75);
+    if (!in3d) for (const b of depthSort(worldBoxes(o, at), V)) drawBox(ctx, b, V, .75);
   }
   // parede sendo desenhada
   const gw = wallGhost();
@@ -147,7 +149,7 @@ function drawEditing(T, V = view) {
     const prob = wallProblem(gw), I = segInfo(gw);
     if (I.len > 0) {
       poly(ctx, I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len), prob ? 'rgba(224,71,59,0.3)' : 'rgba(47,122,62,0.3)');
-      for (const b of depthSort(segBoxes(gw), V)) drawBox(ctx, b, V, .85);
+      if (!in3d) for (const b of depthSort(segBoxes(gw), V)) drawBox(ctx, b, V, .85);
       const mid = iso(I.alongX ? (I.u0 + I.u1) / 2 : I.c, I.alongX ? I.c : (I.u0 + I.u1) / 2, WH + .5);
       const label = `${I.len} ${I.len === 1 ? 'quadrado' : 'quadrados'}`;
       ctx.font = '600 12px "IBM Plex Sans", system-ui, sans-serif'; const tw = ctx.measureText(label).width;

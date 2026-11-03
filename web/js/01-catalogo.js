@@ -35,7 +35,8 @@ const B = (x, z, w, d, y, h, c, extra) => ({ x, z, w, d, y, h, c, ...(extra || {
 const chair = (x, z, back = 's') => {
   const seat = B(x - .25, z - .22, .5, .44, .38, .08, CHR, { u: 1 }), leg = B(x - .05, z - .05, .1, .1, 0, .38, MET, { u: 1 });
   const bk = { n: B(x - .25, z - .26, .5, .07, .46, .42, CHR, { u: 1 }), s: B(x - .25, z + .19, .5, .07, .46, .42, CHR), w: B(x - .29, z - .22, .07, .44, .46, .42, CHR, { u: 1 }), e: B(x + .22, z - .22, .07, .44, .46, .42, CHR) }[back];
-  return [leg, seat, bk];
+  // no 3D a cadeira é um modelo próprio (web/js3d/moveis3d.js); ch diz onde ela fica e para onde olha
+  return [leg, seat, bk].map(q => ({ ...q, ch: [x, z, back] }));
 };
 const ITEMS = {
   desk: { n: 'Mesa de trabalho', cat: 'trabalho', w: 2, d: 2, desk: true, seats: [[1, 1.5]], boxes: [

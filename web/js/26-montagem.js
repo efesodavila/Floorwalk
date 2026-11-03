@@ -132,7 +132,7 @@ function registerCustom(c) {
   let boxes;
   if (c.base && ITEMS[c.base] && SPOTS[c.base]) {
     // plano B: um móvel do catálogo com outro nome e outra finalidade
-    boxes = ITEMS[c.base].boxes; ITEMS[c.id] = { ...ITEMS[c.base], n: String(c.name).slice(0, 40), cat: 'personalizado', boxes };
+    boxes = ITEMS[c.base].boxes; ITEMS[c.id] = { ...ITEMS[c.base], n: String(c.name).slice(0, 40), cat: 'personalizado', boxes, look3d: ITEMS[c.base].look3d || c.base };
     SPOTS[c.id] = SPOTS[c.base].map(sp => [sp[0], sp[1], c.act, sp[3], sp[4], sp[5]]);
   } else {
     boxes = (c.boxes || []).filter(b => Array.isArray(b) && b.slice(0, 6).every(ok) && HEX.test(b[6])).slice(0, 16)

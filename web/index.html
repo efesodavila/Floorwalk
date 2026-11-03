@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pixel HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<!-- cena 3D: o Three.js vem do próprio servidor (node_modules), só é baixado quando o 3D está ligado -->
+<script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
+</head>
+<body>
+<div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title" hidden>
+  <div class="setup-card">
+    <ol class="setup-steps" aria-label="Etapas da configuração">
+      <li aria-current="step"><b>1</b>Inteligência artificial</li>
+      <li><b>2</b>Seu serviço</li>
+    </ol>
+    <h1 id="setup-title">Qual IA vai trabalhar no seu escritório?</h1>
+    <p class="setup-lead">Cada personagem será um agente dessa IA. A chave fica guardada só no servidor, neste computador.</p>
+    <form id="setup-form" autocomplete="off" novalidate>
+      <fieldset class="prov" id="setup-prov"><legend>Provedor</legend></fieldset>
+      <div class="setup-fields" id="setup-fields"></div>
+      <div class="setup-status" id="setup-status" role="status" aria-live="polite"></div>
+      <div class="setup-actions">
+        <button type="button" class="ghost" id="setup-cancel" hidden>Cancelar</button>
+        <button type="submit" class="primary" id="setup-save">Conectar</button>
+      </div>
+    </form>
+    <form id="office-form" autocomplete="off" novalidate hidden>
+      <label class="f" for="office-desc">O que o seu negócio faz?</label>
+      <textarea id="office-desc" rows="4" maxlength="1500" placeholder="Ex.: Somos uma agência que cria posts, vídeos curtos e campanhas para pequenas lojas de roupa."></textarea>
+      <div class="office-ex" id="office-ex" aria-label="Exemplos"></div>
+      <div class="setup-status" id="office-status" role="status" aria-live="polite"></div>
+      <div class="setup-actions">
+        <button type="button" class="ghost" id="office-back">Trocar a IA</button>
+        <button type="submit" class="primary" id="office-go">Montar escritório</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<canvas id="scene" aria-label="Planta do escritório em visão isométrica"></canvas>
+
+<div class="brand">
+  <div class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 2 16 6 9 10 2 6Z" fill="#8C4FE0"/><path d="M2 6v6l7 4v-6Z" fill="#D3CBD3"/><path d="M16 6v6l-7 4v-6Z" fill="#FFFFFF"/></svg></div>
+  <div><b>Pixel HQ</b><span>Novo editor · protótipo para teste</span></div>
+</div>
+
+<div class="top-right">
+  <button type="button" id="menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="menu"><svg class="i" viewBox="0 0 20 20"><path d="M4 6h12M4 10h12M4 14h12"/></svg><span id="menu-label">Menu</span></button>
+  <div class="menu" id="menu" role="menu" aria-label="Configurações" hidden>
+    <div class="menu-head" id="menu-head"></div>
+    <button type="button" role="menuitem" id="m-team">Equipe</button>
+    <button type="button" role="menuitem" id="m-edit"></button>
+    <button type="button" role="menuitem" id="m-office" data-bridge>Descrever o negócio de novo</button>
+    <button type="button" role="menuitem" id="ai-btn" data-bridge>Trocar a IA</button>
+    <button type="button" role="menuitem" id="amb-btn" title="Iluminação por horário"></button>
+    <button type="button" role="menuitem" id="open-rules">Como os personagens se comportam</button>
+    <hr>
+    <button type="button" role="menuitem" id="m-3d" aria-pressed="false" data-bridge>Visual 3D</button>
+    <button type="button" role="menuitem" id="m-dev" aria-pressed="false">Ferramentas de desenvolvimento</button>
+    <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
+    <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>
+  </div>
+</div>
+
+<aside class="panel" aria-label="Editor">
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tab-planta" data-tab="planta"><small>PASSO 1</small><span><svg class="i" viewBox="0 0 20 20"><path d="M3 3h14v14H3zM3 10h7M10 3v14M13 10h4"/></svg>Planta</span></button>
+    <button type="button" role="tab" id="tab-elementos" data-tab="elementos"><small>PASSO 2</small><span><svg class="i" viewBox="0 0 20 20"><path d="M3 9.5V15h14V9.5M5 9.5V6.5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 15 6.5v3M3 9.5h3v3h8v-3h3M4.5 15v2M15.5 15v2"/></svg>Elementos</span></button>
+    <button type="button" role="tab" id="tab-pessoas" data-tab="pessoas"><small>PASSO 3</small><span><svg class="i" viewBox="0 0 20 20"><circle cx="10" cy="6.5" r="3"/><path d="M4 17c.6-3.4 3-5.5 6-5.5s5.4 2.1 6 5.5"/></svg>Pessoas</span></button>
+    <button type="button" class="collapse" id="panel-collapse" aria-expanded="true" title="Recolher painel" aria-label="Recolher painel"><svg class="i" viewBox="0 0 20 20"><path d="m12 5-5 5 5 5"/></svg></button>
+  </div>
+  <div class="panel-body" id="panel-body" role="tabpanel"></div>
+  <div class="panel-foot">
+    <button type="button" id="undo" title="Desfazer (Ctrl+Z)"><svg class="i" viewBox="0 0 20 20"><path d="M7 5 3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2"/></svg>Desfazer</button>
+    <button type="button" id="redo" title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer"><svg class="i" viewBox="0 0 20 20"><path d="m13 5 4 4-4 4M17 9H8a5 5 0 0 0 0 10h2"/></svg></button>
+    <span class="grow"></span>
+    <button type="button" id="warn-btn" class="badge"></button>
+    <button type="button" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-label="Mais opções" title="Mais opções"><svg class="i" viewBox="0 0 20 20"><circle cx="4.5" cy="10" r=".9"/><circle cx="10" cy="10" r=".9"/><circle cx="15.5" cy="10" r=".9"/></svg></button>
+    <div class="pop" id="pop" hidden></div>
+  </div>
+</aside>
+
+<div class="modes" id="modes" role="group" aria-label="Modo">
+  <button type="button" data-mode="build" aria-pressed="true"><svg class="i" viewBox="0 0 20 20"><path d="m12.5 4.5 3 3L7 16H4v-3z"/></svg>Construir</button>
+  <button type="button" data-mode="live" aria-pressed="false"><svg class="i" viewBox="0 0 20 20"><path d="M6 4.5v11l9-5.5z"/></svg>Ao vivo</button>
+</div>
+
+<div class="player" id="player" role="group" aria-label="Player da simulação" hidden>
+  <button type="button" id="pl-restart" title="Recomeçar o dia" aria-label="Recomeçar o dia"><svg class="i" viewBox="0 0 20 20"><path d="M4 10a6 6 0 1 0 2-4.5M4 3v4h4"/></svg></button>
+  <button type="button" id="pl-play" class="play"></button>
+  <div class="speeds" role="group" aria-label="Velocidade">
+    <button type="button" data-speed="1" aria-pressed="true">1×</button><button type="button" data-speed="2" aria-pressed="false">2×</button><button type="button" data-speed="4" aria-pressed="false">4×</button>
+  </div>
+  <div class="time"><b id="pl-clock">00:00</b><small id="pl-phase"></small><div class="track"><span class="fill" id="pl-fill"></span></div></div>
+  <label class="srcsel"><span>Fonte</span><select id="pl-source" aria-label="Fonte dos eventos"><option value="demo">Projeto demo (simulado)</option><option value="manual">Manual</option><option value="arquivo">Arquivo de eventos</option><option value="tempo_real">Tempo real</option></select></label>
+  <button type="button" id="pl-send">Enviar evento</button>
+  <button type="button" id="pl-names" aria-pressed="true">Nomes</button>
+</div>
+<div class="ask" id="ask" hidden>
+  <form id="ask-form" autocomplete="off">
+    <input id="ask-in" maxlength="400" placeholder="Descreva uma tarefa para a equipe. Ex.: criar a tela de login e publicar" aria-label="Nova tarefa para a equipe">
+    <button type="submit" class="primary" id="ask-go">Delegar</button>
+  </form>
+  <div class="st" id="ask-st" role="status" aria-live="polite"></div>
+</div>
+<div class="srcbox" id="srcbox" hidden></div>
+<div class="ficha" id="ficha" role="dialog" aria-label="Ficha do agente" hidden></div>
+<aside class="feed card" id="feed" aria-label="Eventos e decisões" hidden>
+  <div class="card-head"><h3>Eventos e decisões</h3><span class="sum" id="feed-sum"></span>
+    <button type="button" class="icon" data-card-grow="feed" aria-pressed="false" title="Expandir"><svg class="i" viewBox="0 0 20 20"><path d="M12 3h5v5M8 17H3v-5M17 3l-6 6M3 17l6-6"/></svg></button>
+    <button type="button" class="icon chev" data-card-toggle="feed" aria-expanded="true" title="Retrair"><svg class="i" viewBox="0 0 20 20"><path d="m5 8 5 5 5-5"/></svg></button></div>
+  <div class="card-body"><ul id="feed-list"></ul></div>
+</aside>
+
+<aside class="team card" id="team" aria-label="Equipe agora" hidden>
+  <div class="card-head"><h3>Equipe agora</h3><span class="sum" id="team-sum"></span>
+    <button type="button" class="icon" data-card-grow="team" aria-pressed="false" title="Expandir"><svg class="i" viewBox="0 0 20 20"><path d="M12 3h5v5M8 17H3v-5M17 3l-6 6M3 17l6-6"/></svg></button>
+    <button type="button" class="icon chev" data-card-toggle="team" aria-expanded="true" title="Retrair"><svg class="i" viewBox="0 0 20 20"><path d="m5 8 5 5 5-5"/></svg></button></div>
+  <div class="card-body"><ul id="team-list"></ul>
+  <p class="hint">Clique num agente, aqui ou na sala, para abrir a ficha com o que ele está fazendo. Arraste alguém para deixar onde quiser.</p></div>
+</aside>
+
+<div class="banner" id="banner" hidden></div>
+<div class="ctx" id="ctx" hidden></div>
+
+<div class="zoom" role="group" aria-label="Zoom">
+  <button type="button" id="zoom-out" aria-label="Afastar">−</button>
+  <button type="button" id="zoom-in" aria-label="Aproximar">+</button>
+  <button type="button" id="fit">Centralizar</button>
+</div>
+
+<div class="drawer" id="drawer" hidden></div>
+<aside class="result" id="result" aria-labelledby="result-title" hidden></aside>
+<button type="button" class="primary" id="done-edit">Concluir edição</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- config.js é gerado pelo servidor; aberto como arquivo, usa a versão estática (sem servidor) -->
+<script src="config.js"></script>
+<script src="js/00-base.js"></script>
+<script src="js/01-catalogo.js"></script>
+<script src="js/02-mundo.js"></script>
+<script src="js/03-geometria.js"></script>
+<script src="js/04-estado-ui.js"></script>
+<script src="js/05-desenho.js"></script>
+<script src="js/06-personagens.js"></script>
+<script src="js/07-animacoes.js"></script>
+<script src="js/08-luz-ambiente.js"></script>
+<script src="js/09-cena.js"></script>
+<script src="js/10-miniaturas.js"></script>
+<script src="js/11-planta-acoes.js"></script>
+<script src="js/12-sim-navegacao.js"></script>
+<script src="js/13-sim-agentes.js"></script>
+<script src="js/14-fonte-demo.js"></script>
+<script src="js/15-fonte-arquivo.js"></script>
+<script src="js/16-fonte-tempo-real.js"></script>
+<script src="js/17-entrada.js"></script>
+<script src="js/18-painel.js"></script>
+<script src="js/19-rodape-avisos.js"></script>
+<script src="js/20-toast-gaveta.js"></script>
+<script src="js/21-ficha.js"></script>
+<script src="js/22-missoes.js"></script>
+<script src="js/23-ficha-render.js"></script>
+<script src="js/24-quadros.js"></script>
+<script src="js/25-configuracao.js"></script>
+<script src="js/26-montagem.js"></script>
+<script src="js/27-entregas-menu.js"></script>
+<script src="js/99-inicio.js"></script>
+<script type="module" src="js3d/cena3d.js"></script>
+</body>
+</html>

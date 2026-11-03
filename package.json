@@ -1,0 +1,24 @@
+{
+  "name": "pixel-hq",
+  "version": "0.1.0",
+  "description": "Escritório em pixel art onde agentes de IA trabalham à vista: você delega tarefas e vê cada personagem executar a sua parte.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/server.mjs",
+    "demo": "node --env-file-if-exists=.env server/server.mjs --demo",
+    "test": "node --test",
+    "build:single": "node scripts/build-single.mjs",
+    "check:layouts": "node scripts/check-layouts.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.137.0",
+    "openai": "7.39.0",
+    "three": "0.170.0",
+    "ws": "8.22.1"
+  }
+}

@@ -60,7 +60,8 @@
     <button type="button" role="menuitem" id="open-rules">Como os personagens se comportam</button>
     <hr>
     <button type="button" role="menuitem" id="m-web" aria-pressed="true" data-bridge title="Os agentes podem buscar na web e ler páginas (só leitura)">Pesquisa na internet</button>
-    <button type="button" role="menuitem" id="m-3d" aria-pressed="false" data-bridge>Visual 3D</button>
+    <!-- o visual é sempre 3D; o 2D só entra sozinho quando o navegador não tem WebGL (ou com ?2d, para testes) -->
+    <button type="button" role="menuitem" id="m-3d" aria-pressed="true" hidden>Visual 3D</button>
     <button type="button" role="menuitem" id="m-dev" aria-pressed="false">Ferramentas de desenvolvimento</button>
     <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
     <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>

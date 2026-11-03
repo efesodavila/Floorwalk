@@ -23,11 +23,17 @@ abre uma ficha com o que ele está fazendo.
    móveis criados pela IA). O escritório aparece pronto, com **só** o escritório, o menu suspenso no canto superior
    direito e o campo de texto centralizado embaixo.
 3. **A cada tarefa**, a IA decide **quais personagens entram e o que fazem**. Antes da primeira tarefa a sala está
-   **vazia**; os personagens entram pela porta (capacho) quando a tarefa começa e saem ao terminar.
+   **vazia**; os personagens entram pela **porta da parede** (porta dupla de vidro desenhada no 3D junto do capacho, que fica
+   encostado na parede esquerda) quando a tarefa começa e saem por ela ao terminar, um de cada vez.
 4. **Menu suspenso (canto superior direito):** configurar o ambiente criado, trocar a IA, equipe, regras, modo
-   desenvolvedor, visual 3D.
+   desenvolvedor, pesquisa na internet. (O botão "Visual 3D" foi escondido: o dono quer **tudo em 3D**.)
 
 Regras de UX já aprendidas (não regredir):
+- **Nada 2D na experiência normal** (pedido explícito do dono): sala, editor, fantasma ao arrastar, miniaturas do
+  painel e retratos são 3D. O 2D (`web/js/05-desenho.js`, `09-cena.js`) só existe como reserva automática sem WebGL
+  e como camada transparente de marcas do editor (área verde/vermelha, seleção, alças "+").
+- Ao abrir/atualizar a página não pode aparecer o 2D antes do 3D (classe `espera3d` em `00-base.js` + CSS).
+- Todo móvel novo precisa de modelo 3D no estilo dos personagens (facetado, contorno preto), não só caixas.
 - Nada de barra de player nem cartões de personagens depois do setup (só no modo desenvolvedor, `body.dev`).
 - Perguntas simples são respondidas direto, em markdown renderizado; ninguém fica "bloqueado" à toa.
 - Cada pedido deve ir ao **móvel semântico correto** (computador para produzir, quadro para planejar, etc.).
@@ -91,12 +97,12 @@ server/                 Node (http + ws), sem framework
 web/
   index.html            importmap do three, scripts js/00..27, 99, módulo js3d/cena3d.js
   js/                   scripts clássicos que compartilham o escopo global (ordem pelo prefixo numérico)
-  js3d/                 módulos ES (3D) que leem os globais dos scripts acima
+  js3d/                 módulos ES (3D) que leem os globais dos scripts acima: cena3d.js, moveis3d.js, personagens3d-*.js
   modelos/              GLB dos personagens (Meshy)
   dev/retratos.html     página de retratos dos personagens (usada por scripts/retratos.mjs)
 docs/PROTOCOLO.md       protocolo v1 (mensagens servidor↔página)
 test/                   node --test
-scripts/                build-single (esbuild), check-layouts, retratos.mjs, glb-ilhas.mjs, reduzir-textura-glb.py
+scripts/                build-single (esbuild), check-layouts, retratos.mjs, miniaturas.mjs, glb-ilhas.mjs, reduzir-textura-glb.py
 ```
 
 ### Protocolo v1 (resumo; completo em `docs/PROTOCOLO.md`)
@@ -120,6 +126,19 @@ pausa com a sala vazia.
 
 ## 5. O visual 3D
 
+**Sempre 3D** quando há servidor (`PIXELHQ_BRIDGE`) ou no arquivo único (`PIXELHQ_3D`). A antiga preferência
+`localStorage pixelhq.3d = 0` é ignorada; `?2d` força o 2D só para testes. `00-base.js` põe `espera3d` no `<html>`
+(esconde o canvas 2D e mostra "Carregando o escritório…"); `cena3d.js` tira a classe no primeiro quadro 3D, ou se o
+3D falhar (aí o 2D aparece).
+
+**Porta de entrada** (`cena3d.js`, `rebuild` → `entryDoor`): acha o capacho, vê qual parede externa ele toca
+(esquerda `x` ou fundo `z`; só essas paredes existem no 3D — a frente e a direita ficam abertas para a câmera),
+recorta a parede nesses quadrados até 2,1 de altura, põe batente, verga e **duas folhas de vidro** em dobradiças
+(`D.leaves`). Em `updateAnimations`, as folhas abrem (até ~77°) quando algum agente presente está a menos de 1,8 da
+porta. `entrance()` em `27-entregas-menu.js` põe quem entra logo dentro da porta, olhando para dentro (`face`).
+A planta (`officeWorld`) põe o capacho em `x: 0, z: 8, rot: 1` (parede esquerda). Se o usuário mover o capacho para
+longe das paredes, não há porta (as pessoas surgem no capacho).
+
 `web/js3d/cena3d.js` (Three.js 0.170.0) desenha a sala em 3D por cima do 2D (o 2D só desenha se o 3D não estiver
 ativo; sem WebGL cai para o 2D). Pontos-chave:
 
@@ -133,13 +152,25 @@ ativo; sem WebGL cai para o 2D). Pontos-chave:
   sem mudança. Roda/botão direito/pan vão para `R3D.zoomAt/rotStart/panStart` (`17-entrada.js`).
 - **Arquivo único:** `scripts/build-single.mjs` empacota `cena3d.js` + three com esbuild e embute os GLB como
   `data:` em `window.PIXELHQ_MODELOS`; `PIXELHQ_MODELOS=false` (`--sem-modelos`) começa no low-poly.
-- **Móveis 3D** (`web/js3d/moveis3d.js`): cada item do catálogo pode ter um MODELO low-poly (vasos torneados,
+- **Móveis 3D** (`web/js3d/moveis3d.js`): **todos os 37 itens** do catálogo têm MODELO low-poly (vasos torneados,
   troncos em gomos, folhas recortadas, roupas no cabide, cadeiras com base em estrela, estofados chanfrados). O
   catálogo continua mandando em tamanho, colisão, pontos de uso e no 2D; sem modelo, o item usa as caixas do
   catálogo chanfradas. As cadeiras das mesas são marcadas com `ch` em `chair()` e viram modelo. Normais por face
   (facetado como os personagens) e **contorno preto** (os móveis entram na camada 3 da máscara;
   `?contornoMoveis=0` desliga). Partes animadas (telas, LEDs, vapor) seguem vindo das caixas.
   Teste: `test/moveis3d.test.mjs` (peças válidas, dentro da área, giro igual ao `rotRect`).
+  Peças disponíveis no montador `P`: `box(x,z,w,d,y,h,cor,{r,rx,ry,rz,glow,glass})` (mesma ordem do catálogo),
+  `cyl(cx,cz,rTopo,rBase,y,h,cor,{seg})` (vertical), `rod([x,y,z],[x,y,z],raio,cor,{seg})` (haste em qualquer direção;
+  use para cilindros deitados), `lathe(cx,cz,y,[[raio,altura]…],cor)` (vasos, bases), `ball`, `leaf` (folha
+  recortada), `garment` (camiseta/vestido/calça), `base([índices a pular])` (reaproveita caixas do catálogo),
+  `chairs()`. Ajudantes: `pot`, `bush`, `spikes`, `crown`, `monitor`, `keyboard`, `sled`, `mug`, `handle`, `shoe`.
+  Cor `'C'` = cor escolhida no editor (`objColor`). Itens criados pela IA com plano B herdam o modelo da base
+  (`look3d` em `registerCustom`); os desenhados pela IA usam as caixas dela (chanfradas, com contorno).
+  Para conferir o visual de todos: `node scripts/miniaturas.mjs saida.png --url=http://127.0.0.1:8787` (servidor
+  rodando) gera a grade com as miniaturas 3D de todos os itens.
+- Itens novos nesta rodada: **estante de sapatos** (`sapateira`, comércio, lugar `loja`, uso `sell`) e a
+  **cadeira de barbeiro** (`cadeira_salao`, agora virada para o espelho, com poste de barbeiro, apoio de cabeça e de
+  pés; cor do estofado editável, padrão bordô `#8A2430`).
 - **Editor só 3D:** o fantasma do móvel/parede arrastado ou sendo colocado é desenhado na cena 3D
   (`ghost` em `cena3d.js`; o original some enquanto arrasta) e as miniaturas de Elementos, paredes e pisos são
   renderizadas com os modelos 3D (`thumbs3d`). O 2D só desenha marcas no piso (seleção, área verde/vermelha).
@@ -269,7 +300,11 @@ disse que está **ótimo**).
   cabelo em facetas). Sombreado **chapado** e **borda preta fina**.
 - **Acessórios gerados junto com o modelo e escondidos em código** (ideia do dono) em vez de peças avulsas.
 - **T-pose rejeitada** por mim para braços curtos (a A-pose deforma menos o ombro); o problema real era a pose.
-- Edição da sala no 3D reaproveita o editor 2D (troca só a projeção/acerto), em vez de um editor 3D novo.
+- Edição da sala no 3D reaproveita a lógica do editor (troca só a projeção/acerto), em vez de um editor 3D novo.
+- **Tudo 3D** (dono): sem opção de voltar ao 2D no menu; móveis refeitos em código no estilo dos personagens (não
+  pelo Meshy: ~15–20 créditos por móvel, caro para 37 itens). Contorno preto também nos móveis.
+- **Porta de entrada na parede** junto do capacho (dono), porta dupla de vidro automática.
+- Roupas da arara **alinhadas à grade** (perpendiculares à barra), não em ângulo — pedido do dono ("em isometria").
 - **Internet dos agentes:** só buscar e ler (sem rodar código, sem formulários, sem login) — decidido por segurança
   e custo; ligado por padrão, com botão no menu. Pesquisa só nas etapas `pesquisar` e em perguntas diretas que o
   coordenador marca com `"web": true`.
@@ -323,6 +358,12 @@ disse que está **ótimo**).
 - [ ] Crítica visual dos móveis da IA (renderizar + modelo com visão), se o dono quiser o custo extra.
 - [ ] Plantas realmente diferentes (formato em L, dois andares) — hoje só pequena e grande.
 
+- [ ] Paredes internas (divisórias) ainda são caixas retas (vidro, ripado, alvenaria): estão em 3D, mas sem
+      detalhe extra. Se o dono reclamar, refinar em `segBoxes`/`addStatic` (rodapé, perfis, puxadores).
+- [ ] Marcas do editor (área verde/vermelha, seleção, alças "+") ainda são desenhadas no canvas 2D por cima do 3D
+      (projetadas no piso). Se o dono pedir, trocar por malhas planas no 3D.
+- [ ] Ver no computador do dono o desempenho com os móveis novos (mais polígonos: cadeiras, folhas).
+
 ### C. Personagens (custam créditos do Meshy)
 - [x] Raspado com fone separado e olhos visíveis (23 créditos).
 - [ ] Rabo de cavalo sem marca de armação: só regerando (≈23), com armação sem lentes como o raspado novo.
@@ -349,7 +390,7 @@ disse que está **ótimo**).
 ## 15. Estado e pendências (atualize aqui)
 
 - Commits em `main`: inicial, documento de continuação e a entrega dos itens 2, 3 e 4 (2026-11-03). Sem remoto.
-- `npm test`: 75 passando. `npm run check:layouts`: 145 combinações válidas.
+- `npm test`: 75 passando. `check:layouts`: 150 combinações válidas. `npm run check:layouts`: 145 combinações válidas.
 - Saldo Meshy: 557 créditos (23 gastos no raspado novo).
 - Estilo padrão: Meshy; reserva: low-poly. A sala abre sem precisar de `?estilo=`.
 - Próximo passo recomendado: **trocar o nome**, **confirmar licenças**, **criar o remoto**, depois **testar a busca

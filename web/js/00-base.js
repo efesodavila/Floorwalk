@@ -3,9 +3,8 @@
 // O 3D carrega depois (módulo); até ele desenhar o primeiro quadro, o 2D fica escondido, para não "piscar" a sala 2D.
 // Mesma regra de web/js3d/cena3d.js (WANT). Se o 3D falhar, cena3d.js tira a classe e o 2D aparece.
 (() => {
-  let pref = null; try { pref = localStorage.getItem('pixelhq.3d'); } catch {}
   const q = new URLSearchParams(location.search);
-  if (q.has('3d') || (!q.has('2d') && pref !== '0' && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D))) document.documentElement.classList.add('espera3d');
+  if (q.has('3d') || (!q.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D))) document.documentElement.classList.add('espera3d');
 })();
 
 const $ = (s, r = document) => r.querySelector(s);

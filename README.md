@@ -59,7 +59,11 @@ conversar, olhar o quadro, ler, trabalho manual, acenar ao concluir e mão na ca
 - **Licença dos modelos:** foram gerados num plano do Meshy; confira os termos do seu plano antes de
   redistribuí-los. Quem preferir não depender deles pode apagar `web/modelos/` — o low-poly assume.
 
-- Sem WebGL, a página volta sozinha para o desenho 2D. Menu → **Visual 3D** desliga e liga.
+- O visual é sempre 3D (sala, editor e miniaturas). Só sem WebGL a página volta sozinha para o desenho 2D
+  (`?2d` força o 2D, para testes). Enquanto o 3D carrega, aparece "Carregando o escritório…" — o 2D não pisca.
+- A equipe entra e sai por uma porta dupla de vidro na parede, junto do capacho, que abre quando alguém passa.
+- Os móveis são modelos low-poly facetados com contorno preto, no mesmo estilo dos personagens
+  (`web/js3d/moveis3d.js`).
 - Padrão: modo nítido, na resolução real da tela (até 2×), com bordas suavizadas (SMAA) e sombras suaves.
   `?px=3` volta ao visual pixel art (serrilhado de propósito, mais leve); `?2d` força o desenho 2D.
 - A edição da sala (menu → editar) funciona no 3D: arrastar, colocar, girar e desenhar paredes.

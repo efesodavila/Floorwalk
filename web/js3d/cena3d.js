@@ -9,10 +9,10 @@
 // Vale para o modo ao vivo e para a edição da sala (Construir).
 // Mouse: arrastar move · roda aproxima (na direção do cursor) · botão direito ou Shift + arrastar gira.
 
-const pref = (() => { try { return localStorage.getItem('pixelhq.3d'); } catch { return null; } })();
 const qs = new URLSearchParams(location.search);
 // com o servidor, ou no arquivo único (que traz o 3D embutido: PIXELHQ_3D)
-const WANT = qs.has('3d') || (!qs.has('2d') && pref !== '0' && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D));
+// sempre 3D (a escolha antiga "pixelhq.3d = 0" não vale mais); ?2d força o 2D para testes
+const WANT = qs.has('3d') || (!qs.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D));
 window.R3D = { active: () => false, wanted: WANT, stats: { fps: 0 } };
 if (WANT) start().catch((e) => {
   console.error('[3d]', e);

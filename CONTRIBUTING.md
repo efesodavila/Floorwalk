@@ -63,13 +63,15 @@ O teste `web-structure` avisa se esquecer.
 
 | arquivo | assunto |
 |---------|---------|
-| `server.mjs` | HTTP (página e `/api/settings`), WebSocket (`/events`), fila de tarefas |
+| `server.mjs` | HTTP (página, `/api/settings`, `/api/settings/web`, `/health`), WebSocket (`/events`), fila e tarefas em paralelo (`PIXELHQ_PARALELO`) |
+| `web.mjs` | acesso à internet (só leitura): `search`, `readPage`, bloqueio da rede interna, limites de tempo e tamanho |
+| `locks.mjs` | travas por agente: cada pessoa faz uma coisa por vez mesmo com tarefas em paralelo |
 | `providers.mjs` | OpenAI, Anthropic e Ollama com a mesma interface: `test()` e `chat()` |
 | `settings.mjs` | provedor, modelo e chaves em `data/settings.json` |
 | `llm.mjs` | escolhe o modelo testando de verdade e troca sozinho quando o provedor recusa |
 | `office.mjs` | pede à IA a ficha do escritório, valida, conserta e guarda em `data/office.json` |
 | `protocol.mjs` | formato das mensagens com a página |
-| `runner.mjs` | executa a tarefa: plano de quem coordena, passos de cada pessoa, revisão, resumo e arquivos |
+| `runner.mjs` | executa a tarefa: plano de quem coordena, passos de cada pessoa, pesquisa na internet (`research`), revisão, resumo e arquivos |
 | `pacer.mjs` | segura cada estado alguns segundos, para o personagem ter tempo de andar |
 
 Provedor novo: implemente `test` e `chat` em `providers.mjs` e um teste em `test/providers.test.mjs`
@@ -79,7 +81,8 @@ Provedor novo: implemente `test` e `chat` em `providers.mjs` e um teste em `test
 
 A IA decide só o **conteúdo**: nome, estilo, equipe, papéis e tipos, nomes dos estados, áreas extras
 (estúdio, recepção), impressora ou servidor, exemplos de tarefa. O **espaço** sai de `officeWorld()`:
-a planta-base testada, com trocas que ocupam o mesmo lugar. `officeProblems()` confere sobreposição,
+a planta-base testada, com trocas que ocupam o mesmo lugar. Equipe de 7 a 10: a sala ganha uma ala à direita
+(`BIG`, `BIG_STARTS` e uma vaga a mais). `officeProblems()` confere sobreposição,
 pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móveis? Rode
 `npm run check:layouts` (precisa do Playwright), que testa todas as combinações.
 
@@ -91,7 +94,9 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
 - **Vagas** (`SLOTS` em `26-montagem.js`): onde os móveis extras entram na planta.
 - **Móveis criados pela IA**: só quando nada do catálogo serve, no máximo 2 por escritório.
   Regras conferidas em `validateDesign()`: largura de 1 a 3, fundo 1, altura até 2,2, de 3 a 14 blocos,
-  só cores da paleta e nada flutuando (todo bloco ligado ao chão por blocos que se tocam).
+  só cores da paleta e nada flutuando (todo bloco ligado ao chão por blocos que se tocam). Qualidade: pelo
+  menos 2 cores, ocupar ao menos metade da largura escolhida, nenhum bloco escondido dentro de outro.
+  Os exemplos do pedido à IA precisam passar nas mesmas regras (um teste confere).
   Falhou duas vezes: plano B com um móvel do catálogo e outro nome.
 - Móvel novo no catálogo? Rode `npm test` (confere a ligação servidor ↔ página) e `npm run check:layouts`.
 
@@ -110,7 +115,8 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
 
 ## Regras do projeto
 
-- Sem dependências no navegador e sem build. Se uma mudança precisar disso, abra uma issue antes.
+- Sem dependências no navegador e sem build para rodar. O único passo de build é o opcional `build:single`
+  (esbuild, só em desenvolvimento). Se uma mudança precisar de mais, abra uma issue antes.
 - Chaves de API nunca vão para a página nem para o repositório.
 - Interface e mensagens em português do Brasil.
 - Mudou o formato de eventos? Atualize `docs/PROTOCOLO.md`.
@@ -123,6 +129,9 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
 2. Em `personagens3d-meshy.js`, adicione uma entrada em `MODELS`: cores de referência da textura (`a`),
    o centro de cada peça de acessório (`acc`) e das peças "de baixo" (`roles`: tronco, rosto, cabelo),
    em alturas do corpo (0 = pé, 1 = topo). Ligue o penteado em `POR_PENTEADO`.
-3. Confira com `?estilo=meshy` cada combinação de acessórios (nenhum, todos, um de cada) de frente e de lado.
+3. Confira as peças com `node scripts/glb-ilhas.mjs web/modelos/<arquivo>.glb` (lista as ilhas) e rode
+   `npm test` (`test/modelos.test.mjs` confere que todo ponto de `acc`/`roles` cai numa ilha do arquivo).
+4. Tire retratos de cada combinação: `node scripts/retratos.mjs acessorios:<penteado> saida.png` (precisa do
+   servidor rodando e do Playwright). Texturas grandes: `python3 scripts/reduzir-textura-glb.py arquivo.glb`.
 
 Visão geral para quem chega agora e lista do que falta: [`docs/CONTINUACAO.md`](docs/CONTINUACAO.md).

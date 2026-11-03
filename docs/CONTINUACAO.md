@@ -19,7 +19,7 @@ abre uma ficha com o que ele está fazendo.
 
 1. **Escolher a IA e conectar** (OpenAI, Anthropic ou Ollama). O usuário **não escolhe o modelo**: o sistema testa e
    escolhe sozinho (`server/llm.mjs`).
-2. **Descrever o serviço.** A IA monta o escritório (nome, estilo, equipe de 3 a 6 pessoas, móveis extras, até 2
+2. **Descrever o serviço.** A IA monta o escritório (nome, estilo, equipe de 3 a 10 pessoas, móveis extras, até 2
    móveis criados pela IA). O escritório aparece pronto, com **só** o escritório, o menu suspenso no canto superior
    direito e o campo de texto centralizado embaixo.
 3. **A cada tarefa**, a IA decide **quais personagens entram e o que fazem**. Antes da primeira tarefa a sala está
@@ -52,14 +52,16 @@ Requisitos: Node.js 22+ (`node --version`).
 npm install
 npm start            # servidor em http://127.0.0.1:8787 (abre o setup se a IA não estiver configurada)
 npm run demo         # mesmo fluxo de eventos, sem chamar IA nenhuma
-npm test             # 55 testes, todos devem passar
-npm run check:layouts   # (opcional, precisa de Playwright) valida 103 combinações de planta
-npm run build:single    # gera arquivo único em dist/ — NÃO inclui o 3D
+npm test             # 72 testes, todos devem passar
+npm run check:layouts   # (opcional, precisa de Playwright) valida 145 combinações de planta (6 e 10 pessoas)
+npm run build:single    # arquivo único em dist/ COM 3D e modelos (~10 MB); --sem-modelos (~1 MB) | --sem-3d
 ```
 
 Variáveis úteis: `PORT`, `HOST`, `PIXELHQ_DATA_DIR` (onde ficam `settings.json` e `office.json`),
 `WORKSPACE_DIR` (onde os agentes salvam entregas), `MIN_DWELL_MS` (permanência mínima por etapa), `PIXELHQ_MODEL`
-(força um modelo), `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
+(força um modelo), `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, `PIXELHQ_PARALELO` (tarefas simultâneas, padrão 2),
+`PIXELHQ_WEB=0` (desliga a internet dos agentes), `BRAVE_API_KEY` (busca pela Brave em vez do DuckDuckGo),
+`PIXELHQ_BUSCA_URL` e `PIXELHQ_WEB_LOCAL=1` (só para testes: busca falsa e rede local liberada).
 
 Endereços de depuração: `?2d` força o desenho 2D, `?3d` força o 3D, `?px=N` resolução do 3D (padrão 1 = nítido),
 `?estilo=lowpoly` personagens feitos em código, `?contorno=0` desliga o contorno dos personagens, `?flat=0` (estilo
@@ -74,14 +76,16 @@ Para ver a sala já montada sem configurar IA, crie dados de teste: um `settings
 
 ```
 server/                 Node (http + ws), sem framework
-  server.mjs            HTTP/WS, rotas /api/*, fila de tarefas, vendor three, /config.js
+  server.mjs            HTTP/WS, rotas /api/*, fila + tarefas em paralelo (MAX_PARALLEL, running), vendor three
+  web.mjs               internet só leitura: search (DuckDuckGo HTML | Brave), readPage, checkURL (anti-SSRF)
+  locks.mjs             travas por agente (cada pessoa faz uma coisa por vez)
   providers.mjs         OpenAI (Responses → fallback chat.completions), Anthropic, Ollama
   llm.mjs               escolhe o modelo sozinho (pickModel) e troca se der erro de modelo
   settings.mjs          data/settings.json (modo 0600); chaves nunca vão para a página
   office.mjs            prompt + validação do escritório (normalizeSpec), planOffice
   furniture.mjs         catálogo (12) + móveis criados pela IA (validateDesign, designFurniture)
   places.mjs            lugares (computador, quadro, reunião...) e guessPlace
-  runner.mjs            executa uma tarefa: lead decide modo direto|equipe, etapas, revisão, entregas
+  runner.mjs            executa uma tarefa: lead decide modo direto|equipe (+ "web"), etapas, research(), revisão
   protocol.mjs          validação das mensagens (protocolo v1)
   pacer.mjs             tempo mínimo por etapa
 web/
@@ -89,9 +93,10 @@ web/
   js/                   scripts clássicos que compartilham o escopo global (ordem pelo prefixo numérico)
   js3d/                 módulos ES (3D) que leem os globais dos scripts acima
   modelos/              GLB dos personagens (Meshy)
+  dev/retratos.html     página de retratos dos personagens (usada por scripts/retratos.mjs)
 docs/PROTOCOLO.md       protocolo v1 (mensagens servidor↔página)
 test/                   node --test
-scripts/                build-single, check-layouts
+scripts/                build-single (esbuild), check-layouts, retratos.mjs, glb-ilhas.mjs, reduzir-textura-glb.py
 ```
 
 ### Protocolo v1 (resumo; completo em `docs/PROTOCOLO.md`)
@@ -122,7 +127,14 @@ ativo; sem WebGL cai para o 2D). Pontos-chave:
   em múltiplos de π/4); pós-processamento `PixelPass` (contorno por profundidade+normais+máscara de personagem),
   Bloom, SMAA (modo nítido). Nomes e ícones são desenhados num canvas 2D por cima (`#scene3d-ui`).
 - Mouse: arrastar move, roda aproxima no cursor, botão direito/Shift gira com encaixe; clique numa pessoa abre a ficha.
-- Edição da sala (modo Construir) **continua 2D** (`R3D.active = mode==='live'`).
+- **Edição da sala no 3D** (modo Construir): `R3D.active()` vale em `live` e `build`; em `build` o canvas 2D fica
+  transparente **por cima** do 3D (`drawOverlay3D` em `09-cena.js` desenha só seleção, fantasma e marcas). O 3D
+  substitui `window.iso/unIso/hitAny/hitPerson` (raio da câmera → chão/caixas), então o editor 2D inteiro funciona
+  sem mudança. Roda/botão direito/pan vão para `R3D.zoomAt/rotStart/panStart` (`17-entrada.js`).
+- **Arquivo único:** `scripts/build-single.mjs` empacota `cena3d.js` + three com esbuild e embute os GLB como
+  `data:` em `window.PIXELHQ_MODELOS`; `PIXELHQ_MODELOS=false` (`--sem-modelos`) começa no low-poly.
+- **Carregamento sob demanda:** o kit Meshy só baixa o modelo de um penteado quando alguém o usa (`ready/load`);
+  enquanto isso o personagem não aparece e o retrato usa o 2D.
 - **Contorno dos personagens:** cada malha de personagem tem `userData.idMat` (cor de id da região) e a camada 3;
   o `PixelPass` renderiza só a camada 3 num alvo de máscara e desenha silhueta de 2 px e linhas internas de 1 px
   quase pretas. Uniform `cK` liga/desliga (`?contorno=0`).
@@ -175,13 +187,14 @@ Cada modelo foi **gerado já com óculos, fone, crachá (e barba nos meninos)**.
 1. Gere (ver seção 8) em **A-pose**, low-poly `smart-topology` (~7000 triângulos), textura 2K, **com todos os
    acessórios**, e rig humanoide. Peça **olhos pintados no rosto, atrás de lentes transparentes** (se as lentes saírem
    opacas, os olhos somem quando a pessoa não usa óculos — foi o que invalidou um raspado novo).
-2. Reduza as texturas para 1K JPEG (não há script no repositório; era um script Python que reescreve as imagens
-   do GLB: reamostra para 1024 px, JPEG qualidade 96, e remonta o binário alinhando em 4 bytes).
-3. Liste as ilhas (centro/caixa/cor de cada uma) e identifique à mão quais são óculos, fone, crachá, barba,
+2. Reduza as texturas: `python3 scripts/reduzir-textura-glb.py arquivo.glb` (1024 px, JPEG 96; precisa de Pillow).
+3. Liste as ilhas com `node scripts/glb-ilhas.mjs arquivo.glb` e identifique à mão quais são óculos, fone, crachá, barba,
    rosto, cabelo, tronco. Registre em `MODELS` e ligue em `POR_PENTEADO`.
-4. Renderize as 6 combinações (nenhum, todos, cada um sozinho) de frente e 3/4 e confira: sem buraco, sem marca de
+4. Renderize as 6 combinações com `node scripts/retratos.mjs acessorios:<penteado> out.png [--angulo=35]`
+   (servidor rodando) e confira: sem buraco, sem marca de
    armação/crachá/fone/barba, olhos presentes sem óculos.
-5. Rode `npm test` (o teste `estilo padrão (Meshy)` confere que todo penteado tem modelo e que todo `.glb` existe).
+5. Rode `npm test` (o teste `estilo padrão (Meshy)` confere que todo penteado tem modelo e que todo `.glb` existe;
+   `test/modelos.test.mjs` confere que todo ponto de `acc`/`roles` cai numa ilha real do arquivo).
 
 ## 7. Reserva low-poly (feita em código)
 
@@ -193,7 +206,7 @@ roupas e acessórios do editor (um teste garante). Serve de reserva quando os GL
 ## 8. Meshy (e Tripo) — como usar a partir daqui
 
 O Meshy é a fonte dos modelos. **Custos medidos (créditos):** imagem→imagem (nano-banana-2-lite) 3; imagem→3D
-smart-topology com textura 2K 15; rig 5. Um modelo completo com referência ≈ 23. Saldo no fim desta sessão: **580**.
+smart-topology com textura 2K 15; rig 5. Um modelo completo com referência ≈ 23. Saldo em 2026-11-03: **557**.
 Preços oficiais: https://docs.meshy.ai/en/api/pricing (verificar antes de gastar).
 
 - Usa-se a **CLI** `meshy-cli@0.4.0`: `npm exec --yes --package=meshy-cli@0.4.0 -- meshy ...`. Comandos usados:
@@ -214,16 +227,16 @@ Preços oficiais: https://docs.meshy.ai/en/api/pricing (verificar antes de gasta
   base e o lote estão em `meshy/out` e `meshy/lote` do scratchpad da sessão **que não vai junto no repositório**;
   os `.glb` finais já estão em `web/modelos/`. Se precisar das referências de imagem, gere de novo.
 
-## 9. Ferramentas de verificação visual (não estão no repositório — recrie)
+## 9. Ferramentas de verificação visual (agora no repositório)
 
 A verificação foi feita com **Playwright + Chromium em software** (`--use-gl=angle --use-angle=swiftshader
 --enable-unsafe-swiftshader`), ~4–7 fps; serve para conferir imagem, não desempenho (o dono mediu no computador dele e
 disse que está **ótimo**).
 
-- **Página de retrato** (`web/_retrato.html`, removida): carrega `personagens3d-meshy.js` por `?k=`, monta uma fileira
-  de personagens com `kit.build/pose`, câmera ortográfica, luz hemisférica + sol, e responde `window.done`.
-  Parâmetros: zoom `z`, inclinação `p`, altura `y`, cor de fundo. O hash `#<json>` traz a lista de aparências.
-  Recrie quando precisar. Assinaturas: `characterKit({ THREE })` no Meshy (é assíncrona: use `await`) e
+- **Página de retrato** (`web/dev/retratos.html`; atalho `scripts/retratos.mjs todos|acessorios:<penteado>|sem-oculos|poses`):
+  carrega o kit por `?k=meshy|lowpoly`, monta uma fileira com `kit.build/pose`, câmera ortográfica, e responde
+  `window.done`. Parâmetros: zoom `z`, inclinação `p`, altura `y`, `bg`, `floor`. O hash `#<json>` traz as aparências.
+  Assinaturas: `characterKit({ THREE })` no Meshy (é assíncrona: use `await`) e
   `characterKit({ THREE, mergeGeometries, mergeVertices })` no low-poly. Importe `three` e `three/addons/*` pelo
   importmap do `web/index.html` (`/vendor/three/...`).
 - **Galeria dentro da sala:** `devMode=true; setMode('build'); W.people=[...]; setMode('live'); sim.playing=false;`
@@ -246,23 +259,35 @@ disse que está **ótimo**).
   cabelo em facetas). Sombreado **chapado** e **borda preta fina**.
 - **Acessórios gerados junto com o modelo e escondidos em código** (ideia do dono) em vez de peças avulsas.
 - **T-pose rejeitada** por mim para braços curtos (a A-pose deforma menos o ombro); o problema real era a pose.
-- Edição da sala permanece 2D por enquanto.
+- Edição da sala no 3D reaproveita o editor 2D (troca só a projeção/acerto), em vez de um editor 3D novo.
+- **Internet dos agentes:** só buscar e ler (sem rodar código, sem formulários, sem login) — decidido por segurança
+  e custo; ligado por padrão, com botão no menu. Pesquisa só nas etapas `pesquisar` e em perguntas diretas que o
+  coordenador marca com `"web": true`.
+- **Paralelismo:** 2 tarefas por padrão; trava por agente (uma pessoa nunca está em dois lugares).
+- **Sala grande:** uma ala fixa à direita (testada), não uma planta gerada — mantém a garantia de nada encavalado.
 - Os estilos antigos (vinil, toon, GLB do Tripo) foram **removidos**; o histórico está no git antigo descartado
   e nos prints entregues ao dono, não no repositório atual.
 
 ## 12. Limites conhecidos (reais, não promessas)
 
-1. **Raspado sem fone fica careca** (o cabelo veio fundido com as conchas do fone). Um raspado novo foi gerado, mas
-   veio sem olhos no rosto (lentes opacas) e foi descartado; o antigo voltou.
-2. **Rabo de cavalo sem óculos:** sobra um contorno claro e fraco da armação na bochecha (só em close).
-3. **Menino curto e cabelo longo** mostram marcas pequenas só em close (pontinho no nariz, traço entre os olhos).
+1. **Raspado** foi refeito (arquivo `menino_raspado_acessorios.glb`, armação sem lentes): fone separado do cabelo,
+   olhos visíveis. Resolvido.
+2. **Rabo de cavalo sem óculos:** sobra um contorno claro e fraco da armação na bochecha (só em close). Tentativas
+   com `SHADOW`/limiar e removendo as placas das lentes falharam (as lentes carregam os olhos). Só regerando.
+3. **Curto e longo:** corrigidos o tronco/braços/virilha roxos (faixa do peito restrita) e o sapato da franja.
+   Restam marcas mínimas em close.
 4. **"Franja" e "curto"** são modelos diferentes mas parecidos; **rabo** e **coque** são modelos diferentes.
-5. Edição da sala é 2D; `build:single` não tem 3D; planta base única (até 6 pessoas e 6 espaços extras);
-   qualidade dos móveis criados pela IA é irregular.
-6. Agentes **não têm internet** e rodam **uma tarefa por vez** (limite do executor, `server/runner.mjs`/`server.mjs`).
-7. Licença dos GLB do Meshy **não verificada** para redistribuição; licença do GLB do Tripo idem (já removido).
-8. O repositório git **local** tem 1 commit; **não há remoto** (GitHub) ainda.
-9. O nome "Pixel HQ" **colide** com um app existente (ver seção 13).
+   **Não há variação de roupa** (moletom, paletó): cada roupa nova = um modelo novo por penteado (≈23 créditos cada,
+   ~160 para 7 penteados). Não foi feito.
+5. **Busca real na internet não foi testada neste ambiente** (o proxy bloqueia o DuckDuckGo); só contra servidor
+   falso. O DuckDuckGo HTML pode mudar o formato ou bloquear robôs: se quebrar, `parseDuckDuckGo` em `server/web.mjs`
+   ou use `BRAVE_API_KEY`. Sites que só renderizam com JavaScript chegam vazios.
+6. Agentes não executam código nem acessam sistemas do usuário (decisão, não limite técnico).
+7. Móveis criados pela IA: regras de qualidade novas reduzem os feios, mas não há avaliação **visual** (a IA não vê
+   o resultado). Uma próxima etapa seria renderizar o móvel e pedir crítica a um modelo com visão.
+8. Licença dos GLB do Meshy **não verificada** para redistribuição; licença do GLB do Tripo idem (já removido).
+9. O repositório git **local**; **não há remoto** (GitHub) ainda.
+10. O nome "Pixel HQ" **colide** com um app existente (ver seção 13).
 
 ## 13. Pendências, em ordem de prioridade
 
@@ -278,27 +303,27 @@ disse que está **ótimo**).
 - [ ] **Remoto git:** o dono precisa passar o repositório; então `git remote add origin ...` e `git push -u origin main`.
       O repositório local está correto (raiz em `pixel-hq/`, 70 arquivos).
 
-### B. Produto (maior valor)
-- [ ] **Capacidade dos agentes** (recomendado como próximo passo): hoje sem internet e uma tarefa por vez.
-      **Antes de implementar, perguntar ao dono** quais ferramentas liberar (buscar na web? ler páginas? rodar
-      código?) e com que limites de segurança/custo. Propor o desenho (ferramentas por papel, limites, aprovação
-      do usuário, fila/concorrência) e só então implementar em `server/runner.mjs`.
-- [ ] **Edição da sala em 3D** (hoje 2D): praticamente reescrever o editor (arrastar/girar/encaixar no 3D).
-- [ ] **Arquivo único (`build:single`) com 3D** e **planta base maior/variada** (hoje até 6 pessoas e 6 espaços).
-- [ ] Melhorar **qualidade dos móveis criados pela IA** (validação visual, mais exemplos no prompt).
+### B. Produto
+- [x] Internet (só leitura) e tarefas em paralelo — `server/web.mjs`, `locks.mjs`, `runner.mjs` (`research`).
+- [x] Edição da sala no 3D.
+- [x] `build:single` com 3D; sala grande (7 a 10 pessoas).
+- [x] Regras de qualidade e segundo exemplo para móveis criados pela IA.
+- [ ] Testar a busca real fora deste ambiente (`npm start`, pedir "qual a cotação do dólar hoje?") e ajustar
+      `parseDuckDuckGo` se o formato tiver mudado.
+- [ ] Crítica visual dos móveis da IA (renderizar + modelo com visão), se o dono quiser o custo extra.
+- [ ] Plantas realmente diferentes (formato em L, dois andares) — hoje só pequena e grande.
 
-### C. Personagens (opcionais; custam créditos do Meshy)
-- [ ] Raspado **com fone separado do cabelo** (≈23 créditos); exigir lentes transparentes e olhos visíveis.
-- [ ] Rabo de cavalo sem marca de armação (ajustar `roles`/`SHADOW` ou regerar).
-- [ ] Mais variedade: outros penteados/corpos, roupas diferentes (moletom, paletó), cores de pele em tons de modelo.
-- [ ] Reduzir marcas de textura nos modelos "curto" e "longo".
+### C. Personagens (custam créditos do Meshy)
+- [x] Raspado com fone separado e olhos visíveis (23 créditos).
+- [ ] Rabo de cavalo sem marca de armação: só regerando (≈23), com armação sem lentes como o raspado novo.
+- [ ] Variedade de roupa (≈23 por penteado × roupa) — **perguntar ao dono antes**; custo alto.
+- [x] Marcas de tronco/braços nos modelos curto/longo e sapato da franja.
 
 ### D. Qualidade e manutenção
-- [ ] Teste automatizado de renderização dos personagens (hoje só estrutural): carregar cada GLB e checar que
-      `prep()` acha todas as ilhas listadas em `acc`/`roles` (falha silenciosa se o modelo mudar).
-- [ ] Guardar o script de redução de textura GLB e a página de retrato em `scripts/` (hoje só descritos aqui).
-- [ ] Carregar só os modelos em uso (hoje carrega os 7 ao abrir; ~6,9 MB).
-- [ ] Documentar `docs/PROTOCOLO.md` caso o protocolo mude.
+- [x] `test/modelos.test.mjs` (ilhas de `acc`/`roles` existem em cada GLB).
+- [x] `scripts/reduzir-textura-glb.py`, `scripts/glb-ilhas.mjs`, `scripts/retratos.mjs` + `web/dev/retratos.html`.
+- [x] Carregar só os modelos em uso.
+- [x] `docs/PROTOCOLO.md` atualizado (paralelismo, `run`, internet).
 
 ## 14. Como contribuir sem quebrar (convenções)
 
@@ -313,9 +338,9 @@ disse que está **ótimo**).
 
 ## 15. Estado e pendências (atualize aqui)
 
-- Commit atual: `main`, 1 commit inicial (reescrito dentro de `pixel-hq/` em 2026-11-03).
-- `npm test`: 55 passando.
-- Saldo Meshy: 580 créditos.
+- Commits em `main`: inicial, documento de continuação e a entrega dos itens 2, 3 e 4 (2026-11-03). Sem remoto.
+- `npm test`: 72 passando. `npm run check:layouts`: 145 combinações válidas.
+- Saldo Meshy: 557 créditos (23 gastos no raspado novo).
 - Estilo padrão: Meshy; reserva: low-poly. A sala abre sem precisar de `?estilo=`.
-- Próximo passo recomendado: **trocar o nome**, **confirmar licenças**, **criar o remoto**, depois **capacidade dos
-  agentes** (seção 13.B) — pedindo as decisões ao dono antes de implementar.
+- Próximo passo recomendado: **trocar o nome**, **confirmar licenças**, **criar o remoto**, depois **testar a busca
+  real** no computador do dono (seção 13.B).

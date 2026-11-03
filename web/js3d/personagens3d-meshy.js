@@ -25,18 +25,21 @@ const MODELS = {
   menino_cacheado: { file: 'menino_cacheado_acessorios.glb', a: { hair: '#341910', skin: '#F7B97E', shirt: '#671190', dark: '#1E1A20', sole: '#CCC0C3', mouth: '#8F2229' }, darkHair: true,
     roles: { torso: [[0, .364, .027]], face: [[0, .704, .027]] },
     acc: { oculos: [[0, .662, .138]], fone: [[0, .823, .057], [-.224, .711, .054], [.223, .711, .054], [-.189, .654, .057], [.189, .654, .057], [-.224, .651, .06], [.223, .651, .06], [-.175, .87, .056], [.176, .87, .058]], cracha: [[0, .447, .051], [.002, .404, .123], [0, .365, .122]], barba: [[0, .565, .12]] } },
-  // raspado: as conchas do fone vieram fundidas com uma camada de cabelo; sem fone, o cabelo raspado fica só pintado
-  menino_raspado: { file: 'menino_raspado_acessorios.glb', a: { hair: '#7B6659', skin: '#FDB888', shirt: '#640B89', dark: '#16131A', sole: '#C0B3B7' },
-    roles: { torso: [[0, .384, .003]], face: [[0, .758, -.008]] },
-    acc: { oculos: [[-.077, .721, .192], [.077, .721, .192], [0, .736, .194], [-.155, .731, .09], [.155, .731, .09]], fone: [[0, .862, -.005], [-.001, .784, -.017]], cracha: [[0, .479, .028], [-.002, .427, .11], [0, .394, .099]], barba: [[0, .614, .108]] } },
-  menino_franja: { file: 'menino_franja_acessorios.glb', a: { hair: '#F3790D', skin: '#F6B382', shirt: '#620E80', dark: '#111016', sole: '#F2BB92' },
+  // raspado: armação sem lentes (os olhos são peças à parte) e fone separado do cabelo raspado
+  menino_raspado: { file: 'menino_raspado_acessorios.glb', a: { hair: '#6E5B50', skin: '#F9AD7D', shirt: '#66088F', dark: '#14101A', sole: '#9F9493' },
+    roles: { torso: [[-.001, .302, .017]], face: [[0, .755, 0]] },
+    acc: { oculos: [[-.002, .729, .181], [-.171, .724, .066], [.169, .724, .066]], fone: [[0, .857, .004], [-.197, .709, .004], [.197, .709, .004], [-.22, .701, .004], [.219, .701, .004], [-.182, .699, -.012], [.181, .699, -.012]], cracha: [[0, .455, .035]], barba: [[0, .617, .1]] } },
+  menino_franja: { file: 'menino_franja_acessorios.glb', a: { hair: '#F3790D', skin: '#F6B382', shirt: '#620E80', dark: '#111016', sole: '#DCD6DA' },
     roles: { torso: [[.001, .409, .014]], face: [[.001, .743, .018]], head: [[.001, .747, 0]] }, chinOnHead: true,
     acc: { oculos: [[-.075, .705, .177], [.076, .705, .177], [0, .717, .179], [-.156, .711, .066], [.157, .711, .066]], fone: [[.001, .865, .005], [-.181, .688, .005], [.181, .688, .005], [-.217, .685, .007], [.218, .685, .007], [-.155, .68, .014], [.16, .68, .014]], cracha: [[.001, .464, .033], [.001, .417, .119], [.001, .382, .114]], barba: [[.001, .649, .063]] } },
-  menina_rabo2: { file: 'menina_rabo_acessorios.glb', a: { hair: '#ED7E0C', skin: '#F4B788', shirt: '#70089E', dark: '#17151B', sole: '#DBC3B4' },
+    menina_rabo2: { file: 'menina_rabo_acessorios.glb', a: { hair: '#ED7E0C', skin: '#F4B788', shirt: '#70089E', dark: '#17151B', sole: '#DBC3B4' },
     roles: { torso: [[-.001, .389, .053]], face: [[0, .712, .044]], head: [[-.008, .557, 0], [-.138, .365, -.153]] },
     acc: { oculos: [[-.081, .675, .226], [.078, .675, .226], [-.002, .694, .227], [-.158, .689, .14], [.158, .689, .14]], fone: [[-.001, .844, .061], [-.182, .659, .055], [.182, .658, .055], [-.213, .656, .057], [.213, .656, .056]], cracha: [[-.001, .444, .07], [.001, .385, .156], [-.002, .352, .146]] } },
 };
 const POR_PENTEADO = { curto: 'menino_curto', franja: 'menino_franja', longo: 'menina_longo', rabo: 'menina_rabo2', coque: 'menina_rabo', cacheado: 'menino_cacheado', raspado: 'menino_raspado' };
+
+// exportados para os testes (conferem que cada peça listada existe no .glb)
+export { MODELS, POR_PENTEADO };
 
 export async function characterKit({ THREE }) {
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -55,7 +58,8 @@ export async function characterKit({ THREE }) {
 
   // prepara um modelo: ossos de repouso, escala, mapa de funções da textura
   async function prep(id) {
-    const def = MODELS[id], gltf = await loader.loadAsync('/modelos/' + def.file), base = gltf.scene; base.updateMatrixWorld(true);
+    // no arquivo único os modelos vêm embutidos (PIXELHQ_MODELOS: arquivo → data: URL)
+    const def = MODELS[id], gltf = await loader.loadAsync(globalThis.PIXELHQ_MODELOS?.[def.file] || '/modelos/' + def.file), base = gltf.scene; base.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(base), SC = HEIGHT / (box.max.y - box.min.y);
     const B0 = bonesOf(base), bindW = {}, bindL = {};
     for (const [k, b] of Object.entries(B0)) { bindW[k] = b.getWorldQuaternion(new THREE.Quaternion()); bindL[k] = b.quaternion.clone(); }
@@ -86,6 +90,7 @@ export async function characterKit({ THREE }) {
       M.role = new Map(); for (const [role, list] of Object.entries(def.roles || {})) for (const r of pick(list)) M.role.set(r, role);
       for (const [name, set] of Object.entries(M.accIsl)) for (const r of set) M.role.set(r, name === 'barba' ? 'beard' : 'acc');   // barba é repintada com a cor do cabelo   // acessórios: cor original (só repinta o que for de pele/cabelo/roupa)
       M.faceBox = new THREE.Box3(); for (const [r, role] of M.role) if (role === 'face') M.faceBox.union(bb.get(r));
+      M.torsoBox = new THREE.Box3(); for (const [r, role] of M.role) if (role === 'torso') M.torsoBox.union(bb.get(r));
       M.triIsl = triIsl; M.index = I.array; M.geoCache = new Map();
     }
     // região do corpo por pixel da textura: desenha cada triângulo no espaço UV (0 corpo, 1 pés, 2 cabeça, 3 rosto)
@@ -104,7 +109,10 @@ export async function characterKit({ THREE }) {
         // 60 tronco · 120 cabeça/cabelo · 180 queixo · 220 faixa dos olhos (frente do rosto)
         const fb = M.faceBox, rel = fb ? (my - fb.min.y) / Math.max(1e-6, fb.max.y - fb.min.y) : 0, front = mz > .2;
         // rosto: 180 queixo · 220 faixa dos olhos (olhos são peças à parte) · 140 frente do rosto com olhos pintados · 120 trás/laterais
-        const gcode = role === 'acc' ? 250 : role === 'torso' ? 60 : role === 'head' ? (def.chinOnHead && fb && front && rel < .33 && Math.abs(mx - (fb.min.x + fb.max.x) / 2) < (fb.max.x - fb.min.x) * .4 ? 180 : 120) : role === 'face' ? (front && rel < .33 ? 180 : front && rel < .63 ? (def.eyeband !== false ? 220 : 140) : front ? 140 : 120) : 0;
+        // tronco: só o peito (frente, no meio, acima da cintura) recebe a correção do crachá; braço e cintura fundidos ficam como estão
+        const tb = M.torsoBox, trel = tb && !tb.isEmpty() ? (my - tb.min.y) / Math.max(1e-6, tb.max.y - tb.min.y) : 0;
+        const chest = front && Math.abs(mx - cx) < H * .1 && trel > .2;
+        const gcode = role === 'acc' ? 250 : role === 'torso' ? (chest ? 60 : 0) : role === 'head' ? (def.chinOnHead && fb && front && rel < .33 && Math.abs(mx - (fb.min.x + fb.max.x) / 2) < (fb.max.x - fb.min.x) * .4 ? 180 : 120) : role === 'face' ? (front && rel < .33 ? 180 : front && rel < .63 ? (def.eyeband !== false ? 220 : 140) : front ? 140 : 120) : 0;
         reg.fillStyle = `rgb(${r},${gcode},0)`;
         reg.beginPath(); reg.moveTo(U.getX(a) * TS, U.getY(a) * TS); reg.lineTo(U.getX(b) * TS, U.getY(b) * TS); reg.lineTo(U.getX(c) * TS, U.getY(c) * TS); reg.closePath(); reg.fill();
       }
@@ -181,7 +189,14 @@ export async function characterKit({ THREE }) {
     M.anchorOf = { hair: def.a.hair || def.a.dark, skin: def.a.skin, shirt: def.a.shirt, pants: def.a.dark, shoe: def.a.dark, eye: def.a.dark, sole: def.a.sole, mouth: def.a.mouth || def.a.dark };
     return M;
   }
-  const PREP = {}; await Promise.all(Object.keys(MODELS).map(async id => { PREP[id] = await prep(id); }));
+  // carregamento sob demanda: só baixa o modelo de um penteado quando alguém o usa (ready() dispara o carregamento)
+  const PREP = {}, LOADING = {};
+  const load = (id) => (LOADING[id] ??= prep(id).then(M => (PREP[id] = M)).catch(e => { console.warn('[3D] modelo não carregou:', id, e); delete LOADING[id]; throw e; }));
+  const idOf = (p) => POR_PENTEADO[(p && p.hairStyle) || 'curto'] || 'menino_curto';
+  function ready(p) { const id = idOf(p); if (PREP[id]) return true; load(id).catch(() => {}); return false; }
+  // antes de devolver o kit: o modelo de referência e os modelos das pessoas que já existem
+  const initial = new Set(['menino_curto', ...((globalThis.W && W.people) || []).map(idOf)]);
+  await load('menino_curto'); await Promise.allSettled([...initial].map(load));
 
   function paint(M, o) {
     const key = [o.hair, o.skin, o.shirt, o.pants, o.shoes].join();
@@ -216,7 +231,7 @@ export async function characterKit({ THREE }) {
   function build(p) {
     const o = look(p);
     if (o.top === 'jaqueta') o.shirt = '#3A3C44';
-    const M = PREP[POR_PENTEADO[o.style] || 'menino_curto'];
+    const M = PREP[POR_PENTEADO[o.style] || 'menino_curto'] || PREP.menino_curto;   // se ainda não carregou, usa o de referência
     const root = new THREE.Group();
     const model = SkeletonUtils.clone(M.base); model.scale.setScalar(M.SC); root.add(model);
     const region = seq++, tex = paint(M, o), texKey = [o.hair, o.skin, o.shirt, o.pants, o.shoes].join();
@@ -304,5 +319,5 @@ export async function characterKit({ THREE }) {
     });
   }
 
-  return { build, pose, dispose, lookKey, setEnv, MESHES, LAYER, CS, HIPY, TAGY: 1.0 };
+  return { build, pose, dispose, lookKey, ready, load: (p) => load(idOf(p)), setEnv, MESHES, LAYER, CS, HIPY, TAGY: 1.0 };
 }

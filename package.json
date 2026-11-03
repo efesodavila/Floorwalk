@@ -20,5 +20,8 @@
     "openai": "7.39.0",
     "three": "0.170.0",
     "ws": "8.22.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

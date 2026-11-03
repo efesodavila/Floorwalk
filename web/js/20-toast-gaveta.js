@@ -86,6 +86,8 @@ $('#open-test').onclick = () => { drawerMode = drawerMode === 'test' ? null : 't
 $('#open-rules').onclick = () => { drawerMode = drawerMode === 'rules' ? null : 'rules'; renderDrawer(); };
 $('#open-changes').onclick = () => { drawerMode = drawerMode === 'changes' ? null : 'changes'; renderDrawer(); };
 
-$('#zoom-in').onclick = () => zoomAt(1.25, VW / 2, VH / 2);
-$('#zoom-out').onclick = () => zoomAt(1 / 1.25, VW / 2, VH / 2);
-$('#fit').onclick = fit;
+// com o 3D, os botões comandam a câmera 3D
+const cam3d = () => window.R3D?.active?.() && window.R3D.zoomAt;
+$('#zoom-in').onclick = () => cam3d() ? R3D.zoomAt(1.25, VW / 2, VH / 2) : zoomAt(1.25, VW / 2, VH / 2);
+$('#zoom-out').onclick = () => cam3d() ? R3D.zoomAt(1 / 1.25, VW / 2, VH / 2) : zoomAt(1 / 1.25, VW / 2, VH / 2);
+$('#fit').onclick = () => { if (cam3d()) R3D.fit(); fit(); };

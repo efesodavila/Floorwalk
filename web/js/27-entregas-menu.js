@@ -70,6 +70,7 @@ function renderMenu() {
   document.body.classList.toggle('clean', document.body.classList.contains('has-office') && !devMode);
   $('#m-dev').setAttribute('aria-pressed', String(devMode));
   $('#m-3d').setAttribute('aria-pressed', String(!!window.R3D?.wanted));
+  { const v = typeof setupState !== 'undefined' ? setupState.view : null; $('#m-web').setAttribute('aria-pressed', String(v?.web !== false)); }
   $('#m-edit').textContent = mode === 'build' ? 'Voltar ao trabalho (ao vivo)' : 'Editar a sala e as pessoas';
   const v = typeof setupState !== 'undefined' ? setupState.view : null;
   const name = W.officeId ? W.name : null;
@@ -92,6 +93,13 @@ menuEl.addEventListener('keydown', (e) => {
 for (const id of ['m-team', 'm-edit', 'm-office', 'ai-btn', 'open-rules', 'open-test', 'open-changes']) $('#' + id).addEventListener('click', () => closeMenu());
 $('#m-edit').onclick = () => { setMode(mode === 'build' ? 'live' : 'build'); renderMenu(); };
 $('#m-office').onclick = () => openOfficeStep();
+// pesquisa na internet: liga/desliga no servidor (vale para as próximas tarefas)
+$('#m-web').onclick = async () => {
+  const on = !(setupState.view?.web !== false);
+  try { const r = await setupApi('/api/settings/web', { web: on }); setupState.view = { ...setupState.view, ...r.settings }; toast?.(on ? 'Os agentes podem pesquisar na internet.' : 'Pesquisa na internet desligada: os agentes usam só o que já sabem.'); }
+  catch (e) { toast?.('Não consegui mudar: ' + e.message); }
+  renderMenu();
+};
 $('#m-3d').onclick = () => {
   const on = !window.R3D?.wanted;
   try { localStorage.setItem('pixelhq.3d', on ? '1' : '0'); } catch {}

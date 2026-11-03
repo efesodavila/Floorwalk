@@ -1,0 +1,31 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Retratos dos personagens (ferramenta de desenvolvimento)</title>
+<style>body{margin:0;background:#E9DFD6}</style>
+<script type="importmap">{"imports":{"three":"/vendor/three/build/three.module.js","three/addons/":"/vendor/three/examples/jsm/"}}</script></head><body>
+<!--
+  Ferramenta de desenvolvimento: desenha uma fileira de personagens para comparar visualmente.
+  Usada por scripts/retratos.mjs. Parâmetros (query): k = kit (meshy | lowpoly), z = zoom (px por unidade),
+  p = inclinação da câmera (graus), y = altura do alvo, bg/floor = cores. O hash traz a lista de aparências em JSON:
+  [{ hairStyle, top, skin, hair, shirt, pants, shoes, extras: { oculos, fone, cracha, barba }, ry, act, sit, walk }]
+-->
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+const Q = new URLSearchParams(location.search), W = innerWidth, H = innerHeight;
+const KITS = { meshy: '../js3d/personagens3d-meshy.js', lowpoly: '../js3d/personagens3d-lowpoly.js' };
+const { characterKit } = await import(KITS[Q.get('k') || 'meshy']);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); r.setPixelRatio(1); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap; document.body.appendChild(r.domElement);
+const gradientMap = (() => { const t = new THREE.DataTexture(new Uint8Array([150, 215, 255]), 3, 1, THREE.RedFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const kit = await characterKit({ THREE, mergeGeometries, mergeVertices, gradientMap });
+const scene = new THREE.Scene(); scene.background = new THREE.Color(Q.get('bg') || '#E9DFD6');
+scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xCFC2EC, 1.35));
+const sun = new THREE.DirectionalLight(0xFFE3C2, 1.6); sun.position.set(4, 8, 6); sun.castShadow = true; sun.shadow.bias = -.0008; sun.shadow.normalBias = .06; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6 }); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshToonMaterial({ color: Q.get('floor') || '#E3D8CE', gradientMap })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const looks = JSON.parse(decodeURIComponent(location.hash.slice(1) || '[]'));
+if (kit.load) await Promise.all(looks.map(p => kit.load(p)));   // modelos são carregados sob demanda
+const vs = looks.map((p, i) => { const v = kit.build(p); v.root.position.x = (i - (looks.length - 1) / 2) * 1.05; v.root.rotation.y = p.ry || 0; scene.add(v.root); return [v, p]; });
+const z = +(Q.get('z') || 300), cam = new THREE.OrthographicCamera(-W / 2 / z, W / 2 / z, H / 2 / z, -H / 2 / z, .1, 100);
+const pitch = +(Q.get('p') || 10) * Math.PI / 180, ly = +(Q.get('y') || .8);
+cam.position.set(0, ly + Math.sin(pitch) * 10, Math.cos(pitch) * 10); cam.lookAt(0, ly, 0);
+let t = 0; for (let i = 0; i < 40; i++) { t += .05; for (const [v, p] of vs) kit.pose(v, { act: p.act || null, sit: !!p.sit, moving: !!p.walk, phase: 1.2 }, t, 1); }
+r.render(scene, cam); window.done = true;
+</script></body></html>

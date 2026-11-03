@@ -28,6 +28,8 @@ function zoomAt(f, sx, sy) {
   const nz = Math.max(.75, Math.min(4, view.z * f)); if (nz === view.z) return;
   const w = unIso(sx, sy); view.z = nz; const [nx, ny] = iso(w.x, w.z); view.cx += sx - nx; view.cy += sy - ny; dirty();
 }
+// editor sobre o 3D: câmera (mover, girar, aproximar) é a do 3D
+const ed3d = () => !!window.R3D?.editing?.();
 function evPos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 function hitHandle(sx, sy) { if (tab !== 'planta') return null; for (const h of handles()) if (Math.hypot(sx - h.s[0], sy - h.s[1]) <= 17) return h.side; return null; }
 function hitPerson(sx, sy) {
@@ -53,12 +55,14 @@ function hitAny(sx, sy, only) {
 }
 
 cv.addEventListener('contextmenu', e => e.preventDefault());
-cv.addEventListener('wheel', e => { e.preventDefault(); const [sx, sy] = evPos(e); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy); }, { passive: false });
+cv.addEventListener('wheel', e => { e.preventDefault(); const [sx, sy] = evPos(e); if (ed3d()) R3D.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, sx, sy); else zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, sx, sy); }, { passive: false });
 cv.addEventListener('pointerdown', e => {
   closePop();
   const [sx, sy] = evPos(e), w = unIso(sx, sy);
   hover = w;
-  if (e.button === 1 || e.button === 2 || spaceHeld) { drag = { kind: 'pan', sx, sy, cx: view.cx, cy: view.cy }; cv.setPointerCapture(e.pointerId); return; }
+  // 3D: botão direito (ou Shift sem nada para arrastar) gira a vista; meio ou espaço move
+  if (ed3d() && e.button === 2) { drag = { kind: 'rot', sx }; R3D.rotStart(sx); cv.setPointerCapture(e.pointerId); return; }
+  if (e.button === 1 || e.button === 2 || spaceHeld) { drag = { kind: 'pan', sx, sy, cx: view.cx, cy: view.cy }; if (ed3d()) R3D.panStart(sx, sy); cv.setPointerCapture(e.pointerId); return; }
   if (e.button !== 0) return;
   cv.setPointerCapture(e.pointerId);
   if (mode === 'live') {
@@ -89,11 +93,13 @@ cv.addEventListener('pointerdown', e => {
     dirty(); return;
   }
   drag = { kind: 'pan', sx, sy, cx: view.cx, cy: view.cy, click: true };
+  if (ed3d()) R3D.panStart(sx, sy);
 });
 cv.addEventListener('pointermove', e => {
   const [sx, sy] = evPos(e), w = unIso(sx, sy); hover = w;
   hoverHandle = !drag ? hitHandle(sx, sy) : null;
-  if (drag?.kind === 'pan') { view.cx = drag.cx + sx - drag.sx; view.cy = drag.cy + sy - drag.sy; if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) { drag.click = false; if (sim.following) { sim.following = null; teamHTML = ''; renderTeam(); } } }
+  if (drag?.kind === 'rot') R3D.rotMove(sx);
+  else if (drag?.kind === 'pan') { if (ed3d()) R3D.panMove(sx, sy); else { view.cx = drag.cx + sx - drag.sx; view.cy = drag.cy + sy - drag.sy; } if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) { drag.click = false; if (sim.following) { sim.following = null; teamHTML = ''; renderTeam(); } } }
   else if (drag?.kind === 'person') { if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.moved = true; if (drag.moved) drag.at = [Math.round(w.x * 4) / 4, Math.round(w.z * 4) / 4]; }
   else if (drag?.kind === 'agent') {
     if (!drag.moved && Math.hypot(sx - drag.sx, sy - drag.sy) > 4) { drag.moved = true; const a = sim.agents.find(q => q.id === drag.id); if (a) { release(a); a.spot = null; a.path = []; a.state = 'idle'; a.held = true; } }
@@ -113,6 +119,7 @@ cv.addEventListener('pointermove', e => {
 function endDrag() {
   if (!drag) return;
   const d = drag; drag = null;
+  if (d.kind === 'rot') { R3D.rotEnd(); return; }
   if (d.kind === 'pan' && d.click && selected) { selected = null; renderCtx(); }
   if (d.kind === 'pan' && d.click && mode === 'live' && sim.inspect) closeFicha();
   if (d.kind === 'person') {

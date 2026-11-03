@@ -38,6 +38,8 @@ export function publicView(s) {
     modelBroken: s.modelBroken || null,
     provider: s.provider || null,
     model: s.model || null,
+    // os agentes podem pesquisar na internet (padrão: sim)
+    web: s.web !== false,
     providers: Object.entries(PROVIDERS).map(([id, P]) => ({
       id, name: P.name, needsKey: P.needsKey, keyHelp: P.keyHelp, defaultBaseUrl: P.defaultBaseUrl || null,
       baseUrl: s.baseUrls[id] || null,
@@ -53,6 +55,12 @@ export async function save({ provider, model, apiKey, baseUrl }) { // model já 
   if (baseUrl !== undefined) { if (baseUrl) s.baseUrls[provider] = baseUrl; else delete s.baseUrls[provider]; }
   await persist(s);
   return s;
+}
+
+export async function setWeb(on) {
+  const s = structuredClone(await load());
+  s.web = !!on;
+  await persist(s);
 }
 
 export async function setModel(model) {

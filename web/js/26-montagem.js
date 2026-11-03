@@ -22,9 +22,14 @@ const SLOTS = [
   { x: 10, z: 9, len: 3, rot: 2, replaces: ['sofa', 'centro'], needs: (o) => !o.some(x => x.item === 'chroma') }, // lugar do sofá
   { x: 8, z: 0, len: 1, rot: 0 },   // parede do fundo, ao lado da geladeira
 ];
+// sala grande (equipe de 7 a 10): a parede direita vai de x=16 para x=22; as vagas da borda direita acompanham
+const BIG = { width: 22, dx: 6 };
+const slotsFor = (big) => SLOTS.map(s => big && s.x === 15 ? { ...s, x: 15 + BIG.dx } : s).concat(big ? [{ x: 17, z: 10, len: 3, rot: 2 }] : []);
+// lugares de partida das pessoas 7 a 10 (na ala nova)
+const BIG_STARTS = [[16.5, 6.25], [20.5, 6.25], [20.75, 8.75], [17.25, 9.25]];
 // põe cada móvel na primeira vaga livre em que ele cabe; o que não couber fica de fora
-function placeExtras(ids, objects) {
-  const free = SLOTS.filter(s => !s.needs || s.needs(objects)).map(s => ({ ...s, used: false })), out = [];
+function placeExtras(ids, objects, big = false) {
+  const free = slotsFor(big).filter(s => !s.needs || s.needs(objects)).map(s => ({ ...s, used: false })), out = [];
   for (const id of ids) {
     const it = ITEMS[id]; if (!it || it.d !== 1) continue;
     // a menor vaga em que cabe (na ordem da lista quando empata): móvel pequeno não ocupa vaga grande
@@ -37,11 +42,17 @@ function placeExtras(ids, objects) {
 
 function officeWorld(spec) {
   const base = tplSala(), st = STYLE_PRESETS[spec.style] || STYLE_PRESETS.moderno;
-  const starts = base.people.map(p => p.pos);
+  const big = (spec.team?.length || 0) > base.people.length;
+  const starts = base.people.map(p => p.pos).concat(big ? BIG_STARTS : []);
   let objects = base.objects.map(o => ({ ...o }));
+  if (big) {
+    // ala nova à direita: o que encostava na parede direita muda para a nova parede; segunda ilha e mais uma mesa
+    objects = objects.map(o => o.id === 'rack' || o.id === 'palmeira-2' ? { ...o, x: o.x + BIG.dx } : o);
+    objects.push({ id: 'ilha-2', item: 'island', x: 17, z: 1, rot: 0 }, { id: 'mesa-3', item: 'desk', x: 18, z: 6, rot: 0 }, { id: 'palmeira-3', item: 'palm', x: 16, z: 0, rot: 0 });
+  }
   const swap = (id, o) => { objects = objects.map(x => x.id === id ? { ...o, id } : x); };
   const drop = (...ids) => { objects = objects.filter(x => !ids.includes(x.id)); };
-  if (spec.delivery === 'impressora') swap('rack', { item: 'printer', x: 15, z: 1, rot: 0 });
+  if (spec.delivery === 'impressora') swap('rack', { item: 'printer', x: big ? 15 + BIG.dx : 15, z: 1, rot: 0 });
   if (spec.areas?.reception) swap('mesa-1', { item: 'reception', x: 2, z: 7, rot: 0 });
   if (spec.areas?.studio) {
     drop('sofa', 'centro', 'tapete');
@@ -51,7 +62,7 @@ function officeWorld(spec) {
   objects.push({ id: 'entrada', item: 'capacho', x: 5, z: 10, rot: 0 });
   // móveis do catálogo escolhidos pela IA + móveis criados por ela (registrados antes, em registerCustom)
   for (const c of spec.custom || []) registerCustom(c);
-  objects.push(...placeExtras([...(spec.custom || []).map(c => c.id), ...(spec.extras || [])], objects));
+  objects.push(...placeExtras([...(spec.custom || []).map(c => c.id), ...(spec.extras || [])], objects, big));
 
   // papéis: cores seguem o tipo, para a equipe ficar legível
   const roles = {}; const usedColors = new Set();
@@ -65,7 +76,7 @@ function officeWorld(spec) {
   }));
   return normalize({
     name: spec.name, service: spec.service || '', officeId: spec.createdAt || null,
-    tiles: rectTiles(16, 11, st.floor), wall: st.wall, floorMat: st.floor,
+    tiles: rectTiles(big ? BIG.width : 16, 11, st.floor), wall: st.wall, floorMat: st.floor,
     objects, walls: base.walls.map(w => ({ ...w })), people, roles, labels: { ...(spec.labels || {}) },
     demo: { tasks: spec.tasks || [], research: spec.research || [] },
     custom: spec.custom || [],

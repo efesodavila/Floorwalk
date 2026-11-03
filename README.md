@@ -32,7 +32,7 @@ Abra http://127.0.0.1:8787 . Na primeira vez, a página:
 1. pergunta qual IA usar (OpenAI, Anthropic ou Ollama) e a chave; o servidor testa os modelos
    da conta e fica sozinho com o primeiro que responde (se um modelo passar a ser recusado,
    ele troca por outro automaticamente). Quem quiser forçar um modelo usa `PIXELHQ_MODEL` no `.env`;
-2. pede que você descreva o seu negócio; a IA monta a equipe (3 a 6 pessoas), os papéis,
+2. pede que você descreva o seu negócio; a IA monta a equipe (3 a 10 pessoas; acima de 6 a sala ganha uma ala), os papéis,
    o estilo e as áreas do escritório, que aparece pronto com o campo de tarefa embaixo.
 A chave fica em `data/settings.json`, só no seu computador, legível apenas pelo seu usuário.
 Quem preferir pode deixar a chave no `.env` (veja `.env.example`).
@@ -62,7 +62,9 @@ conversar, olhar o quadro, ler, trabalho manual, acenar ao concluir e mão na ca
 - Sem WebGL, a página volta sozinha para o desenho 2D. Menu → **Visual 3D** desliga e liga.
 - Padrão: modo nítido, na resolução real da tela (até 2×), com bordas suavizadas (SMAA) e sombras suaves.
   `?px=3` volta ao visual pixel art (serrilhado de propósito, mais leve); `?2d` força o desenho 2D.
-- A edição da sala ainda usa o desenho 2D. O arquivo único (`build:single`) não inclui o 3D.
+- A edição da sala (menu → editar) funciona no 3D: arrastar, colocar, girar e desenhar paredes.
+- O arquivo único (`build:single`) inclui o 3D e os modelos (~10 MB). `--sem-modelos` gera ~1 MB com os
+  personagens low-poly; `--sem-3d` gera só o 2D.
 
 ## Como funciona
 
@@ -87,6 +89,13 @@ navegador (web/)  ──tarefa──▶  servidor (server/)  ──▶  agentes 
 - O servidor traduz o que os agentes fazem em eventos do [protocolo Pixel HQ](docs/PROTOCOLO.md).
   Qualquer sistema de agentes pode falar esse protocolo.
 - Os arquivos que os agentes criam ficam em `workspace/projeto/`.
+- **Pesquisa na internet:** na etapa de pesquisa (ou numa pergunta que depende de dado atual), a IA
+  propõe até 3 buscas, a equipe lê até 4 páginas e cita as fontes ([1], [2]… e "Fontes:" no fim).
+  Só leitura: os agentes não executam código nem enviam dados. Endereços da rede interna são
+  bloqueados. Busca pelo DuckDuckGo (sem chave) ou pela Brave Search API se houver `BRAVE_API_KEY`.
+  Menu → **Pesquisa na internet** liga e desliga; `PIXELHQ_WEB=0` desliga no servidor.
+- **Tarefas em paralelo:** até 2 ao mesmo tempo (`PIXELHQ_PARALELO`). Cada pessoa faz uma coisa por
+  vez; se duas tarefas precisam da mesma pessoa, uma espera a outra.
 
 ## Estrutura
 
@@ -96,7 +105,7 @@ navegador (web/)  ──tarefa──▶  servidor (server/)  ──▶  agentes 
 | `server/` | servidor HTTP + WebSocket, equipe de agentes e protocolo |
 | `docs/` | protocolo de eventos |
 | `test/` | testes (`npm test`), sem chamar nenhuma IA |
-| `scripts/` | gerador do arquivo único |
+| `scripts/` | arquivo único, conferência das plantas, retratos dos personagens, ilhas dos modelos, redução de textura |
 
 ## Roteiro
 
@@ -108,17 +117,18 @@ navegador (web/)  ──tarefa──▶  servidor (server/)  ──▶  agentes 
 
 ## Limites conhecidos
 
-- **Os agentes não acessam a internet nem seus sistemas.** Eles trabalham com o que o modelo sabe
-  e com o material da própria equipe. A pesquisa marca o que precisa ser confirmado.
-- **Uma tarefa por vez, uma pessoa por vez.** As tarefas entram em fila (até 5) e os passos são
-  sequenciais. O escritório mostra isso fielmente.
+- **Internet só para ler.** Os agentes buscam e leem páginas, mas não acessam seus sistemas, não
+  executam código e não preenchem formulários. Sites que exigem JavaScript ou login não são lidos.
+  O DuckDuckGo pode limitar ou bloquear buscas automáticas; com `BRAVE_API_KEY` é mais estável.
+- **Até 2 tarefas ao mesmo tempo** (fila de até 5). Dentro de cada tarefa os passos são sequenciais.
 - **Custo.** Cada tarefa faz de 3 a 8 chamadas ao modelo (plano, até 6 passos, uma correção e o
   fechamento). Acompanhe o uso no painel do provedor.
 - **Qualidade.** Depende do modelo escolhido. Modelos pequenos do Ollama erram mais o formato do
   plano; nesse caso o sistema usa um plano padrão (produzir e revisar).
-- **Um escritório por servidor**, com até 6 pessoas e uma planta base com 6 vagas para móveis extras.
+- **Um escritório por servidor**, com até 10 pessoas e duas plantas (até 6 pessoas e 6 vagas para móveis extras; de 7 a 10, sala maior com 7 vagas).
 - **Móveis criados pela IA** seguem regras de forma e cor, mas podem sair simples ou estranhos;
-  quando não passam nas regras, viram um móvel do catálogo com outro nome.
+  quando não passam nas regras (forma, cor, pelo menos 2 cores, largura ocupada, nada escondido),
+  viram um móvel do catálogo com outro nome.
 
 ## Contribuir
 

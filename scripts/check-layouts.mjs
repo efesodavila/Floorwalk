@@ -6,7 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 let chromium;
 try { ({ chromium } = await import('playwright')); }
-catch { console.error('Instale o Playwright: npm i -D playwright && npx playwright install chromium'); process.exit(2); }
+catch { try { ({ chromium } = (await import('node:module')).createRequire(import.meta.url)('playwright')); } catch { /* sem Playwright */ } }   // instalação global
+if (!chromium) { console.error('Instale o Playwright: npm i -D playwright && npx playwright install chromium'); process.exit(2); }
 
 const page = pathToFileURL(path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))), 'web', 'index.html')).href;
 const browser = await chromium.launch();
@@ -14,13 +15,15 @@ const pg = await browser.newPage();
 const errors = []; pg.on('pageerror', e => errors.push(e.message));
 await pg.goto(page); await pg.waitForTimeout(500);
 const result = await pg.evaluate(() => {
-  const spec = (style, studio, reception, delivery) => ({ name: 'Teste', style, delivery, areas: { studio, reception },
+  const NOMES = ['Ana', 'Bia', 'Caio', 'Duda', 'Edu', 'Fê', 'Gil', 'Hugo', 'Iara', 'Juca'];
+  const spec = (style, studio, reception, delivery, size = 6) => ({ name: 'Teste', style, delivery, areas: { studio, reception },
     roles: [{ id: 'c', name: 'C', kind: 'coordena' }, { id: 'p', name: 'P', kind: 'produz' }, { id: 'r', name: 'R', kind: 'revisa' }],
-    team: ['Ana', 'Bia', 'Caio', 'Duda', 'Edu', 'Fê'].map((n, i) => ({ name: n, role: i === 0 ? 'c' : i === 5 ? 'r' : 'p' })), labels: {}, tasks: [], research: [] });
+    team: NOMES.slice(0, size).map((n, i) => ({ name: n, role: i === 0 ? 'c' : i === 5 ? 'r' : 'p' })), labels: {}, tasks: [], research: [] });
   const out = {}; let n = 0;
-  for (const s of Object.keys(STYLE_PRESETS)) for (const st of [false, true]) for (const re of [false, true]) for (const d of ['servidor', 'impressora']) {
-    n++; const p = officeProblems(officeWorld(spec(s, st, re, d)));
-    if (p.length) out[`${s} · estúdio ${st} · recepção ${re} · ${d}`] = p;
+  for (const size of [6, 10]) for (const s of Object.keys(STYLE_PRESETS)) for (const st of [false, true]) for (const re of [false, true]) for (const d of ['servidor', 'impressora']) {
+    n++; const w = officeWorld(spec(s, st, re, d, size)), p = officeProblems(w);
+    if (w.people.length !== size) p.push(`equipe de ${size} virou ${w.people.length}`);
+    if (p.length) out[`${size} pessoas · ${s} · estúdio ${st} · recepção ${re} · ${d}`] = p;
   }
   // cada móvel extra em cada vaga em que cabe
   const extras = Object.keys(ITEMS).filter(id => ITEMS[id].d === 1 && ['atendimento', 'cozinha', 'comércio', 'oficina'].includes(ITEMS[id].cat));
@@ -33,9 +36,9 @@ const result = await pg.evaluate(() => {
   }
   // todas as vagas ocupadas, com e sem estúdio, com um móvel criado pela IA
   registerCustom({ id: 'c_teste', act: 'x_teste', place: 'p_teste', name: 'Móvel de teste', purpose: 'testar', w: 2, boxes: [[0, .1, 2, .8, 0, .9, '#B07A4A', 0]] });
-  for (const st of [false, true]) {
-    n++; const w = officeWorld({ ...spec('criativo', st, true, 'impressora'), extras: ['bancada_cozinha', 'estoque', 'maca', 'vitrine', 'balanca'], custom: [{ id: 'c_teste', act: 'x_teste', place: 'p_teste', name: 'Móvel de teste', purpose: 'testar', w: 2, boxes: [[0, .1, 2, .8, 0, .9, '#B07A4A', 0]] }] });
-    const p = officeProblems(w); if (p.length) out[`vagas cheias (estúdio ${st})`] = p;
+  for (const st of [false, true]) for (const size of [6, 10]) {
+    n++; const w = officeWorld({ ...spec('criativo', st, true, 'impressora', size), extras: ['bancada_cozinha', 'estoque', 'maca', 'vitrine', 'balanca'], custom: [{ id: 'c_teste', act: 'x_teste', place: 'p_teste', name: 'Móvel de teste', purpose: 'testar', w: 2, boxes: [[0, .1, 2, .8, 0, .9, '#B07A4A', 0]] }] });
+    const p = officeProblems(w); if (p.length) out[`vagas cheias (estúdio ${st}, ${size} pessoas)`] = p;
   }
   // o validador precisa pegar um erro de propósito
   const bad = officeWorld(spec('moderno', false, false, 'servidor')); bad.objects.push({ id: 'x', item: 'sofa', x: 2, z: 2, rot: 0 });

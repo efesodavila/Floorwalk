@@ -52,7 +52,14 @@ REGRAS
   (ex.: tampo apoiado nos pés, tela presa no monitor).
 - "brilho": true só para telas, luzes e chamas.
 - Cores (use só estas): ${Object.keys(COLORS).join(', ')}.
-- Faça o móvel reconhecível pela silhueta, com poucos detalhes, como os do exemplo.
+- Faça o móvel reconhecível pela silhueta, com poucos detalhes, como os dos exemplos.
+
+QUALIDADE (também conferida)
+- Antes dos blocos, liste em "partes" de 3 a 6 partes que fazem o móvel ser reconhecido (ex.: "base", "tampo", "tela").
+- Ocupe pelo menos metade da largura W que você escolheu (escolha W pelo tamanho real do móvel).
+- Pelo menos 2 cores: estrutura numa cor, detalhes em outra que contraste.
+- Nenhum bloco escondido inteiro dentro de outro (não aparece e faz a imagem piscar).
+- Varie as alturas: o que a pessoa usa fica na frente (z perto de 1); o que é alto fica no fundo (z perto de 0).
 
 EXEMPLO (Mesa de embalagem, W=2):
 {"w":2,"blocos":[
@@ -61,7 +68,15 @@ EXEMPLO (Mesa de embalagem, W=2):
 {"x":0,"z":0.1,"l":2,"p":0.85,"y":0.8,"a":0.06,"cor":"creme"},
 {"x":0.2,"z":0.25,"l":0.55,"p":0.45,"y":0.86,"a":0.35,"cor":"madeira_clara"},{"x":1.55,"z":0.35,"l":0.22,"p":0.22,"y":0.86,"a":0.1,"cor":"cinza"}]}
 
-Responda SOMENTE com o JSON do móvel.`;
+EXEMPLO (Caixa eletrônico, W=1):
+{"partes":["gabinete","tela","teclado","saída de dinheiro"],"w":1,"blocos":[
+{"x":0.1,"z":0.05,"l":0.8,"p":0.6,"y":0,"a":1.5,"cor":"grafite"},
+{"x":0.2,"z":0.65,"l":0.6,"p":0.25,"y":0.9,"a":0.06,"cor":"cinza_claro"},
+{"x":0.25,"z":0.65,"l":0.5,"p":0.04,"y":1.05,"a":0.35,"cor":"tela","brilho":true},
+{"x":0.3,"z":0.7,"l":0.4,"p":0.15,"y":0.96,"a":0.03,"cor":"preto"},
+{"x":0.3,"z":0.65,"l":0.4,"p":0.05,"y":0.6,"a":0.06,"cor":"amarelo"}]}
+
+Responda SOMENTE com o JSON do móvel: {"partes":[...],"w":..,"blocos":[...]}.`;
 }
 
 // Valida o desenho. Devolve { ok, w, boxes } ou { ok:false, problems }.
@@ -92,6 +107,14 @@ export function validateDesign(raw) {
   for (let changed = true; changed;) { changed = false; boxes.forEach((b, i) => { if (!grounded.has(i) && [...grounded].some(j => touch(b, boxes[j]))) { grounded.add(i); changed = true; } }); }
   boxes.forEach((b, i) => { if (!grounded.has(i)) problems.push(`bloco ${i + 1}: está flutuando`); });
   if (boxes.length && Math.max(...boxes.map(b => b.y + b.a)) < .3) problems.push('o móvel ficou baixo demais para ser visto');
+  // qualidade: o que funciona mas fica feio ou pisca
+  if (boxes.length >= 3) {
+    if (new Set(boxes.map(b => b.cor)).size < 2) problems.push('use pelo menos 2 cores (estrutura e detalhes)');
+    const span = Math.max(...boxes.map(b => b.x + b.l)) - Math.min(...boxes.map(b => b.x));
+    if (w && span < w / 2 - .001) problems.push(`o móvel ocupa só ${span.toFixed(2)} de largura; ocupe pelo menos metade de W=${w} ou escolha um W menor`);
+    const inside = (A, Bx) => A.x >= Bx.x - .001 && A.x + A.l <= Bx.x + Bx.l + .001 && A.z >= Bx.z - .001 && A.z + A.p <= Bx.z + Bx.p + .001 && A.y >= Bx.y - .001 && A.y + A.a <= Bx.y + Bx.a + .001;
+    boxes.forEach((b, i) => { const j = boxes.findIndex((o, k) => k !== i && inside(b, o) && !(inside(o, b) && k > i)); if (j >= 0) problems.push(`bloco ${i + 1}: fica escondido dentro do bloco ${j + 1}`); });
+  }
   if (problems.length) return { ok: false, problems: [...new Set(problems)].slice(0, 8) };
   return { ok: true, w, boxes: boxes.map(b => [b.x, b.z, b.l, b.p, b.y, b.a, COLORS[b.cor], b.glow ? 1 : 0]) };
 }

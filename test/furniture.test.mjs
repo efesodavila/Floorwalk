@@ -42,6 +42,16 @@ test('regras: flutuando, fora dos limites, cor inventada, alto demais', () => {
   for (const p of ['flutuando', 'largura', 'alto demais', 'dourado']) assert.match(all, new RegExp(p));
 });
 
+test('qualidade: uma cor só, móvel estreito demais para W e bloco escondido dentro de outro são recusados', () => {
+  const mono = validateDesign({ w: 1, blocos: [{ x: .1, z: .1, l: .8, p: .8, y: 0, a: .7, cor: 'cinza' }, { x: .1, z: .1, l: .8, p: .8, y: .7, a: .1, cor: 'cinza' }, { x: .3, z: .3, l: .3, p: .3, y: .8, a: .3, cor: 'cinza' }] });
+  assert.match(mono.problems.join(), /2 cores/);
+  const narrow = validateDesign({ w: 3, blocos: [{ x: 0, z: .1, l: .5, p: .8, y: 0, a: .7, cor: 'cinza' }, { x: 0, z: .1, l: .5, p: .8, y: .7, a: .1, cor: 'madeira' }, { x: .1, z: .3, l: .3, p: .3, y: .8, a: .3, cor: 'tela' }] });
+  assert.match(narrow.problems.join(), /metade de W=3/);
+  const hidden = validateDesign({ ...structuredClone(good), blocos: [...structuredClone(good).blocos, { x: .2, z: .3, l: .3, p: .3, y: .81, a: .03, cor: 'preto' }] });
+  assert.match(hidden.problems.join(), /bloco 5: fica escondido dentro do bloco 3/);
+  assert.equal(validateDesign({ ...good, partes: ['pés', 'tampo', 'tela'] }).ok, true, 'o campo "partes" é aceito e ignorado');
+});
+
 test('peça presa na lateral conta como apoiada (ex.: saída de papel da impressora)', () => {
   const v = validateDesign({ w: 1, blocos: [{ x: .1, z: .2, l: .8, p: .6, y: 0, a: .6, cor: 'cinza_claro' }, { x: .1, z: .2, l: .8, p: .6, y: .6, a: .12, cor: 'grafite' }, { x: .25, z: .8, l: .5, p: .04, y: .45, a: .03, cor: 'branco' }] });
   assert.equal(v.ok, true);
@@ -67,4 +77,11 @@ test('lugares novos aparecem só com o móvel certo; palavras levam ao lugar', (
   assert.equal(guessPlace('Fazer a consulta da Joana', 'produzir', clinic), 'atendimento');
   const rest = placesFor({ areas: {}, delivery: 'servidor', extras: ['fogao'] });
   assert.equal(guessPlace('Criar o cardápio de sábado', 'produzir', rest), 'cozinha');
+});
+
+test('os exemplos do pedido à IA passam nas próprias regras', async () => {
+  let p; await designFurniture(async ({ messages }) => { p = messages[0].content; return 'x'; }, { name: 'a', purpose: 'b' });
+  const ex = [...p.matchAll(/EXEMPLO[^\n]*\n(\{[\s\S]*?\]\})/g)].map(x => JSON.parse(x[1]));
+  assert.equal(ex.length, 2);
+  for (const e of ex) assert.deepEqual(validateDesign(e).problems, undefined);
 });

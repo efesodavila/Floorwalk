@@ -13,6 +13,8 @@ import * as llm from './llm.mjs';
 import { msg, parseClientMessage } from './protocol.mjs';
 import { createPacer } from './pacer.mjs';
 import { runTask, teamOf } from './runner.mjs';
+import * as webAccess from './web.mjs';
+import { createLocks } from './locks.mjs';
 
 const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR || './workspace');
 
@@ -20,13 +22,16 @@ const DEMO = process.argv.includes('--demo');
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const MIN_DWELL = Number(process.env.MIN_DWELL_MS || 3500);
+// quantas tarefas rodam ao mesmo tempo (cada agente continua fazendo uma coisa por vez)
+const MAX_PARALLEL = Math.max(1, Math.min(4, Number(process.env.PIXELHQ_PARALELO || 2)));
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 
 /* ---------- transmissão ---------- */
 const clients = new Set();
 const lastState = new Map(); // agente -> último estado (para quem conecta depois)
-let current = null;          // tarefa em andamento
+const running = new Map();   // tarefas em andamento: id → tarefa
+const locks = createLocks();   // agente ocupado em outra tarefa: espera
 const queue = [];
 
 function broadcast(m) {
@@ -35,9 +40,10 @@ function broadcast(m) {
   for (const ws of clients) if (ws.readyState === 1) ws.send(data);
 }
 const pacer = createPacer(broadcast, MIN_DWELL);
-const log = (agent, text) => broadcast(msg.log(agent, text, current?.id));
-const say = (member, state, task, extra = {}, hold) =>
-  pacer.push(msg.state({ agent: member.name, state, task, run: current?.id, ...extra }), hold);
+// eventos de uma tarefa (o id da tarefa vai em cada evento: a página sabe de qual tarefa é)
+const logFor = (t) => (agent, text) => broadcast(msg.log(agent, text, t.id));
+const sayFor = (t) => (member, state, task, extra = {}, hold) =>
+  pacer.push(msg.state({ agent: member.name, state, task, run: t.id, ...extra }), hold);
 
 const clip = (s, n = 50) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
@@ -48,55 +54,68 @@ async function currentTeam() {
 }
 const leadOf = (T) => T.find(m => m.kind === 'coordena') || T[0];
 
-/* ---------- fila de tarefas (uma por vez) ---------- */
-async function processQueue() {
-  if (current || !queue.length) return;
-  current = queue.shift(); current.abort = new AbortController();
-  broadcast(msg.task(current.id, 'em_andamento', { text: current.text }));
+/* ---------- fila de tarefas (até MAX_PARALLEL ao mesmo tempo) ---------- */
+function processQueue() {
+  while (running.size < MAX_PARALLEL && queue.length) runOne(queue.shift());
+}
+async function runOne(task) {
+  running.set(task.id, task); task.abort = new AbortController();
+  const say = sayFor(task);
+  broadcast(msg.task(task.id, 'em_andamento', { text: task.text }));
   const T = await currentTeam(), lead = leadOf(T) || { name: '?' };
   try {
     if (!T.length) throw new Error('Monte o escritório antes de delegar tarefas.');
-    const r = DEMO ? { output: await demoRun(current.text), folder: null } : await realRun(current);
+    const r = DEMO ? { output: await demoRun(task), folder: null } : await realRun(task);
     await pacer.drain();
-    say(lead, 'concluido', clip(current.text), { detail: 'Tarefa entregue' }, 4500);
+    say(lead, 'concluido', clip(task.text), { detail: 'Tarefa entregue' }, 4500);
     await pacer.drain();
-    broadcast(msg.task(current.id, 'concluida', { text: current.text, output: r.output.slice(0, 6000), ...(r.folder ? { folder: path.relative(process.cwd(), r.folder).startsWith('..') ? r.folder : path.relative(process.cwd(), r.folder) } : {}) }));
+    broadcast(msg.task(task.id, 'concluida', { text: task.text, output: r.output.slice(0, 6000), ...(r.folder ? { folder: path.relative(process.cwd(), r.folder).startsWith('..') ? r.folder : path.relative(process.cwd(), r.folder) } : {}) }));
   } catch (e) {
-    const cancelled = e?.code === 'cancelled' || current.abort.signal.aborted;
+    const cancelled = e?.code === 'cancelled' || task.abort.signal.aborted;
     const why = cancelled ? 'Tarefa cancelada.' : e?.code === 'no_model' ? e.message : (e?.provider ? explainError(e.provider, e) : e?.message || String(e));
     if (!cancelled) console.error('[tarefa]', e);
     await pacer.drain();
-    say(lead, cancelled ? 'ocioso' : 'bloqueado', clip(current.text), { detail: clip(why, 140) });
+    say(lead, cancelled ? 'ocioso' : 'bloqueado', clip(task.text), { detail: clip(why, 140) });
     // modelo sem acesso (404): guarda o aviso e a página oferece trocar a IA
     const modelProblem = !cancelled && (e?.code === 'no_model' || e?.status === 401);
     if (modelProblem) await settings.markModelBroken(why).catch(() => {});
-    broadcast(msg.task(current.id, cancelled ? 'cancelada' : 'erro', { text: current.text, error: clip(why, 300), ...(modelProblem ? { fix: 'ai' } : {}) }));
+    broadcast(msg.task(task.id, cancelled ? 'cancelada' : 'erro', { text: task.text, error: clip(why, 300), ...(modelProblem ? { fix: 'ai' } : {}) }));
   } finally {
-    current = null;
+    running.delete(task.id);
     processQueue();
   }
 }
+
+// internet ligada? (menu da página; PIXELHQ_WEB=0 desliga no servidor)
+const webOn = async () => process.env.PIXELHQ_WEB !== '0' && (await settings.load()).web !== false;
 
 /* ---------- execução real: a equipe do escritório, com o provedor configurado ---------- */
 async function realRun(task) {
   const cfg = await settings.active();
   if (!cfg) throw new Error('Conecte uma IA antes de delegar tarefas (menu no canto superior direito).');
   const spec = await office.load();
+  const log = logFor(task);
   const chat = async (o) => {
     try { return await llm.chat(o, (from, to) => log('Sistema', `O modelo ${from} foi recusado pela ${PROVIDERS[cfg.provider].name}; a equipe passou a usar ${to}.`)); }
     catch (e) { if (o.signal?.aborted) throw Object.assign(new Error('Tarefa cancelada.'), { code: 'cancelled' }); throw e; }
   };
   return runTask({
     text: task.text, spec, chat, signal: task.abort.signal, outDir: path.join(WORKSPACE, 'entregas'),
-    say, log: (agent, text) => log(agent, text),
+    say: sayFor(task), log, lock: locks.lock, web: (await webOn()) ? webAccess : null,
     result: (item) => broadcast(msg.result(task.id, item)),
   });
 }
 
 /* ---------- modo demo: o mesmo fluxo de eventos, sem chamar nenhuma IA ---------- */
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-async function demoRun(text) {
+async function demoRun(task) {
+  const text = task.text, say = sayFor(task);
   const T = await currentTeam(), by = (k) => T.filter(m => m.kind === k);
+  // demo: a equipe inteira fica com uma tarefa por vez (sem IA não há como dividir o trabalho)
+  const release = await locks.lock(T.map(m => m.name).sort());
+  try { return await demoSteps(T, by, text, say); } finally { release(); }
+}
+async function demoSteps(T, by, text, say) {
   const lead = leadOf(T), maker = by('produz')[0] || lead, rev = by('revisa')[0], res = by('pesquisa')[0], del = by('entrega')[0];
   const L = clip(text);
   const brief = async (m) => {
@@ -119,7 +138,7 @@ const WEB = path.join(ROOT, 'web');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, demo: DEMO, tarefa: current?.text ?? null, fila: queue.length })); return; }
+  if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, demo: DEMO, tarefas: [...running.values()].map(t => t.text), fila: queue.length })); return; }
   // diz à página que ela está rodando com o servidor (liga o modo tempo real)
   if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.PIXELHQ_BRIDGE = true;\n`); return; }
   if (url.pathname.startsWith('/api/')) { await api(req, res, url); return; }
@@ -184,6 +203,11 @@ async function api(req, res, url) {
       await settings.save({ provider: b.provider, model, apiKey: b.apiKey?.trim() || undefined, baseUrl: b.baseUrl === undefined ? undefined : b.baseUrl.trim() });
       return json(res, 200, { ok: true, model, settings: settings.publicView(await settings.load()) });
     }
+    if (url.pathname === '/api/settings/web' && req.method === 'POST') {
+      const b = await readJSON(req);
+      await settings.setWeb(b.web !== false);
+      return json(res, 200, { ok: true, settings: settings.publicView(await settings.load()) });
+    }
     if (url.pathname === '/api/office' && req.method === 'GET') return json(res, 200, { office: await office.load() });
     if (url.pathname === '/api/office/plan' && req.method === 'POST') {
       const b = await readJSON(req), desc = String(b.description || '').trim();
@@ -220,12 +244,12 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   ws.send(JSON.stringify(msg.hello(DEMO)));
   currentTeam().then(T => T.length && ws.readyState === 1 && ws.send(JSON.stringify(msg.team(T))));
-  if (current) ws.send(JSON.stringify(msg.task(current.id, 'em_andamento', { text: current.text })));
+  for (const t of running.values()) ws.send(JSON.stringify(msg.task(t.id, 'em_andamento', { text: t.text })));
   for (const m of lastState.values()) ws.send(JSON.stringify(m));
   ws.on('message', (raw) => {
     const t = parseClientMessage(raw); if (!t) return;
     if (t.cancel) {
-      if (current?.id === t.cancel) current.abort.abort();
+      running.get(t.cancel)?.abort.abort();
       const i = queue.findIndex(q => q.id === t.cancel);
       if (i >= 0) { const [q] = queue.splice(i, 1); broadcast(msg.task(q.id, 'cancelada', { text: q.text })); }
       return;

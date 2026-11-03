@@ -9,7 +9,7 @@ import { CATALOG, designFurniture, slug as furnSlug } from './furniture.mjs';
 const FILE = path.resolve(process.env.PIXELHQ_DATA_DIR || './data', 'office.json');
 export const STYLES = ['moderno', 'aconchegante', 'clinico', 'criativo', 'industrial'];
 const LABELABLE = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'entregando'];
-export const LIMITS = { teamMin: 3, teamMax: 6, rolesMax: 6 };
+export const LIMITS = { teamMin: 3, teamMax: 10, rolesMax: 6 };
 
 export function buildPrompt(description) {
   return `Você monta escritórios virtuais onde cada pessoa é um agente de IA que trabalha para um negócio.
@@ -20,6 +20,7 @@ DESCRIÇÃO DO SERVIÇO:
 
 REGRAS
 - Equipe de ${LIMITS.teamMin} a ${LIMITS.teamMax} pessoas, com nomes brasileiros curtos (até 12 letras), todos diferentes.
+  Prefira de 4 a 6; passe de 6 só se o negócio realmente precisa de mais gente (a sala fica maior).
 - Papéis próprios deste negócio (ex.: "Redação", "Atendimento", "Nutrição"). Cada papel tem um "tipo", que define o comportamento:
   coordena = organiza o trabalho (exatamente UM papel com este tipo, com uma pessoa)
   produz   = faz o trabalho principal (pelo menos um)

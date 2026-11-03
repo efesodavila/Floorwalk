@@ -6,12 +6,13 @@
 // Personagens: modelos GLB de web/modelos/ (personagens3d-meshy.js), repintados com a aparência de cada pessoa;
 // sem eles, personagens low-poly feitos em código (personagens3d-lowpoly.js).
 // É o padrão quando a página roda com o servidor; sem WebGL, volta sozinho para o 2D.
-// Vale para o modo ao vivo; a edição da sala continua no desenho 2D.
+// Vale para o modo ao vivo e para a edição da sala (Construir).
 // Mouse: arrastar move · roda aproxima (na direção do cursor) · botão direito ou Shift + arrastar gira.
 
 const pref = (() => { try { return localStorage.getItem('pixelhq.3d'); } catch { return null; } })();
 const qs = new URLSearchParams(location.search);
-const WANT = qs.has('3d') || (!qs.has('2d') && pref !== '0' && !!window.PIXELHQ_BRIDGE);
+// com o servidor, ou no arquivo único (que traz o 3D embutido: PIXELHQ_3D)
+const WANT = qs.has('3d') || (!qs.has('2d') && pref !== '0' && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D));
 window.R3D = { active: () => false, wanted: WANT, stats: { fps: 0 } };
 if (WANT) start().catch((e) => {
   console.error('[3d]', e);
@@ -30,11 +31,14 @@ async function start() {
   const { RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js');
   const { mergeGeometries, mergeVertices } = await import('three/addons/utils/BufferGeometryUtils.js');
   // linha visual dos personagens: meshy (padrão: modelos gerados com acessórios) | lowpoly (?estilo=lowpoly)
-  const ESTILOS = { lowpoly: './personagens3d-lowpoly.js', meshy: './personagens3d-meshy.js' };
+  // caminhos fixos (não variáveis): o empacotador do arquivo único (scripts/build-single.mjs) consegue segui-los
+  const ESTILOS = { lowpoly: () => import('./personagens3d-lowpoly.js'), meshy: () => import('./personagens3d-meshy.js') };
   // se os modelos do padrão não carregarem (arquivo ausente, rede), cai para o low-poly feito em código
   let characterKit, kitArgs;
-  try { ({ characterKit } = await import(ESTILOS[qs.get('estilo')] || ESTILOS.meshy)); }
-  catch (e) { console.warn('[3D] estilo de personagem indisponível, usando low-poly:', e); ({ characterKit } = await import(ESTILOS.lowpoly)); }
+  // arquivo único sem os modelos embutidos (PIXELHQ_MODELOS === false): direto o low-poly
+  const PADRAO = window.PIXELHQ_MODELOS === false ? 'lowpoly' : 'meshy';
+  try { ({ characterKit } = await (ESTILOS[qs.get('estilo')] || ESTILOS[PADRAO])()); }
+  catch (e) { console.warn('[3D] estilo de personagem indisponível, usando low-poly:', e); ({ characterKit } = await ESTILOS.lowpoly()); }
   const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
 
   /* ---------- tamanho do pixel ----------
@@ -227,7 +231,7 @@ async function start() {
   /* ---------- personagens 3D (aparência do Pixel HQ, estilo do Pixel Moda) ---------- */
   let kit;
   try { kit = await characterKit({ THREE, RoundedBoxGeometry, mergeGeometries, mergeVertices, gradientMap }); }
-  catch (e) { console.warn('[3D] modelos de personagem não carregaram, usando low-poly:', e); kit = await (await import(ESTILOS.lowpoly)).characterKit({ THREE, RoundedBoxGeometry, mergeGeometries, mergeVertices, gradientMap }); }
+  catch (e) { console.warn('[3D] modelos de personagem não carregaram, usando low-poly:', e); kit = await (await ESTILOS.lowpoly()).characterKit({ THREE, RoundedBoxGeometry, mergeGeometries, mergeVertices, gradientMap }); }
   // luz de ambiente só nos materiais dos personagens (o cenário continua no sombreado "toon")
   if (kit.setEnv) { const pm = new THREE.PMREMGenerator(renderer); kit.setEnv(pm.fromScene(new RoomEnvironment(), .04).texture, .35); pm.dispose(); }
   // retratos das listas (Equipe, ficha, cartões) feitos com o próprio modelo 3D, em vez do sprite 2D.
@@ -243,6 +247,8 @@ async function start() {
     const shot = (p, w, h, full) => {
       const key = kit.lookKey(p) + (full ? 'F' : 'H') + w;
       if (cache.has(key)) return cache.get(key);
+      // modelo ainda baixando: retrato 2D por enquanto e redesenha as listas quando chegar
+      if (kit.ready && !kit.ready(p)) { kit.load(p).then(refresh, () => {}); return (full ? full2d : avatar2d)(p, full ? w / 36 : w / 24); }
       const v = kit.build(p); kit.pose(v, { sit: false, moving: false, act: null }, 0, 0); kit.pose(v, { sit: false, moving: false, act: null }, 1, 0);
       v.root.rotation.y = .35; ps.add(v.root); v.root.updateMatrixWorld(true);
       const b = new THREE.Box3().setFromObject(v.root), top = b.max.y, H = top - b.min.y;
@@ -258,7 +264,8 @@ async function start() {
     window.fullAvatar = (p, s = 4) => { try { return shot(p, 36 * s, 60 * s, true); } catch (e) { return full2d(p, s); } };
     document.body.classList.add('r3d-avatars');
     // listas já desenhadas com o retrato 2D: redesenha
-    try { if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards(); } catch {}
+    function refresh() { try { if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards(); } catch {} }
+    refresh();
   }
   // contorno dos personagens: ligado por padrão; ?contorno=0 desliga (para comparar)
   const CHAR_OUTLINE = qs.get('contorno') !== '0';
@@ -288,6 +295,8 @@ async function start() {
     for (const it of drawables) {
       const p = it.person, o = it.opts, a = sim.agents.find(x => x.id === p.id); seen.add(p.id);
       let e = people.get(p.id);
+      // modelo do penteado ainda baixando: espera (a pessoa aparece quando ele chegar)
+      if (kit.ready && !kit.ready(p)) continue;
       if (!e || e.v.key !== kit.lookKey(p)) {
         if (e) { scene.remove(e.v.root); kit.dispose(e.v); }
         const v = kit.build(p); v.root.userData.id = p.id; scene.add(v.root);
@@ -514,15 +523,68 @@ async function start() {
   // "Centralizar" do 2D também vale aqui
   const fit3d = () => { cam.panX = 0; cam.panZ = 0; cam.zoom = 1; };
 
+  /* ---------- editor da sala (modo Construir) sobre o 3D ----------
+     O editor continua sendo o de web/js (17-entrada.js), com as mesmas regras. Aqui só trocamos as duas funções de
+     projeção (sala → tela e tela → piso) pelas da câmera 3D, e o clique em móveis/paredes/pessoas vira um raio 3D. */
+  const editing = () => mode === 'build';
+  const offset = () => { const r = scene2d.getBoundingClientRect(); return [r.left, r.top]; };
+  const iso2d = window.iso, unIso2d = window.unIso, hitAny2d = window.hitAny, hitPerson2d = window.hitPerson;
+  let lastGround = { x: 0, z: 0 };
+  window.iso = (x, z, y = 0, V) => { if (!editing()) return iso2d(x, z, y, V); const [ox, oy] = offset(), q = toScreen(x, y, z); return [Math.round(q[0] - ox), Math.round(q[1] - oy)]; };
+  window.unIso = (sx, sy) => { if (!editing()) return unIso2d(sx, sy); const [ox, oy] = offset(), g = groundAt(sx + ox, sy + oy); if (g) lastGround = { x: g.x, z: g.z }; return { ...lastGround }; };
+  const _box = new THREE.Box3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _hit = new THREE.Vector3();
+  const rayFrom = (sx, sy) => { const [ox, oy] = offset(); ray.setFromCamera(ndc(sx + ox, sy + oy), camera); return ray.ray; };
+  // o item mais perto da câmera sob o cursor (os "planos", como tapetes, perdem para o que está em cima)
+  window.hitAny = (sx, sy, only) => {
+    if (!editing()) return hitAny2d(sx, sy, only);
+    const r = rayFrom(sx, sy); let best = null, bd = Infinity;
+    const test = (bx, sel, flat) => { _box.set(_a.set(bx.x, bx.y, bx.z), _b.set(bx.x + bx.w, bx.y + Math.max(bx.h, .02), bx.z + bx.d)); if (!r.intersectBox(_box, _hit)) return; const d = _hit.distanceTo(r.origin) + (flat ? 1000 : 0); if (d < bd) { bd = d; best = sel; } };
+    if (only !== 'wall') for (const o of W.objects) for (const bx of worldBoxes(o)) test(bx, { type: 'obj', id: o.id }, ITEMS[o.item]?.flat);
+    if (only !== 'obj') for (const s of W.walls) for (const bx of segBoxes(s)) test(bx, { type: 'wall', id: s.id }, false);
+    return best;
+  };
+  // pessoa (no editor ficam paradas no lugar delas): perto do segmento pé → cabeça na tela
+  window.hitPerson = (sx, sy) => {
+    if (!editing()) return hitPerson2d(sx, sy);
+    for (const p of [...W.people].reverse()) {
+      const a = window.iso(p.pos[0], p.pos[1], 0), b = window.iso(p.pos[0], p.pos[1], 1.4);
+      const t = Math.max(0, Math.min(1, ((sx - a[0]) * (b[0] - a[0]) + (sy - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1)));
+      if (Math.hypot(sx - (a[0] + (b[0] - a[0]) * t), sy - (a[1] + (b[1] - a[1]) * t)) < 16) return p;
+    }
+    return null;
+  };
+  // câmera comandada pelo editor (o canvas do editor fica por cima e recebe o mouse)
+  let edPan = null, edRot = null;
+  const camAPI = {
+    panStart(sx, sy) { const [ox, oy] = offset(); edPan = { start: groundAt(sx + ox, sy + oy), px: cam.panX, pz: cam.panZ }; },
+    panMove(sx, sy) {
+      if (!edPan?.start) return; const [ox, oy] = offset();
+      cam.panX = edPan.px; cam.panZ = edPan.pz; updateCamera();
+      const now = groundAt(sx + ox, sy + oy); if (now) { cam.panX = edPan.px + edPan.start.x - now.x; cam.panZ = edPan.pz + edPan.start.z - now.z; }
+    },
+    rotStart(sx) { edRot = { x: sx, yaw: cam.yaw }; },
+    rotMove(sx) { if (edRot) { cam.yaw = edRot.yaw - (sx - edRot.x) * .008; cam.yawGoal = cam.yaw; } },
+    rotEnd() { edRot = null; cam.yawGoal = snapYaw(cam.yaw); },
+    zoomAt(f, sx, sy) {
+      const [ox, oy] = offset(), before = groundAt(sx + ox, sy + oy);
+      cam.zoom = Math.min(5, Math.max(.6, cam.zoom * f)); updateCamera();
+      const after = groundAt(sx + ox, sy + oy); if (before && after) { cam.panX += before.x - after.x; cam.panZ += before.z - after.z; }
+    },
+  };
+
   /* ---------- laço ---------- */
-  const active = () => mode === 'live';
-  window.R3D = { active, wanted: true, stats: { fps: 0 }, fit: fit3d };
+  // 3D nos dois modos: ao vivo e no editor (Construir)
+  const active = () => mode === 'live' || mode === 'build';
+  window.R3D = { active, editing, wanted: true, stats: { fps: 0 }, fit: fit3d, ...camAPI };
   let sig = '', frames = 0, fpsT = performance.now(), n = 0;
   function loop(now) {
     requestAnimationFrame(loop);
     const on = active();
     canvas.style.display = ui.style.display = on ? 'block' : 'none';
-    scene2d.style.visibility = on ? 'hidden' : 'visible';
+    // ao vivo o canvas 2D some; no editor ele fica transparente por cima (marcas do editor) e recebe o mouse
+    const ed = on && editing();
+    scene2d.style.visibility = on && !ed ? 'hidden' : 'visible';
+    scene2d.style.zIndex = ed ? '2' : '';
     if (!on) return;
     const T = now / 1000;
     if (n++ % 20 === 0) { const s = JSON.stringify([W.objects, W.walls, W.wall, W.tiles]); if (s !== sig) { sig = s; rebuild(); } }

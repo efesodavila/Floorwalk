@@ -115,6 +115,14 @@ O servidor responde com mensagens `task` usando o mesmo `id`. Para cancelar:
   por alguns segundos (a ponte usa `MIN_DWELL_MS`, 3,5 s por padrão), senão o personagem
   troca de destino antes de sair do lugar. Isso atrasa a imagem em relação à realidade; o
   resultado final não muda.
-- **Uma tarefa por vez** na ponte de referência. Pedidos novos entram na fila (máx. 5).
+- **Tarefas em paralelo.** A ponte de referência roda até 2 tarefas ao mesmo tempo (`PIXELHQ_PARALELO`;
+  1 volta ao comportamento antigo, uma por vez). Pedidos além disso entram na fila (máx. 5).
+  Mensagens `state`, `log`, `result` e `task` de tarefas diferentes chegam intercaladas: use `run`
+  para saber a que tarefa cada uma pertence. Cada agente faz uma coisa por vez — se duas tarefas
+  precisam da mesma pessoa, a segunda espera ela ficar livre.
+- **Internet.** Na pesquisa, a ponte pode buscar na web e ler páginas (só leitura). O agente aparece
+  em `pesquisando` com `detail` "Buscando: …" e "Lendo <site>". O texto final cita as fontes como
+  [1], [2] e termina com "Fontes:". Liga e desliga no menu (**Pesquisa na internet**) ou com
+  `PIXELHQ_WEB=0`.
 - **Origem.** O WebSocket só aceita a página servida pelo próprio servidor. Sem isso,
   qualquer site aberto no seu navegador poderia mandar tarefas e gastar sua chave.

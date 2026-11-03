@@ -7,13 +7,18 @@
 //   3. O resultado é a última entrega (a final, ou a última produção).
 //
 // Tudo vira eventos (say) e entregas (result), e é salvo em arquivos .md.
+//
+// Internet (opcional, parâmetro web = { search, readPage }): passos de pesquisa — e respostas diretas que o
+// coordenador marcar como dependentes de informação atual — buscam na web, leem até 4 páginas e citam as fontes.
+// Paralelismo (opcional, parâmetro lock): cada agente faz uma coisa por vez, mesmo com várias tarefas rodando.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { placesFor, placeDesc, guessPlace, validPlace } from './places.mjs';
 
 export const ACTIONS = {
-  pesquisar: { state: 'pesquisando', kinds: ['pesquisa'], verb: 'Pesquisa', maxTokens: 1500,
-    how: 'Traga os pontos relevantes em tópicos curtos. Você não tem acesso à internet: use o que sabe e marque o que precisa ser confirmado.' },
+  pesquisar: { state: 'pesquisando', kinds: ['pesquisa'], verb: 'Pesquisa', maxTokens: 1800,
+    how: 'Traga os pontos relevantes em tópicos curtos. Você não tem acesso à internet: use o que sabe e marque o que precisa ser confirmado.',
+    howWeb: 'Traga os pontos relevantes em tópicos curtos, usando as FONTES DA INTERNET acima. Cite a fonte de cada informação com o número entre colchetes, ex.: [2]. Não invente: o que as fontes não confirmam, marque como "a confirmar". Termine com a lista "Fontes:" (número, título e endereço).' },
   produzir: { state: 'trabalhando', kinds: ['produz'], verb: 'Produção', maxTokens: 3500,
     how: 'Entregue o trabalho pronto para uso, em Markdown. Não explique o que vai fazer: faça.' },
   revisar: { state: 'revisando', kinds: ['revisa'], verb: 'Revisão', maxTokens: 1200,
@@ -32,7 +37,7 @@ export function teamOf(spec) {
 const leadOf = (T) => T.find(m => m.kind === 'coordena') || T[0];
 const persona = (m, spec) => `Você é ${m.name}, ${m.roleName} em ${spec.name}${spec.service ? ` (${spec.service})` : ''}. ${m.bio ? 'Sua função: ' + m.bio + '.' : ''} Responda sempre em português do Brasil.`;
 
-function planPrompt(text, T, lead, available, spec) {
+function planPrompt(text, T, lead, available, spec, webOk = false) {
   const places = available.map(k => `- ${k}: ${placeDesc(k, spec)}`).join('\n');
   const team = T.filter(m => m !== lead).map(m => `- ${m.name}: ${m.roleName} (tipo ${m.kind})${m.bio ? ' · ' + m.bio : ''}`).join('\n');
   return `Decida como atender o pedido do cliente.
@@ -61,8 +66,12 @@ NO MODO "equipe"
 - "pedido": instrução clara para a pessoa, de 1 a 3 frases.
 - "local": o lugar da lista acima onde aquilo é feito de verdade (gravar → estudio, analisar vendas → painel, escrever → computador).
 
+INTERNET
+- "web": true quando a resposta depende de informação atual ou verificável (preços, notícias, leis, versões,
+  dados de empresas, eventos recentes). ${webOk ? 'A equipe pode pesquisar na internet.' : 'A equipe está SEM internet agora: use sempre false.'}
+
 Responda SOMENTE com JSON, num destes formatos:
-{"modo":"direto","local":"computador"}
+{"modo":"direto","local":"computador","web":false}
 {"modo":"equipe","resumo":"uma frase sobre o plano","passos":[{"agente":"Nome","acao":"produzir","local":"computador","pedido":"..."}]}`;
 }
 
@@ -73,7 +82,7 @@ function extractJSON(t) {
 
 // Valida o plano; o que não dá para usar é descartado. Sem passo de produção, o plano é recusado.
 export function normalizePlan(raw, T, lead, available = placesFor({}), text = '') {
-  if (String(raw?.modo || '').toLowerCase() === 'direto') return { direct: true, summary: 'Resposta direta', steps: [], place: validPlace(raw?.local, available) || guessPlace(text, 'produzir', available) };
+  if (String(raw?.modo || '').toLowerCase() === 'direto') return { direct: true, web: raw?.web === true || raw?.web === 'true', summary: 'Resposta direta', steps: [], place: validPlace(raw?.local, available) || guessPlace(text, 'produzir', available) };
   const byName = new Map(T.map(m => [m.name.toLowerCase(), m]));
   const steps = [];
   for (const p of Array.isArray(raw?.passos) ? raw.passos : []) {
@@ -101,16 +110,54 @@ export function defaultPlan(text, T, lead, available = placesFor({})) {
   return { summary: 'Plano padrão: produzir' + (rev ? ' e revisar.' : '.'), steps };
 }
 
-export async function runTask({ text, spec, chat, say, log = () => {}, result = () => {}, signal, outDir }) {
+export const WEB_LIMITS = { queries: 3, pages: 4, perPage: 2500 };
+
+export async function runTask({ text, spec, chat, say, log = () => {}, result = () => {}, signal, outDir, web = null, lock = null }) {
   const T = teamOf(spec), lead = leadOf(T), available = placesFor(spec);
   const L = clip(text, 50);
   const check = () => { if (signal?.aborted) throw Object.assign(new Error('Tarefa cancelada.'), { code: 'cancelled' }); };
   const items = []; // entregas: { agent, action, title, text }
+  const sources = []; // fontes da internet lidas nesta tarefa: { n, title, url }
+  // cada agente faz uma coisa por vez (várias tarefas em paralelo); sem lock, roda direto
+  const withLock = async (names, fn) => { if (!lock) return fn(); const release = await lock([...new Set(names)].sort()); try { return await fn(); } finally { release(); } };
+
+  // pesquisa na internet: a IA propõe as buscas, o servidor busca e lê as páginas; devolve o bloco de fontes
+  async function research(m, question, place) {
+    if (!web) return null;
+    let queries = [];
+    try {
+      const j = extractJSON(await chat({ system: persona(m, spec), json: true, maxTokens: 300, signal,
+        messages: [{ role: 'user', content: `Você vai pesquisar na internet para atender a isto:\n<<<${question}>>>\n\nTAREFA DO CLIENTE (contexto):\n${text}\n\nEscreva de 1 a ${WEB_LIMITS.queries} buscas curtas e específicas (como se digitasse num buscador). Responda SOMENTE com JSON: {"buscas":["...","..."]}` }] }));
+      queries = (Array.isArray(j?.buscas) ? j.buscas : []).map(q => clip(q, 150)).filter(Boolean).slice(0, WEB_LIMITS.queries);
+    } catch (e) { check(); if (e?.status || e?.provider) throw e; }
+    if (!queries.length) queries = [clip(question, 150)];
+    const found = [], seen = new Set(sources.map(x => x.url));
+    for (const q of queries) {
+      check();
+      say(m, 'pesquisando', L, { detail: `Buscando: ${clip(q, 90)}`, ...(place ? { place } : {}) });
+      try { for (const r of await web.search(q, { signal })) if (!seen.has(r.url)) { seen.add(r.url); found.push(r); } }
+      catch (e) { check(); log(m.name, `Busca falhou (${clip(e.message, 100)}).`); }
+    }
+    check();
+    const pages = [];
+    for (const r of found) {
+      if (pages.length >= WEB_LIMITS.pages) break;
+      let host = r.url; try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch {}
+      say(m, 'pesquisando', L, { detail: `Lendo ${host}`, ...(place ? { place } : {}) });
+      try { const pg = await web.readPage(r.url, { signal }); if (pg.text.length > 200) pages.push({ ...pg, snippet: r.snippet }); }
+      catch (e) { check(); log(m.name, `Não consegui ler ${host} (${clip(e.message, 80)}).`); }
+    }
+    check();
+    if (!pages.length) { log(m.name, found.length ? 'Nenhuma página pôde ser lida; seguindo sem internet.' : 'A busca não trouxe resultados; seguindo sem internet.'); return null; }
+    const blocks = pages.map(pg => { const n = sources.length + 1; sources.push({ n, title: pg.title, url: pg.url }); return `[${n}] ${pg.title} — ${pg.url}\n${pg.text.slice(0, WEB_LIMITS.perPage)}`; });
+    log(m.name, `Leu ${pages.length} página(s): ${pages.map(p => { try { return new URL(p.url).hostname.replace(/^www\./, ''); } catch { return p.url; } }).join(', ')}`);
+    return `\n\nFONTES DA INTERNET (lidas agora; cite pelo número):\n${blocks.join('\n\n')}`;
+  }
 
   // 1. planejamento
   say(lead, 'planejando', L, { detail: 'Dividindo a tarefa entre a equipe' });
   let plan;
-  try { plan = normalizePlan(extractJSON(await chat({ system: persona(lead, spec), messages: [{ role: 'user', content: planPrompt(text, T, lead, available, spec) }], json: true, maxTokens: 1200, signal })), T, lead, available, text); }
+  try { plan = normalizePlan(extractJSON(await withLock([lead.name], () => chat({ system: persona(lead, spec), messages: [{ role: 'user', content: planPrompt(text, T, lead, available, spec, !!web) }], json: true, maxTokens: 1200, signal }))), T, lead, available, text); }
   catch (e) {
     check();
     if (e?.status || e?.provider) throw e; // erro do provedor (chave, modelo, limite): parar, não insistir
@@ -120,9 +167,12 @@ export async function runTask({ text, spec, chat, say, log = () => {}, result = 
   if (plan.direct) {
     // pergunta simples: quem coordena responde sozinha
     log(lead.name, 'Respondendo diretamente, sem envolver a equipe.');
-    say(lead, 'trabalhando', L, { detail: 'Respondendo', place: plan.place });
-    const out = String(await chat({ system: persona(lead, spec), maxTokens: 2500, signal,
-      messages: [{ role: 'user', content: `PEDIDO DO CLIENTE:\n${text}\n\nResponda de forma clara e direta, em Markdown. Vá direto ao ponto.` }] })).trim();
+    const out = await withLock([lead.name], async () => {
+      const found = plan.web ? await research(lead, text, 'leitura') : null;
+      say(lead, 'trabalhando', L, { detail: 'Respondendo', place: plan.place });
+      return String(await chat({ system: persona(lead, spec), maxTokens: 2500, signal,
+        messages: [{ role: 'user', content: `PEDIDO DO CLIENTE:\n${text}${found || ''}\n\nResponda de forma clara e direta, em Markdown. Vá direto ao ponto.${found ? ' Use as fontes acima, cite com [número] e termine com a lista "Fontes:" (número, título e endereço).' : ''}` }] })).trim();
+    });
     check();
     const item = { agent: lead.name, action: 'produzir', title: `Resposta · ${lead.name}`, text: out };
     items.push(item); result(item);
@@ -132,19 +182,24 @@ export async function runTask({ text, spec, chat, say, log = () => {}, result = 
 
   const context = () => items.map(it => `### ${it.title}\n${it.text.slice(0, 6000)}`).join('\n\n') || '(nada ainda)';
   async function doStep(step, extra = '', title) {
-    const A = ACTIONS[step.action], m = step.agent;
-    if (m !== lead) {
+    const m = step.agent;
+    if (m !== lead) await withLock([lead.name, m.name], async () => {
       say(lead, 'reuniao', `Briefing com ${m.name}`, { with: [m.name] }, 3000);
       say(m, 'reuniao', `Briefing com ${lead.name}`, { with: [lead.name] }, 3000);
       say(lead, 'aguardando', `Esperando ${m.name}`, { detail: clip(step.request, 120) });
-    }
+    });
+    return withLock([m.name], () => work(step, extra, title));
+  }
+  async function work(step, extra, title) {
+    const A = ACTIONS[step.action], m = step.agent;
+    const found = step.action === 'pesquisar' ? await research(m, step.request, step.place) : null;
     const lastMaker = [...items].reverse().find(it => it.action === 'produzir')?.agent;
     // revisão em computador = vai até quem produziu; qualquer outro lugar (ex.: estúdio) é respeitado
     const visit = step.action === 'revisar' && lastMaker && lastMaker !== m.name && (!step.place || step.place === 'computador');
     say(m, A.state, L, { detail: clip(step.request, 140), ...(visit ? { with: [lastMaker] } : step.place ? { place: step.place } : {}) });
     const out = await chat({
       system: persona(m, spec), maxTokens: A.maxTokens, signal,
-      messages: [{ role: 'user', content: `TAREFA DO CLIENTE:\n${text}\n\nSEU PEDIDO (${A.verb.toLowerCase()}):\n${step.request}${extra}\n\nMATERIAL DA EQUIPE ATÉ AGORA:\n${context()}\n\n${A.how}` }],
+      messages: [{ role: 'user', content: `TAREFA DO CLIENTE:\n${text}\n\nSEU PEDIDO (${A.verb.toLowerCase()}):\n${step.request}${extra}${found || ''}\n\nMATERIAL DA EQUIPE ATÉ AGORA:\n${context()}\n\n${found && A.howWeb ? A.howWeb : A.how}` }],
     });
     check();
     const item = { agent: m.name, action: step.action, title: title || `${A.verb} · ${m.name}`, text: String(out).trim() };
@@ -186,6 +241,6 @@ export async function runTask({ text, spec, chat, say, log = () => {}, result = 
       await Promise.all(items.map((it, i) => fs.writeFile(path.join(folder, `${String(i + 1).padStart(2, '0')}-${slug(it.agent)}-${it.action}.md`), `# ${it.title}\n\n${it.text}\n`)));
       await fs.writeFile(path.join(folder, 'resultado.md'), `# ${text}\n\n${final}\n` + (items.length > 1 ? `\n---\n\n## Etapas da equipe\n\n${items.map(it => `### ${it.title}\n\n${it.text}`).join('\n\n')}\n` : ''));
     }
-    return { output: final, items, folder, plan };
+    return { output: final, items, folder, plan, sources };
   }
 }

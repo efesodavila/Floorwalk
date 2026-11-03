@@ -7,8 +7,10 @@ function frame(now) {
   if (mode === 'live') simStep(dt);
   doorStep(dt);
   ambUpdate();
-  // com o 3D ligado (modo ao vivo), quem desenha é web/js3d/cena3d.js
+  // com o 3D ligado, quem desenha a sala é web/js3d/cena3d.js; no modo Construir, este canvas (transparente,
+  // por cima) desenha só as marcas do editor, projetadas pela câmera 3D
   if (!(window.R3D && window.R3D.active())) draw(now / 1000);
+  else if (mode === 'build') drawOverlay3D(now / 1000);
 
   requestAnimationFrame(frame);
 }
@@ -22,13 +24,7 @@ function draw(T = performance.now() / 1000) {
   const tiles = Object.entries(W.tiles).map(([k, m]) => { const [x, z] = k.split(',').map(Number); return { x, z, m }; }).sort((a, b) => (a.x + a.z) - (b.x + b.z));
   const has = (x, z) => !!W.tiles[key(x, z)];
 
-  // grade de expansão (mostra até onde dá para crescer)
-  if (mode === 'build' && (tab === 'planta' || walling)) {
-    const span = 5, gx0 = bd.x0 - span, gx1 = bd.x1 + span, gz0 = bd.z0 - span, gz1 = bd.z1 + span;
-    ctx.fillStyle = 'rgba(140,79,224,0.28)';
-    const ds = Math.max(1, Math.round(V.z));
-    for (let x = gx0; x <= gx1; x++) for (let z = gz0; z <= gz1; z++) { const q = iso(x, z); ctx.fillRect(q[0] - ds / 2, q[1] - ds / 2, ds + 1, ds); }
-  }
+  drawGrid(V, bd);
   // sombra suave sob a sala e laje
   poly(ctx, [iso(bd.x0 + .4, bd.z1 + .9, -.45), iso(bd.x1 + .9, bd.z1 + .9, -.45), iso(bd.x1 + .9, bd.z0 + .4, -.45), iso(bd.x1, bd.z0, -.45), iso(bd.x0, bd.z1, -.45)], 'rgba(60,50,70,0.07)');
   for (const t of tiles) {
@@ -72,21 +68,7 @@ function draw(T = performance.now() / 1000) {
     const I = segInfo(s); if (I.alongX) poly(ctx, footPoly(I.u0, I.c, I.len, .35, .01), sh); else poly(ctx, footPoly(I.c, I.u0, .35, I.len, .01), sh);
   }
 
-  // marcação no piso: seleção, mesas livres (escolha de mesa), avisos
-  const warnIds = new Set(mode === 'build' ? cachedWarnings().filter(w => w.sel).map(w => w.sel.id) : []);
-  for (const o of W.objects) {
-    const [w, d] = dims(o); let col = null;
-    if (warnIds.has(o.id)) col = 'rgba(224,71,59,';
-    if (selected?.type === 'obj' && selected.id === o.id) col = 'rgba(140,79,224,';
-    if (col) { poly(ctx, footPoly(o.x, o.z, w, d), col + '0.28)'); ctx.setLineDash([4, 3]); poly(ctx, footPoly(o.x, o.z, w, d), null, col + '0.95)', 2); ctx.setLineDash([]); }
-  }
-  for (const s of W.walls) {
-    const sel = selected?.type === 'wall' && selected.id === s.id; if (!sel && !warnIds.has(s.id)) continue;
-    const I = segInfo(s), col = sel ? '#8C4FE0' : '#E0473B';
-    const fp = I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len);
-    poly(ctx, fp, rgba(col, .25), col, 2);
-  }
-
+  drawMarks();
   // objetos, paredes internas e pessoas, em ordem de profundidade
   const items = [];
   ACTIVE = computeActive();
@@ -105,6 +87,37 @@ function draw(T = performance.now() / 1000) {
   for (const it of sorted) if (it.person && (it.opts?.label || it.opts?.icon)) drawPerson(ctx, it.person, V, { ...it.opts, layer: 'tag' });
   for (const it of sorted) if (it.steam && ACTIVE.has(it.obj)) drawSteam(ctx, it, V, T);
 
+  drawEditing(T, V);
+}
+
+// ---------- marcas do editor (usadas pelo desenho 2D e por cima do 3D) ----------
+function drawGrid(V = view, bd = bounds()) {
+  // grade de expansão (mostra até onde dá para crescer)
+  if (mode === 'build' && (tab === 'planta' || walling)) {
+    const span = 5, gx0 = bd.x0 - span, gx1 = bd.x1 + span, gz0 = bd.z0 - span, gz1 = bd.z1 + span;
+    ctx.fillStyle = 'rgba(140,79,224,0.28)';
+    const ds = Math.max(1, Math.round(V.z));
+    for (let x = gx0; x <= gx1; x++) for (let z = gz0; z <= gz1; z++) { const q = iso(x, z); ctx.fillRect(q[0] - ds / 2, q[1] - ds / 2, ds + 1, ds); }
+  }
+}
+function drawMarks() {
+  // marcação no piso: seleção, mesas livres (escolha de mesa), avisos
+  const warnIds = new Set(mode === 'build' ? cachedWarnings().filter(w => w.sel).map(w => w.sel.id) : []);
+  for (const o of W.objects) {
+    const [w, d] = dims(o); let col = null;
+    if (warnIds.has(o.id)) col = 'rgba(224,71,59,';
+    if (selected?.type === 'obj' && selected.id === o.id) col = 'rgba(140,79,224,';
+    if (col) { poly(ctx, footPoly(o.x, o.z, w, d), col + '0.28)'); ctx.setLineDash([4, 3]); poly(ctx, footPoly(o.x, o.z, w, d), null, col + '0.95)', 2); ctx.setLineDash([]); }
+  }
+  for (const s of W.walls) {
+    const sel = selected?.type === 'wall' && selected.id === s.id; if (!sel && !warnIds.has(s.id)) continue;
+    const I = segInfo(s), col = sel ? '#8C4FE0' : '#E0473B';
+    const fp = I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len);
+    poly(ctx, fp, rgba(col, .25), col, 2);
+  }
+
+}
+function drawEditing(T, V = view) {
   // item sendo arrastado
   if (drag?.kind === 'move' && drag.moved) {
     if (drag.sel.type === 'obj') {
@@ -116,7 +129,7 @@ function draw(T = performance.now() / 1000) {
       const I = segInfo(m); poly(ctx, I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)');
       for (const b of depthSort(segBoxes(m), V)) drawBox(ctx, b, V, .85);
     }
-  } else if (drag?.kind === 'move') {
+  } else if (drag?.kind === 'move' && !window.R3D?.editing?.()) {
     const target = drag.sel.type === 'obj' ? depthSort(worldBoxes(objById(drag.sel.id)), V) : depthSort(segBoxes(wallById(drag.sel.id)), V);
     for (const b of target) drawBox(ctx, b, V);
   }
@@ -169,4 +182,9 @@ function draw(T = performance.now() / 1000) {
       ctx.lineWidth = 1;
     }
   }
+}
+// modo Construir com o 3D: canvas transparente com só as marcas do editor
+function drawOverlay3D(T) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, VW, VH); ctx.imageSmoothingEnabled = false;
+  drawGrid(view, bounds()); drawMarks(); drawEditing(T, view);
 }

@@ -33,6 +33,9 @@ img { max-width: 100%; }
 html, body { height: 100%; }
 body { background: var(--ground); color: var(--ink); font-family: var(--font-ui); overflow: hidden; -webkit-font-smoothing: antialiased; }
 #scene { position: fixed; inset: 0; display: block; touch-action: none; cursor: grab; }
+/* enquanto o 3D carrega: nada de sala 2D; só um aviso discreto */
+html.espera3d #scene { visibility: hidden !important; }
+html.espera3d body::after { content: 'Carregando o escritório…'; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 500 14px 'IBM Plex Sans', system-ui, sans-serif; color: #5C5866; opacity: .8; pointer-events: none; }
 svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 button { font: 500 13px/1.2 var(--font-ui); color: var(--ink); background: var(--chip); border: 1.5px solid var(--line-strong); border-radius: 8px; cursor: pointer; padding: 6px 10px; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color .12s, border-color .12s, box-shadow .12s; }

@@ -59,7 +59,8 @@ function officeWorld(spec) {
     objects.push({ id: 'chroma', item: 'chroma', x: 10, z: 10, rot: 0 }, { id: 'camera', item: 'tripod', x: 11, z: 7, rot: 2 }, { id: 'refletor', item: 'softbox', x: 10, z: 7, rot: 2 }, { id: 'pufe', item: 'pouf', x: 12, z: 9, rot: 0 });
   }
   if (st.extra) objects.push({ id: 'luz-cor', item: 'colorlight', x: 14, z: 9, rot: 0, color: '#A855F7' });
-  objects.push({ id: 'entrada', item: 'capacho', x: 5, z: 10, rot: 0 });
+  // entrada: capacho encostado na parede da esquerda; o 3D abre ali a porta por onde a equipe entra e sai
+  objects.push({ id: 'entrada', item: 'capacho', x: 0, z: 8, rot: 1 });
   // móveis do catálogo escolhidos pela IA + móveis criados por ela (registrados antes, em registerCustom)
   for (const c of spec.custom || []) registerCustom(c);
   objects.push(...placeExtras([...(spec.custom || []).map(c => c.id), ...(spec.extras || [])], objects, big));

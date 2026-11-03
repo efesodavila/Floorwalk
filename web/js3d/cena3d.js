@@ -17,6 +17,7 @@ window.R3D = { active: () => false, wanted: WANT, stats: { fps: 0 } };
 if (WANT) start().catch((e) => {
   console.error('[3d]', e);
   window.R3D = { active: () => false, wanted: false, stats: { fps: 0 } };
+  document.documentElement.classList.remove('espera3d');
   document.getElementById('scene').style.visibility = 'visible';
   toast('Visual 3D indisponível neste navegador (' + e.message + '). Usando o 2D.');
 });
@@ -178,7 +179,7 @@ async function start() {
   // estático: juntado por material. Animado (telas, LEDs, kanban, papel, plantas, portas): malhas próprias, atualizadas por quadro
   const ANIM = (b) => b.screen || b.led != null || b.blink || b.pulse || b.paper || b.sway || b.note != null || b.bar != null || b.steam;
   let world = new THREE.Group(), wallGroups = [], room = { cx: 8, cz: 5.5, span: 20 };
-  let animated = [], kanbans = [], doors = [], steams = [];
+  let animated = [], kanbans = [], doors = [], steams = [], entryDoor = null;
   scene.add(world);
   const center = (b) => [b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2];
   function rebuild() {
@@ -196,10 +197,47 @@ async function start() {
     B.flush(world, { shadows: false });
     // paredes do fundo (as que ficam entre a câmera e a sala baixam ao girar a vista)
     const wc = W.wall, cap = shade(wc, 1.12), sides = { z: new THREE.Group(), x: new THREE.Group() }, T = .14, WB = batcher(), XB = batcher();
+    // porta de entrada: na parede do fundo/esquerda encostada no capacho (os personagens entram e saem por ela)
+    entryDoor = null;
+    const mat = W.objects.find(o => o.item === 'capacho');
+    if (mat) {
+      const [mw, md] = dims(mat), cells = [];
+      for (let i = 0; i < mw; i++) for (let j = 0; j < md; j++) cells.push([mat.x + i, mat.z + j]);
+      const left = cells.filter(([x, z]) => has(x, z) && !has(x - 1, z)), back = cells.filter(([x, z]) => has(x, z) && !has(x, z - 1));
+      const side = left.length >= back.length ? (left.length ? 'x' : null) : 'z', list = side === 'x' ? left : back;
+      if (side) entryDoor = { side, cells: new Set(list.map(c => c.join())), u0: Math.min(...list.map(c => side === 'x' ? c[1] : c[0])), u1: Math.max(...list.map(c => side === 'x' ? c[1] : c[0])) + 1, c: side === 'x' ? list[0][0] : list[0][1] };
+    }
+    const DH = 2.1, inDoor = (x, z, side) => entryDoor && entryDoor.side === side && entryDoor.cells.has(x + ',' + z);
     for (const k in W.tiles) {
       const [x, z] = k.split(',').map(Number);
-      if (!has(x, z - 1)) { WB.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
-      if (!has(x - 1, z)) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
+      if (!has(x, z - 1) && inDoor(x, z, 'z')) { WB.add(box(1, WH - DH, T), toon(wc), x + .5, DH + (WH - DH) / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
+      else if (!has(x - 1, z) && inDoor(x, z, 'x')) { XB.add(box(T, WH - DH, 1), toon(shade(wc, .94)), x - T / 2, DH + (WH - DH) / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
+      if (!has(x, z - 1) && !inDoor(x, z, 'z')) { WB.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
+      if (!has(x - 1, z) && !inDoor(x, z, 'x')) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
+    }
+    // batente e as duas folhas (abrem para dentro quando alguém chega perto)
+    if (entryDoor) {
+      const D = entryDoor, alongX = D.side === 'z', g = alongX ? sides.z : sides.x, FB = batcher(), frame = '#3A3C44', len = D.u1 - D.u0, wc0 = D.c - T / 2;
+      const at = (u, y, w, h, t) => alongX ? [box(w, h, t), u, y, wc0] : [box(t, h, w), wc0, y, u];
+      for (const u of [D.u0 + .04, D.u1 - .04]) { const [gq, x, y, z] = at(u, DH / 2, .08, DH, T + .04); FB.add(gq, toon(frame), alongX ? x : x, y, alongX ? z : z); }
+      { const [gq, x, y, z] = at((D.u0 + D.u1) / 2, DH + .04, len, .08, T + .04); FB.add(gq, toon(frame), x, y, z); }
+      FB.flush(g, { outline: true });
+      D.leaves = [];
+      for (const k of [0, 1]) {
+        const hinge = new THREE.Group(), lw = len / 2 - .08, dir = k ? -1 : 1, LB = batcher(), GB = batcher();
+        // folha: moldura escura + vidro, puxador; construída ao longo de +u a partir da dobradiça
+        const P = (u, y, w, h, t, mat, B2) => B2.add(alongX ? box(w, h, t) : box(t, h, w), mat, alongX ? u : 0, y, alongX ? 0 : u);
+        const mid = dir * lw / 2, fr = toon(frame);
+        P(dir * .04, DH / 2, .08, DH - .04, .05, fr, LB); P(dir * (lw - .04), DH / 2, .08, DH - .04, .05, fr, LB);
+        P(mid, .12, lw, .2, .05, fr, LB); P(mid, DH - .1, lw, .12, .05, fr, LB);
+        P(mid, (.22 + DH - .16) / 2, lw - .16, DH - .38, .03, glassMat, GB);
+        P(dir * (lw - .14), 1.0, .03, .32, .12, toon('#C9CDD4'), LB);
+        LB.flush(hinge, { outline: true }); GB.flush(hinge, { shadows: false, layer: 1 });
+        const hu = k ? D.u1 - .08 : D.u0 + .08;
+        if (alongX) hinge.position.set(hu, .01, wc0); else hinge.position.set(wc0, .01, hu);
+        g.add(hinge); D.leaves.push({ hinge, sign: (alongX ? -1 : 1) * dir });
+      }
+      D.open = 0;
     }
     WB.flush(sides.z); XB.flush(sides.x); world.add(sides.z, sides.x); wallGroups = [sides.z, sides.x];
     // móveis e divisórias (paredes de vidro/divisórias também entram no contorno)
@@ -253,6 +291,12 @@ async function start() {
     for (const k of kanbans) {
       const boxes = worldBoxes(k.o).map(bx => animBox(bx, T)), sig = boxes.length + ':' + boxes.map(bx => bx.y.toFixed(2)).join(',');
       if (sig !== k.sig) { k.sig = sig; refill(k.g, boxes); }
+    }
+    // porta de entrada: abre quando alguém está perto dela (entrando ou saindo)
+    if (entryDoor?.leaves) {
+      const D = entryDoor, cu = (D.u0 + D.u1) / 2, near = sim.agents.some(a => (a.present === true || !quietOffice()) && Math.hypot((D.side === 'z' ? a.x - cu : a.x - D.c), (D.side === 'z' ? a.z - D.c : a.z - cu)) < 1.8);
+      D.open += ((near ? 1 : 0) - D.open) * .12;
+      for (const L of D.leaves) L.hinge.rotation.y = L.sign * D.open * 1.35;
     }
     for (const d of doors) {
       const open = Math.round((DOORS.get(d.s.id) || 0) * 20) / 20;
@@ -693,12 +737,13 @@ async function start() {
     const ed = on && editing();
     scene2d.style.visibility = on && !ed ? 'hidden' : 'visible';
     scene2d.style.zIndex = ed ? '2' : '';
-    if (!on) return;
+    if (!on) { document.documentElement.classList.remove('espera3d'); return; }
     const T = now / 1000;
     const hid = movingId();
     if (hid !== lastHid || n++ % 20 === 0) { const s = JSON.stringify([W.objects, W.walls, W.wall, W.tiles, hid]); lastHid = hid; if (s !== sig) { sig = s; rebuild(); } }
     updateGhost();
     updateLights(); updateAnimations(T); updatePeople(T); updateCamera(); composer.render(); drawTags(T);
+    document.documentElement.classList.remove('espera3d'); // primeiro quadro 3D pronto: pode mostrar
     frames++; if (now - fpsT > 1000) { window.R3D.stats.fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; }
   }
   requestAnimationFrame(loop);

@@ -121,13 +121,16 @@ function entrance() {
   if (!NAV) buildNav();
   // a entrada é o capacho; sem ele, um ponto na frente da sala
   const mat = W.objects.find(o => o.item === 'capacho'), b = bounds();
-  const c = mat ? nearestCell(mat.x + 1, mat.z + .5, 6) : nearestCell(b.x0 + (b.x1 - b.x0) * .35, b.z1 - .4, 8);
-  return c ? { cell: c, pt: cellC(c[0], c[1]) } : null;
+  // capacho encostado na parede da esquerda ou do fundo: ali fica a porta (desenhada no 3D); entra-se olhando para dentro
+  const [mw, md] = mat ? dims(mat) : [0, 0], has = (x, z) => !!W.tiles[key(x, z)];
+  const leftWall = mat && has(mat.x, mat.z) && !has(mat.x - 1, mat.z);
+  const c = mat ? nearestCell(mat.x + (leftWall ? .4 : mw / 2), mat.z + (leftWall ? md / 2 : .4), 6) : nearestCell(b.x0 + (b.x1 - b.x0) * .35, b.z1 - .4, 8);
+  return c ? { cell: c, pt: cellC(c[0], c[1]), face: leftWall ? [1, 0] : [0, mat ? 1 : -1] } : null;
 }
 function enterOffice(a) {
   const e = entrance();
   a.present = true; a.leaving = false; a.path = []; a.spot = null; a.idleAct = null; a.mv = 'idle'; a.t = .2;
-  if (e) { a.x = e.pt[0]; a.z = e.pt[1]; a.fx = 0; a.fz = -1; }
+  if (e) { a.x = e.pt[0]; a.z = e.pt[1]; [a.fx, a.fz] = e.face; }
 }
 // saída escalonada: um de cada vez (intervalo LEAVE_GAP), para não se amontoarem na porta
 const LEAVE_GAP = 900; let lastLeave = 0;

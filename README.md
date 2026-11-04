@@ -1,183 +1,130 @@
 # Floorwalk
 
-Um escritório em pixel art onde agentes de IA trabalham à vista.
-Você escreve uma tarefa, a equipe divide o trabalho e cada personagem anda até a mesa,
-a sala de reunião ou o servidor conforme o que o agente dele está fazendo de verdade.
-Clique num personagem para ver a ficha: o que está fazendo, por quê e o que já entregou.
+**Walk the floor and watch your AI agents work.** Every Claude Code session you run becomes a character in a 3D
+office, and it goes to the furniture that matches what it is actually doing: the desk when it edits, the bookshelf
+when it reads, the server rack when it pushes, and it raises a flag when it needs your permission.
 
-> Estado: protótipo em reestruturação para open source. Veja o [roteiro](#roteiro).
+[Português](README.pt-BR.md)
 
-## Rodar
+![Four Claude Code sessions in the office: one editing at a desk, one reading in the armchair, one pushing at the server rack, one blocked waiting for permission](docs/img/claude-code-room.jpg)
 
-Requer Node 22.9 ou mais novo.
+> Status: early open-source release. Works on Windows, macOS and Linux with Node 22.9+.
+> The app interface is in Portuguese for now; an English interface is planned.
+
+## Quick start (Claude Code, no API key)
 
 ```bash
+git clone <this repository>
+cd floorwalk
 npm install
-```
-
-Sem chave e sem custo (eventos simulados):
-
-```bash
-npm run demo
-```
-
-Com agentes reais:
-
-```bash
-npm start
-```
-
-Abra http://127.0.0.1:8787 . Na primeira vez, a página:
-
-1. pergunta qual IA usar (OpenAI, Anthropic ou Ollama) e a chave; o servidor testa os modelos
-   da conta e fica sozinho com o primeiro que responde (se um modelo passar a ser recusado,
-   ele troca por outro automaticamente). Quem quiser forçar um modelo usa `FLOORWALK_MODEL` no `.env`;
-2. pede que você descreva o seu negócio; a IA monta a equipe (3 a 10 pessoas; acima de 6 a sala ganha uma ala), os papéis,
-   o estilo e as áreas do escritório, que aparece pronto com o campo de tarefa embaixo.
-A chave fica em `data/settings.json`, só no seu computador, legível apenas pelo seu usuário.
-Quem preferir pode deixar a chave no `.env` (veja `.env.example`).
-
-Também dá para abrir `web/index.html` direto no navegador (sem servidor: sem agentes reais),
-ou gerar um arquivo único com `npm run build:single` (sai em `dist/floorwalk.html`).
-
-## Com o Claude Code
-
-O Floorwalk também mostra as sessões do [Claude Code](https://docs.anthropic.com/en/docs/claude-code) que você já
-usa no terminal: cada sessão vira um personagem com o nome da pasta do projeto e vai ao móvel certo conforme o que
-está fazendo. Não precisa de chave de IA para isso.
-
-```bash
 npm run hooks:install
 npm start
 ```
 
-Na primeira tela, clique em **Ver o Claude Code sem IA**: abre uma sala de dev pronta, sem chave e sem descrever
-um negócio (dá para conectar uma IA depois, pelo menu). Abra uma sessão nova do Claude Code. Ela entra pela porta e:
+Open http://127.0.0.1:8787, click **Ver o Claude Code sem IA** ("watch Claude Code without an AI") and start a Claude
+Code session in any project. It walks in through the door.
 
-| o Claude Code está… | na sala |
-|---------------------|---------|
-| editando ou criando arquivos | trabalha no computador |
-| lendo, buscando, pesquisando na web | vai à estante |
-| rodando testes ou lint | revisando |
-| fazendo `git push`, deploy ou publicação | vai ao rack de servidores |
-| planejando ou delegando a subagentes | vai ao quadro (ou à mesa de reunião) |
-| pedindo permissão | fica bloqueado, com alerta |
-| esperando sua resposta | aguardando |
-| terminou o turno | comemora |
-| sessão encerrada | sai da sala |
+| Claude Code is… | in the office |
+|-----------------|---------------|
+| editing or writing files | works at a computer |
+| reading, searching, browsing the web | goes to the bookshelf or armchair |
+| running tests or lint | reviewing |
+| `git push`, deploy, publish | goes to the server rack |
+| planning or delegating to subagents | goes to the board (or the meeting table) |
+| asking for permission | blocked, with an alert |
+| waiting for your answer | waiting |
+| done with its turn | celebrates |
+| session closed | leaves the room |
 
-- `npm run hooks:install` registra os hooks no `~/.claude/settings.json`. Antes da primeira escrita guarda uma cópia
-  (`settings.json.floorwalk.backup`); se o arquivo estiver ilegível ou num formato desconhecido, não mexe em nada. Só
-  as entradas do Floorwalk são tocadas: seus hooks e permissões ficam como estão.
-- `npm run hooks:status` mostra se está ligado; `npm run hooks:uninstall` tira só as entradas do Floorwalk.
-- O hook nunca atrapalha o Claude Code: não escreve nada, sempre sai com sucesso e desiste em menos de 1 s quando o
-  servidor está desligado.
-- Os eventos só vão para o seu computador (`127.0.0.1`), com uma senha guardada em `~/.floorwalk/hook.json`. O texto
-  dos seus pedidos não é lido; comandos aparecem cortados e sem valores que pareçam senha ou chave.
-- As sessões não entram no escritório salvo: existem só enquanto a sessão está aberta.
+Click a character to open its card: what it is doing right now, where, time spent per activity, and a timestamped
+history of its actions. The history survives a page reload.
 
-## Visual 3D
+## What makes it different
 
-Com o servidor, o escritório é desenhado em 3D (Three.js), no estilo pixel art: sombras projetadas,
-contornos, brilho e texturas de 16 px. Mouse: **arrastar** move a sala, a **roda** aproxima na direção
-do cursor e o **botão direito** (ou Shift + arrastar) gira a vista, que encaixa no ângulo isométrico
-ao soltar. Clique numa pessoa para abrir a ficha.
+- **Actions go to the right place.** The character does not just type or read; each kind of work has its own spot in
+  the room, so you can tell at a glance who is shipping, who is stuck and who is researching.
+- **It can also do the work.** Besides watching Claude Code, Floorwalk has its own AI team: describe your business,
+  connect OpenAI, Anthropic or Ollama, and delegate tasks. A coordinator splits the work, people research, produce,
+  review and deliver, and every result is saved as Markdown.
+- **Build your own office.** Empty room, your layout: furniture, walls, glass rooms, people and roles, all in 3D.
 
-Os personagens também são 3D: modelos low-poly gerados no [Meshy](https://www.meshy.ai) (pasta
-`web/modelos/`), um por penteado — curto, cabelo longo, coque, cacheado e raspado —, todos com rig
-humanoide. Cada modelo foi gerado **com** óculos, fone, crachá (e barba, nos meninos); o código esconde o que
-a pessoa não usa e repinta a textura com as cores dela (pele, cabelo, camiseta, calça, tênis). Sombreado
-chapado em dois tons e contorno preto fino. Poses pelo que estão fazendo: andar, sentar e digitar,
-conversar, olhar o quadro, ler, trabalho manual, acenar ao concluir e mão na cabeça quando bloqueados.
+## Safety and privacy
 
-- `?estilo=lowpoly` mostra os personagens feitos só em código (sem arquivos de modelo).
-  Se os modelos não carregarem, a sala usa o low-poly sozinha.
-- **Licença dos modelos:** foram gerados num plano do Meshy; confira os termos do seu plano antes de
-  redistribuí-los. Quem preferir não depender deles pode apagar `web/modelos/` — o low-poly assume.
+`npm run hooks:install` edits `~/.claude/settings.json`, which also holds your permissions, so it is careful:
 
-- O visual é sempre 3D (sala, editor e miniaturas). Só sem WebGL a página volta sozinha para o desenho 2D
-  (`?2d` força o 2D, para testes). Enquanto o 3D carrega, aparece "Carregando o escritório…" — o 2D não pisca.
-- A equipe entra e sai por uma porta dupla de vidro na parede, junto do capacho, que abre quando alguém passa.
-- Os móveis são modelos low-poly facetados com contorno preto, no mesmo estilo dos personagens
-  (`web/js3d/moveis3d.js`).
-- Padrão: modo nítido, na resolução real da tela (até 2×), com bordas suavizadas (SMAA) e sombras suaves.
-  `?px=3` volta ao visual pixel art (serrilhado de propósito, mais leve); `?2d` força o desenho 2D.
-- A edição da sala (menu → editar) funciona no 3D: arrastar, colocar, girar e desenhar paredes.
-- O arquivo único (`build:single`) inclui o 3D e os modelos (~10 MB). `--sem-modelos` gera ~1 MB com os
-  personagens low-poly; `--sem-3d` gera só o 2D.
+- If the file is unreadable or has a shape it does not know, it stops and changes nothing.
+- Before the first write it saves a copy (`settings.json.floorwalk.backup`) and never overwrites that copy.
+- It only touches its own entries. Your hooks, and hooks from other tools, stay as they are.
+- `npm run hooks:status` shows whether it is on; `npm run hooks:uninstall` removes only Floorwalk's entries.
 
-## Como funciona
+The hook never gets in Claude Code's way: it prints nothing, always exits successfully and gives up in under a second
+when the server is not running. Events only go to your own machine (`127.0.0.1`), authenticated with a secret stored
+in `~/.floorwalk/hook.json`. Your prompts are not read. Commands are shown truncated, with anything that looks like a
+token, key or password removed. Sessions are never saved into your office layout.
 
-```
-navegador (web/)  ──tarefa──▶  servidor (server/)  ──▶  agentes de IA
-      ▲                              │
-      └────────── eventos ◀──────────┘  (o que cada agente está fazendo)
+## The AI team (optional)
+
+```bash
+npm start
 ```
 
-- A chave do provedor fica **só no servidor**; a página nunca a recebe de volta.
-- Ao delegar uma tarefa, quem coordena divide o trabalho; cada pessoa faz a sua parte
-  (pesquisar, produzir, revisar, entregar) com o material das anteriores; uma revisão
-  reprovada volta para correção. Perguntas simples são respondidas direto por quem coordena.
-- Cada passo acontece no lugar certo da sala: gravar no estúdio, analisar números diante da TV,
-  escrever no computador, atender na recepção, examinar na maca, cozinhar no fogão.
-- Ao montar o escritório, a IA escolhe móveis do catálogo para o negócio (maca, fogão, caixa,
-  estoque, bancada…) e, se nada servir, desenha até 2 móveis novos dentro das regras do projeto.
-- Cada entrega aparece na tela (painel de resultado e ficha da pessoa) e é salva em
-  `workspace/entregas/<data>-<tarefa>/`, um arquivo `.md` por pessoa e um `resultado.md`.
-- Funciona igual com OpenAI, Anthropic ou Ollama. O menu no canto superior direito troca a IA,
-  remonta o escritório, abre a edição da sala e liga as ferramentas de desenvolvimento.
-- O servidor traduz o que os agentes fazem em eventos do [protocolo Floorwalk](docs/PROTOCOLO.md).
-  Qualquer sistema de agentes pode falar esse protocolo.
-- Os arquivos que os agentes criam ficam em `workspace/projeto/`.
-- **Pesquisa na internet:** na etapa de pesquisa (ou numa pergunta que depende de dado atual), a IA
-  propõe até 3 buscas, a equipe lê até 4 páginas e cita as fontes ([1], [2]… e "Fontes:" no fim).
-  Só leitura: os agentes não executam código nem enviam dados. Endereços da rede interna são
-  bloqueados. Busca pelo DuckDuckGo (sem chave) ou pela Brave Search API se houver `BRAVE_API_KEY`.
-  Menu → **Pesquisa na internet** liga e desliga; `FLOORWALK_WEB=0` desliga no servidor.
-- **Tarefas em paralelo:** até 2 ao mesmo tempo (`FLOORWALK_PARALELO`). Cada pessoa faz uma coisa por
-  vez; se duas tarefas precisam da mesma pessoa, uma espera a outra.
+On the first screen, pick OpenAI, Anthropic or Ollama and paste your key. The server tests the models on your
+account and picks one that answers (set `FLOORWALK_MODEL` in `.env` to force one). Then describe your business: the
+AI creates the team, roles and labels, and you build the room. Type a task in the field at the bottom and watch the
+team work.
 
-## Estrutura
+- The key stays in `data/settings.json` on your machine; the page never receives it back. You can also use `.env`
+  (see `.env.example`).
+- **Web research:** during research the team can search (DuckDuckGo, or Brave Search with `BRAVE_API_KEY`), read up to
+  4 pages and cite sources. Read-only: agents do not run code or submit forms, and local network addresses are blocked.
+  Toggle it in the menu, or set `FLOORWALK_WEB=0`.
+- **Parallel tasks:** up to 2 at a time (`FLOORWALK_PARALELO`), queue of 5.
+- **Cost:** each task makes 3 to 8 model calls. Check usage on your provider's dashboard.
+- `npm run demo` runs the same flow with simulated events, no key and no cost.
 
-| pasta | o que tem |
-|-------|-----------|
-| `web/` | a página: `index.html`, `css/app.css` e `js/` (um arquivo por assunto) |
-| `server/` | servidor HTTP + WebSocket, equipe de agentes e protocolo |
-| `docs/` | protocolo de eventos |
-| `test/` | testes (`npm test`), sem chamar nenhuma IA |
-| `scripts/` | arquivo único, conferência das plantas, retratos dos personagens, ilhas dos modelos, redução de textura |
+## Controls
 
-## Roteiro
+Drag to pan, scroll to zoom toward the cursor, right-drag (or Shift + drag) to rotate in 90° steps; arrows/WASD also
+pan. Click a person to open their card. Menu (top right) → edit the room.
 
-1. ~~Dividir o arquivo único em módulos e adotar licença MIT~~
-2. ~~Papéis e ações genéricos, para qualquer tipo de serviço~~
-3. ~~Tela inicial: escolher o LLM (OpenAI, Anthropic, Ollama) e testar a conexão~~
-4. ~~O LLM monta a equipe e as áreas do escritório a partir da descrição do serviço~~
-5. ~~Tarefas viram entregas reais; menu de configurações no canto superior direito~~
+Without WebGL the page falls back to a 2D view. `npm run build:single` creates a single offline HTML file
+(`dist/floorwalk.html`, about 10 MB with the 3D models; `--sem-modelos` makes it about 1 MB).
 
-## Limites conhecidos
+## How it works
 
-- **Internet só para ler.** Os agentes buscam e leem páginas, mas não acessam seus sistemas, não
-  executam código e não preenchem formulários. Sites que exigem JavaScript ou login não são lidos.
-  O DuckDuckGo pode limitar ou bloquear buscas automáticas; com `BRAVE_API_KEY` é mais estável.
-- **Até 2 tarefas ao mesmo tempo** (fila de até 5). Dentro de cada tarefa os passos são sequenciais.
-- **Custo.** Cada tarefa faz de 3 a 8 chamadas ao modelo (plano, até 6 passos, uma correção e o
-  fechamento). Acompanhe o uso no painel do provedor.
-- **Qualidade.** Depende do modelo escolhido. Modelos pequenos do Ollama erram mais o formato do
-  plano; nesse caso o sistema usa um plano padrão (produzir e revisar).
-- **Um escritório por servidor**, com até 10 pessoas e duas plantas (até 6 pessoas e 6 vagas para móveis extras; de 7 a 10, sala maior com 7 vagas).
-- **Móveis criados pela IA** seguem regras de forma e cor, mas podem sair simples ou estranhos;
-  quando não passam nas regras (forma, cor, pelo menos 2 cores, largura ocupada, nada escondido),
-  viram um móvel do catálogo com outro nome.
+```
+Claude Code ──hooks──▶ ┐
+                       ├─▶ server (server/) ──events──▶ page (web/, Three.js)
+your AI team ─────────▶ ┘
+```
 
-## Contribuir
+The server turns everything into events of the [Floorwalk protocol](docs/PROTOCOLO.md) over a WebSocket. Any agent
+system can speak it: send `{ "agent": "Bia", "state": "trabalhando", "place": "computador" }` and the character walks
+to a computer.
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md).
+| folder | contents |
+|--------|----------|
+| `web/` | the page: `index.html`, `css/app.css`, `js/` (one file per topic), `js3d/` (3D scene, furniture, characters) |
+| `server/` | HTTP + WebSocket server, Claude Code bridge, AI team, protocol |
+| `scripts/` | hook script, hook installer, single-file build, checks |
+| `test/` | `npm test` (no AI calls) |
+| `docs/` | protocol and development notes (Portuguese) |
 
-## Licença
+## Known limits
+
+- The interface and the protocol's state names are in Portuguese.
+- Claude Code is the only coding agent supported today. Codex and Gemini CLI are next.
+- Subagents do not get their own character yet; the main session goes to the meeting table when it delegates.
+- One office per server. The AI team runs up to 2 tasks at once; quality depends on the model you connect.
+- Web research is read-only, and DuckDuckGo may rate-limit automated searches.
+- **3D character models** in `web/modelos/` were generated with [Meshy](https://www.meshy.ai). Check that their terms fit
+  your use before redistributing them. Delete the folder and the code-built low-poly characters take over.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Development notes, decisions and the backlog live in
+[`docs/CONTINUACAO.md`](docs/CONTINUACAO.md) (Portuguese).
+
+## License
 
 [MIT](LICENSE)
-
-## Continuar o desenvolvimento
-
-Leia [`docs/CONTINUACAO.md`](docs/CONTINUACAO.md): arquitetura, decisões de produto, como funcionam os personagens 3D, como usar o Meshy, limites conhecidos e a lista de pendências em ordem de prioridade.

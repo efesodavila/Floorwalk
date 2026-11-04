@@ -146,15 +146,18 @@ function applyEvent(raw) {
   const st = normState(ev.state ?? ev.estado ?? ev.status);
   if (!a) { logFeed({ name: String(ev.agent ?? '?'), st: null, text: 'Agente desconhecido. Cadastre com esse nome no modo Construir.' }); return; }
   if (!st) { logFeed({ name: nameOf(a), st: null, text: `Estado "${ev.state ?? ''}" não reconhecido.` }); return; }
+  // histórico guardado pelo servidor (quem conecta depois recebe o que já aconteceu): só entra na ficha, não move ninguém
+  if (ev.replay) { histPush(a, { st, task: ev.task || '', detail: ev.detail || '', text: ev.detail || '', at: Number(ev.at) || Date.now(), replay: true }); fichaHTML = ''; return; }
   if (mode !== 'live') return;
   if (a.present === false) enterOffice(a);
+  a.detail = ev.detail ? String(ev.detail).slice(0, 140) : '';
   if (ev.task ?? ev.tarefa) a.task = ev.task ?? ev.tarefa; else if (st === 'ocioso' || st === 'offline') a.task = '';
   if (st !== a.status) a.since = sim.clock;
   a.status = st; a.withNames = (ev.with || []).map(w => { const b = agentByRef(w); return b ? nameOf(b) : String(w); });
   const it = decide(a, st, ev); setIntent(a, it);
   const why = ev.detail ? `${String(ev.detail).slice(0, 140)} · ${it.reason}` : it.reason;
   logFeed({ name: nameOf(a), st, task: a.task, text: why, src: ev.source });
-  histPush(a, { st, task: a.task, text: why, src: ev.source });
+  histPush(a, { st, task: a.task, text: why, detail: a.detail, at: Date.now(), src: ev.source });
   teamHTML = '';
   if (ev.source === 'manual' && test && !test.finished) checkTasks();
 }

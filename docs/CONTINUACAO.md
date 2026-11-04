@@ -602,3 +602,13 @@ disse que está **ótimo**).
   Conectar uma IA pelo menu sai desse modo (segue para "descreva o negócio");
   (3) subagentes como personagens próprios; (4) medidor de contexto, som ao terminar/pedir permissão; (5) Codex e
   Gemini CLI; (6) publicar (`npx`), depois de decidir nome e licença dos modelos Meshy.
+- FICHA PARA TODOS (2026-11-04): Histórico e Tempo por atividade saíram do modo dev (`f-dev`); a ficha mostra
+  "Fazendo" (`a.detail`, o detail do último estado), "Onde" e, nas sessões do Claude Code, "Projeto". Histórico com hora
+  real (`at`). O servidor guarda os últimos 40 estados de cada agente (`history` em server.mjs) e manda a quem conecta
+  com `replay: true` (só preenche a ficha, ninguém anda): recarregar a página não perde o histórico.
+- Sessões do Claude Code: o servidor manda a lista completa (`team` com `source: claude-code` no topo) a cada entrada,
+  fim de sessão e ao conectar; quem não está nela sai da sala e da lista (`a.gone`). Sessão sem evento há 1 h sai
+  sozinha (`claude.sweep`). Na gaveta Equipe, equipe do negócio e "Sessões do Claude Code abertas" em listas separadas.
+  AskUserQuestion → aguardando; ferramenta MCP → "Usando <ferramenta> (<servidor>)".
+- A "Clínica NutriViva" do data/office.json da 8787 saiu do exemplo "Clínica de nutrição" da etapa 2 (texto idêntico),
+  criada em 2026-11-04 às 17:04 (horário de Brasília).

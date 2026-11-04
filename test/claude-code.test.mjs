@@ -19,7 +19,8 @@ test('cada ferramenta leva ao lugar certo da sala', () => {
   assert.equal(toolAction('Bash', { command: 'ls -la' }).state, 'trabalhando');
   assert.equal(toolAction('Task', { description: 'Achar o bug' }).detail, 'Delegando: Achar o bug');
   assert.equal(toolAction('TodoWrite', {}).place, 'quadro');
-  assert.equal(toolAction('mcp__github__create_pr', {}).detail, 'Usando github · create_pr');
+  assert.equal(toolAction('mcp__github__create_pr', {}).detail, 'Usando create pr (github)');
+  assert.equal(toolAction('AskUserQuestion', {}).state, 'aguardando');
   // tudo que sai daqui é aceito pelo protocolo
   for (const t of ['Edit', 'Read', 'Grep', 'WebSearch', 'Bash', 'Task', 'TodoWrite', 'mcp__a__b', 'Qualquer']) {
     const a = toolAction(t, { command: 'x' });
@@ -146,4 +147,18 @@ test('de ponta a ponta: o script do hook chega ao servidor e vira estado na sala
     const t0 = Date.now(), off = await hook({ session_id: 'e2e', hook_event_name: 'Stop' });
     assert.deepEqual(off, { code: 0, out: '' }); assert.ok(Date.now() - t0 < 2500);
   } finally { srv.kill(); }
+});
+
+test('sessão parada há muito tempo sai da sala e da lista', () => {
+  const said = [], teams = [];
+  const b = createClaudeBridge({ say: (m) => said.push(m), log: () => {}, team: () => teams.push(b.members().length) });
+  b.handle({ session_id: 'x', hook_event_name: 'SessionStart', cwd: '/p/velho' });
+  b.handle({ session_id: 'y', hook_event_name: 'SessionStart', cwd: '/p/novo' });
+  b.sessions.get('x').last = Date.now() - 2 * 3600e3;
+  assert.equal(b.sweep(3600e3), 1);
+  assert.deepEqual(b.members().map(m => m.name), ['novo']);
+  assert.equal(said.at(-1).state, 'offline'); assert.equal(said.at(-1).agent, 'velho');
+  assert.equal(teams.at(-1), 1, 'a página recebe a lista nova');
+  b.handle({ session_id: 'y', hook_event_name: 'SessionEnd', cwd: '/p/novo' });
+  assert.equal(teams.at(-1), 0, 'fim de sessão também manda a lista');
 });

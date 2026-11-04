@@ -157,7 +157,7 @@ setInterval(() => {
   for (const a of sim.agents) {
     if (a.present === false || a.held) continue;
     // sessão de fora (Claude Code) ainda aberta: fica na sala; só sai quando a sessão termina (offline)
-    if (a.ext && a.status !== 'offline') continue;
+    if (a.ext && a.status !== 'offline' && !a.gone) continue;
     // chegou à saída: some
     if (a.leaving) {
       // some ao chegar perto da porta (não espera a fila dos outros terminar o caminho)
@@ -176,11 +176,15 @@ setInterval(() => {
 
 /* ---------- Equipe: quem é quem, mesmo antes da primeira tarefa ---------- */
 function renderTeamDrawer() {
+  // a equipe do negócio e as sessões do Claude Code são coisas diferentes: listas separadas
+  const team = W.people.filter(p => !p.ext), ext = sim.agents.filter(a => a.ext && !a.gone && personOf(a));
   const extras = W.objects.filter(o => (SPOTS[o.item] || []).some(sp => /^(care|cook|stock|sell|craft|attend|record|x_)/.test(sp[2]))).map(o => ITEMS[o.item].n);
   drawer.innerHTML = `<button type="button" class="close" id="d-close" aria-label="Fechar">✕</button><h2>Equipe${W.officeId ? ' · ' + escapeHTML(W.name) : ''}</h2>
-    <p>As pessoas entram na sala quando uma tarefa precisa delas. Clique para ver a ficha.</p>
-    <ul class="team-list">${W.people.map(p => { const r = roleInfo(p.role); return `<li><button type="button" data-p="${p.id}"><img src="${avatar(p, 3)}" alt="" width="36" height="42"><span><b>${escapeHTML(p.name)}</b> <em style="color:${r.c}">${escapeHTML(r.n)}</em>${p.bio ? `<small>${escapeHTML(p.bio)}</small>` : ''}</span></button></li>`; }).join('')}</ul>
-    ${extras.length ? `<p class="hint">Na sala também há: ${extras.map(escapeHTML).join(', ')}.</p>` : ''}`;
+    ${team.length ? `<p>As pessoas entram na sala quando uma tarefa delegada precisa delas. Clique para ver a ficha.</p>` : ''}
+    <ul class="team-list">${team.map(p => { const r = roleInfo(p.role); return `<li><button type="button" data-p="${p.id}"><img src="${avatar(p, 3)}" alt="" width="36" height="42"><span><b>${escapeHTML(p.name)}</b> <em style="color:${r.c}">${escapeHTML(r.n)}</em>${p.bio ? `<small>${escapeHTML(p.bio)}</small>` : ''}</span></button></li>`; }).join('')}</ul>
+    ${extras.length ? `<p class="hint">Na sala também há: ${extras.map(escapeHTML).join(', ')}.</p>` : ''}
+    ${ext.length ? `<h3 class="team-sub">Sessões do Claude Code abertas</h3>
+    <ul class="team-list">${ext.map(a => { const p = personOf(a), R = RULES[a.status]; return `<li><button type="button" data-p="${p.id}"><img src="${avatar(p, 3)}" alt="" width="36" height="42"><span><b>${escapeHTML(p.name)}</b> <i class="chip" style="background:${R.c}">${R.n}</i>${a.detail ? `<small>${escapeHTML(a.detail)}</small>` : ''}</span></button></li>`; }).join('')}</ul>` : ''}`;
   drawer.querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
     if (mode !== 'live') setMode('live');
     if (sim.agents.some(a => a.id === b.dataset.p)) { drawerMode = null; renderDrawer(); openFicha(b.dataset.p); }

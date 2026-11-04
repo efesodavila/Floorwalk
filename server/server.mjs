@@ -40,8 +40,12 @@ const running = new Map();   // tarefas em andamento: id → tarefa
 const locks = createLocks();   // agente ocupado em outra tarefa: espera
 const queue = [];
 
+const history = new Map();   // agente -> últimos estados com a hora (a ficha mostra o histórico a quem conecta depois)
 function broadcast(m) {
-  if (m.type === 'state') lastState.set(m.agent, m);
+  if (m.type === 'state') {
+    lastState.set(m.agent, m);
+    const h = history.get(m.agent) || []; h.push({ ...m, at: Date.now() }); if (h.length > 40) h.shift(); history.set(m.agent, h);
+  }
   const data = JSON.stringify(m);
   for (const ws of clients) if (ws.readyState === 1) ws.send(data);
 }
@@ -52,8 +56,12 @@ const logFor = (t) => (agent, text) => broadcast(msg.log(agent, text, t.id));
 const claude = createClaudeBridge({
   say: (m, hold) => pacer.push(msg.state(m), hold),
   log: (agent, text) => broadcast(msg.log(agent, text)),
-  team: () => broadcast(msg.team(claude.members())), // na hora: o primeiro estado da sessão vem logo atrás
+  team: () => broadcast(claudeTeam()), // na hora: o primeiro estado da sessão vem logo atrás
 });
+// sessão sem nenhum evento há 1 h (terminal fechado à força, sem SessionEnd): sai da sala
+setInterval(() => claude.sweep(60 * 60 * 1000), 60 * 1000).unref();
+// lista completa das sessões abertas (source no topo: a página tira da sala quem não está mais nela)
+function claudeTeam() { return { ...msg.team(claude.members()), source: 'claude-code' }; }
 // senha dos hooks: o script do hook lê de ~/.pixel-hq/hook.json (só o usuário lê) e manda no cabeçalho
 const HOOK_FILE = path.join(process.env.PIXELHQ_HOME || path.join(os.homedir(), '.pixel-hq'), 'hook.json');
 let HOOK_TOKEN = '';
@@ -257,7 +265,7 @@ async function api(req, res, url) {
       await readJSON(req);
       for (const t of running.values()) t.abort?.abort();
       for (const q of queue.splice(0)) broadcast(msg.task(q.id, 'cancelada', { text: q.text }));
-      lastState.clear();
+      lastState.clear(); history.clear();
       await office.clear();
       return json(res, 200, { ok: true });
     }
@@ -329,8 +337,10 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   ws.send(JSON.stringify(msg.hello(DEMO)));
   currentTeam().then(T => T.length && ws.readyState === 1 && ws.send(JSON.stringify(msg.team(T))));
-  if (claude.sessions.size) ws.send(JSON.stringify(msg.team(claude.members())));
+  ws.send(JSON.stringify(claudeTeam()));
   for (const t of running.values()) ws.send(JSON.stringify(msg.task(t.id, 'em_andamento', { text: t.text })));
+  // histórico (sem o último, que vem logo abaixo como estado atual): só preenche a ficha
+  for (const h of history.values()) for (const m of h.slice(0, -1)) ws.send(JSON.stringify({ ...m, replay: true }));
   for (const m of lastState.values()) ws.send(JSON.stringify(m));
   ws.on('message', (raw) => {
     const t = parseClientMessage(raw); if (!t) return;

@@ -13,6 +13,17 @@ function connectWS(url) {
     sim.wsState = 'conectando'; renderSourceBox();
   } catch { sim.wsState = 'erro'; renderSourceBox(); }
 }
+// sessão de fora que terminou e já saiu da sala: some da equipe (a sessão não existe mais)
+setInterval(() => {
+  for (const a of [...sim.agents]) if (a.ext && a.gone && (a.present === false || mode !== 'live')) {
+    if (sim.inspect === a.id) closeFicha();
+    if (sim.following === a.id) sim.following = null;
+    try { release(a); } catch {}
+    sim.agents.splice(sim.agents.indexOf(a), 1);
+    const i = W.people.findIndex(p => p.id === a.id); if (i >= 0) W.people.splice(i, 1);
+    teamHTML = ''; if (typeof drawerMode !== 'undefined' && drawerMode === 'team') renderDrawer();
+  }
+}, 1500);
 // sessões de fora (Claude Code) que chegaram enquanto a sala estava em edição: entram quando ela volta ao escritório
 const extWaiting = { team: new Map(), state: new Map() };
 function flushExtWaiting() {
@@ -29,11 +40,17 @@ function onBridgeMsg(m) {
   if (t === 'hello') { sim.bridge = m; logFeed({ name: 'Conexão', st: null, text: `Ponte conectada: ${m.server || 'servidor'} (protocolo ${m.protocol ?? '?'})` }); return; }
   if (t === 'team') {
     // fora do escritório (editando a sala): guarda quem é de fora para pôr na sala ao voltar
-    if (mode !== 'live') { for (const x of m.agents || []) if (x.source) extWaiting.team.set(String(x.name).toLowerCase(), x); return; }
+    if (mode !== 'live') {
+      if (m.source) for (const [k, x] of extWaiting.team) if (x.source === m.source && !(m.agents || []).some(y => String(y.name).toLowerCase() === k)) { extWaiting.team.delete(k); extWaiting.state.delete(k); }
+      for (const x of m.agents || []) if (x.source) extWaiting.team.set(String(x.name).toLowerCase(), x);
+      return;
+    }
+    // lista completa de uma origem (ex.: todas as sessões do Claude Code abertas): quem não está nela terminou
+    if (m.source) for (const a of sim.agents) if (a.ext === m.source && !(m.agents || []).some(y => String(y.name).toLowerCase() === nameOf(a).toLowerCase())) a.gone = true;
     for (const x of m.agents || []) {
       const a = syncAgent(x.name, ensureRole(x.role, x.roleName, x.kind));
       // agente de fora (ex.: sessão do Claude Code): fica na sala enquanto a sessão existir e não é salvo no escritório
-      if (a && x.source) { a.ext = String(x.source); const p = personOf(a); if (p && !p.ext) { p.ext = a.ext; try { save(); } catch {} } }
+      if (a && x.source) { a.gone = false; a.ext = String(x.source); const p = personOf(a); if (p && !p.ext) { p.ext = a.ext; try { save(); } catch {} } }
     }
     return;
   }

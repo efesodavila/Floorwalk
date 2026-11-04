@@ -16,19 +16,20 @@ function renderFicha() {
       <div class="f-state"><i class="chip" style="background:${R.c}">${R.n}</i><span>há ${fmtDur(sim.clock - (a.since || 0))}</span></div>
       <dl>
         ${p.bio ? `<dt>Função</dt><dd>${escapeHTML(p.bio)}</dd>` : ''}
-        <dt>Tarefa</dt><dd>${a.task ? escapeHTML(a.task) : '<span class="muted">Nenhuma</span>'}</dd>
-        <dt class="f-dev">Onde</dt><dd class="f-dev">${escapeHTML(whereOf(a))}</dd>
+        ${a.detail ? `<dt>Fazendo</dt><dd>${escapeHTML(a.detail)}</dd>` : ''}
+        <dt>${a.ext ? 'Projeto' : 'Tarefa'}</dt><dd>${a.task ? escapeHTML(a.task) : '<span class="muted">Nenhuma</span>'}</dd>
+        <dt>Onde</dt><dd>${escapeHTML(whereOf(a))}</dd>
         <dt class="f-dev">Por quê</dt><dd class="f-dev">${escapeHTML(a.decision || '')}</dd>
         ${withN.length ? `<dt>Com</dt><dd>${withN.map(escapeHTML).join(', ')}</dd>` : ''}
       </dl></section>
     ${missionHTML(a)}
-    <section class="f-dev"><h4>Tempo por atividade</h4>
+    <section><h4>Tempo por atividade</h4>
       ${times.length ? `<div class="f-bar">${times.map(([k, v]) => `<span style="width:${(v / total * 100).toFixed(1)}%;background:${RULES[k].c}" title="${RULES[k].n}: ${fmtDur(v)}"></span>`).join('')}</div>
-      <ul class="f-legend">${times.slice(0, 5).map(([k, v]) => `<li><i style="background:${RULES[k].c}"></i>${RULES[k].n}<b>${Math.round(v / total * 100)}%</b><small>${fmtDur(v)}</small></li>`).join('')}</ul>` : '<p class="muted">Ainda sem dados. Deixe o player rodando.</p>'}
+      <ul class="f-legend">${times.slice(0, 5).map(([k, v]) => `<li><i style="background:${RULES[k].c}"></i>${RULES[k].n}<b>${Math.round(v / total * 100)}%</b><small>${fmtDur(v)}</small></li>`).join('')}</ul>` : '<p class="muted">Ainda sem dados: aparece conforme o trabalho acontece.</p>'}
     </section>
     <section class="f-dev"><h4>Números</h4><div class="f-nums"><div><b>${done}</b><small>tarefas concluídas</small></div><div><b>${blocks}</b><small>bloqueios</small></div><div><b>${evs}</b><small>eventos recebidos</small></div></div></section>
-    <section class="f-dev"><h4>Histórico de ações</h4>
-      ${shown.length ? `<ol class="f-hist">${shown.map(h => `<li><time>${fmtClock(h.t)}</time><div>${h.st ? `<i class="chip" style="background:${RULES[h.st].c}">${RULES[h.st].n}</i>` : ''}${h.task ? ` <span>${escapeHTML(h.task)}</span>` : ''}${h.auto ? ' <em>automático</em>' : ''}<small>${escapeHTML(h.text || '')}</small></div></li>`).join('')}</ol>` : '<p class="muted">Nenhuma ação ainda.</p>'}
+    <section><h4>Histórico</h4>
+      ${shown.length ? `<ol class="f-hist">${shown.map(h => `<li><time>${h.at ? new Date(h.at).toLocaleTimeString('pt-BR') : fmtClock(h.t)}</time><div>${h.st ? `<i class="chip" style="background:${RULES[h.st].c}">${RULES[h.st].n}</i>` : ''}${h.task && !a.ext ? ` <span>${escapeHTML(h.task)}</span>` : ''}${h.auto ? ' <em>automático</em>' : ''}<small>${escapeHTML(h.detail || h.text || '')}</small></div></li>`).join('')}</ol>` : '<p class="muted">Nenhuma ação ainda.</p>'}
       ${hist.length > 8 ? `<button type="button" class="linkish" data-f="all">${fichaAll ? 'Mostrar menos' : `Ver todas (${hist.length})`}</button>` : ''}
     </section>
     <div class="f-actions f-dev">

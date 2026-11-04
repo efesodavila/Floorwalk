@@ -38,9 +38,10 @@ export function toolAction(tool, input = {}) {
     if (TESTS.test(raw)) return { state: 'revisando', place: 'computador', detail: `Testando: ${cmd}` };
     return { state: 'trabalhando', place: 'computador', detail: cmd ? `Rodando: ${cmd}` : 'Rodando um comando' };
   }
+  if (t === 'AskUserQuestion') return { state: 'aguardando', place: 'computador', detail: 'Fazendo uma pergunta a você' };
   if (t === 'Task' || t === 'Agent') return { state: 'planejando', place: 'quadro', detail: `Delegando: ${clip(input.description || input.subagent_type || 'subtarefa', 60)}` };
   if (/^(TodoWrite|TaskCreate|TaskUpdate|ExitPlanMode|EnterPlanMode)$/.test(t)) return { state: 'planejando', place: 'quadro', detail: 'Organizando as etapas' };
-  if (t.startsWith('mcp__')) return { state: 'trabalhando', place: 'computador', detail: `Usando ${clip(t.split('__').slice(1).join(' · '), 50)}` };
+  if (t.startsWith('mcp__')) { const [, srv = '', tool = ''] = t.split('__'); return { state: 'trabalhando', place: 'computador', detail: clip(`Usando ${tool.replace(/_/g, ' ')}${srv ? ` (${srv.replace(/^plugin_|_/g, ' ').trim()})` : ''}`, 60) }; }
   return { state: 'trabalhando', place: 'computador', detail: t ? `Usando ${clip(t, 40)}` : 'Trabalhando' };
 }
 
@@ -53,7 +54,7 @@ export function createClaudeBridge({ say, log, team }) {
     const root = clip(base(cwd), 11) || 'Claude';
     const used = new Set([...sessions.values()].map(s => s.name.toLowerCase()));
     let name = root, n = 2; while (used.has(name.toLowerCase())) name = `${root} ${n++}`;
-    sessions.set(id, { name, cwd: String(cwd || ''), since: Date.now() });
+    sessions.set(id, { name, cwd: String(cwd || ''), since: Date.now(), last: Date.now() });
     team();
     return name;
   };
@@ -64,7 +65,8 @@ export function createClaudeBridge({ say, log, team }) {
     if (!ev || typeof ev !== 'object') return null;
     const id = String(ev.session_id || '').slice(0, 80), kind = String(ev.hook_event_name || '');
     if (!id || !kind || !HOOK_EVENTS.includes(kind)) return null;
-    const name = nameFor(id, ev.cwd), task = clip(base(ev.cwd) || 'Claude Code', 60);
+    const name = nameFor(id, ev.cwd); sessions.get(id).last = Date.now();
+    const task = clip(base(ev.cwd) || 'Claude Code', 60);
     const put = (state, extra = {}, hold) => { say({ agent: name, state, task, ...extra }, hold); return { agent: name, state, ...extra }; };
     switch (kind) {
       case 'SessionStart': return put('aguardando', { detail: ev.source === 'resume' ? 'Sessão retomada' : 'Sessão iniciada' });
@@ -79,9 +81,16 @@ export function createClaudeBridge({ say, log, team }) {
       case 'SubagentStart': return put('planejando', { place: 'reuniao', detail: `Subagente começou${ev.agent_type ? ': ' + clip(ev.agent_type, 40) : ''}` });
       case 'SubagentStop': log(name, 'Subagente terminou'); return { agent: name, log: true };
       case 'Stop': return put('concluido', { detail: 'Turno concluído' }, 4500);
-      case 'SessionEnd': { const r = put('offline', { detail: 'Sessão encerrada' }); sessions.delete(id); return r; }
+      case 'SessionEnd': { const r = put('offline', { detail: 'Sessão encerrada' }); sessions.delete(id); team(); return r; }
       default: return null;
     }
   }
-  return { handle, members, sessions };
+  // sessões sem evento há mais de idleMs: encerradas (a lista da equipe que vai à página é a verdade sobre quem existe)
+  function sweep(idleMs, now = Date.now()) {
+    let n = 0;
+    for (const [id, s] of sessions) if (now - s.last > idleMs) { say({ agent: s.name, state: 'offline', task: clip(base(s.cwd) || 'Claude Code', 60), detail: 'Sessão sem atividade' }); sessions.delete(id); n++; }
+    if (n) team();
+    return n;
+  }
+  return { handle, members, sessions, sweep };
 }

@@ -512,6 +512,8 @@ body.clean .f-dev { display: none !important; }
 .result { bottom: auto !important; max-height: calc(100% - 64px - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 860px) { .result { max-height: calc(100% - 64px - 214px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); } }
 
+.team-sub { font-size: 13px; margin: 14px 0 6px; color: var(--ink-soft); font-weight: 600; }
+.team-list .chip { font-size: 10px; vertical-align: 1px; display: inline-block; width: auto; flex: none; }
 .team-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .team-list button { width: 100%; justify-content: flex-start; text-align: left; gap: 10px; border: 0; background: transparent; padding: 6px; border-radius: 10px; min-height: 0; }
 .team-list button:hover { background: var(--ground-2); }

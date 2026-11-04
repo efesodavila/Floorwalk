@@ -114,8 +114,9 @@ personagem vai até um computador.
 - Subagentes ainda não ganham personagem próprio; a sessão principal vai à mesa de reunião quando delega.
 - Um escritório por servidor. A equipe de IA roda até 2 tarefas ao mesmo tempo; a qualidade depende do modelo conectado.
 - A pesquisa na internet é só leitura, e o DuckDuckGo pode limitar buscas automáticas.
-- **Modelos 3D dos personagens** em `web/modelos/` foram gerados no [Meshy](https://www.meshy.ai). Confira se os termos
-  servem para o seu uso antes de redistribuí-los. Apague a pasta e os personagens low-poly feitos em código assumem.
+- **Modelos 3D dos personagens** em `web/modelos/` foram gerados no [Meshy](https://www.meshy.ai) num plano pago, que dá
+  direito de uso comercial, e são distribuídos com o projeto sob a mesma licença MIT. Quem preferir não usá-los pode
+  apagar a pasta: os personagens low-poly feitos em código assumem.
 
 ## Contribuir
 

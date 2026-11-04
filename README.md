@@ -117,8 +117,9 @@ to a computer.
 - Subagents do not get their own character yet; the main session goes to the meeting table when it delegates.
 - One office per server. The AI team runs up to 2 tasks at once; quality depends on the model you connect.
 - Web research is read-only, and DuckDuckGo may rate-limit automated searches.
-- **3D character models** in `web/modelos/` were generated with [Meshy](https://www.meshy.ai). Check that their terms fit
-  your use before redistributing them. Delete the folder and the code-built low-poly characters take over.
+- **3D character models** in `web/modelos/` were generated with [Meshy](https://www.meshy.ai) on a paid plan, which grants
+  commercial-use rights, and are distributed with the project under the same MIT license. If you prefer not to use them,
+  delete the folder and the code-built low-poly characters take over.
 
 ## Contributing
 

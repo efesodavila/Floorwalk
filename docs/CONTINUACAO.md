@@ -398,7 +398,10 @@ disse que está **ótimo**).
 6. Agentes não executam código nem acessam sistemas do usuário (decisão, não limite técnico).
 7. Móveis criados pela IA: a crítica visual (seção 11) depende de a IA conectada aceitar imagens. Com modelo sem
    visão (ex.: muitos do Ollama), o móvel fica como foi desenhado. Testada com OpenAI (gpt-5.4-mini e gpt-6.1-sol).
-8. Licença dos GLB do Meshy: o dono decidiu tirar da lista de pendências (fica por conta dele).
+8. Licença dos GLB do Meshy: RESOLVIDA (2026-11-04). O dono assina o Meshy; segundo o próprio Meshy, planos pagos dão
+   direito de uso comercial sem exigir crédito, e modelos feitos no plano pago mantêm esse direito mesmo depois de um
+   rebaixamento. Só modelos gerados no plano grátis/teste ficam em CC BY 4.0 (exigem crédito ao Meshy). Os modelos vão
+   com o projeto sob MIT (README). Se algum modelo tiver sido gerado antes da assinatura, creditar o Meshy no README.
 9. O repositório git **local**; **não há remoto** (GitHub) ainda.
 10. O nome antigo "Pixel HQ" colidia com um app existente (PixelHQ) e com o concorrente pixel-agents-hq; em 2026-11-04 o dono escolheu **Floorwalk** (npm e GitHub sem projeto parecido; marca registrada e domínio NÃO conferidos).
 
@@ -601,7 +604,7 @@ disse que está **ótimo**).
   esconde o campo de tarefa (`body.so-claude`) e avisa se os hooks estão desligados (`GET /api/hooks/status`).
   Conectar uma IA pelo menu sai desse modo (segue para "descreva o negócio");
   (3) subagentes como personagens próprios; (4) medidor de contexto, som ao terminar/pedir permissão; (5) Codex e
-  Gemini CLI; (6) publicar (`npx`), depois de decidir nome e licença dos modelos Meshy.
+  Gemini CLI; (6) publicar (`npx`), (nome = Floorwalk e licença dos modelos resolvidos em 2026-11-04).
 - FICHA PARA TODOS (2026-11-04): Histórico e Tempo por atividade saíram do modo dev (`f-dev`); a ficha mostra
   "Fazendo" (`a.detail`, o detail do último estado), "Onde" e, nas sessões do Claude Code, "Projeto". Histórico com hora
   real (`at`). O servidor guarda os últimos 40 estados de cada agente (`history` em server.mjs) e manda a quem conecta

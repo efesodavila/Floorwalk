@@ -9,6 +9,7 @@ quando lê, o rack de servidores quando publica, e levanta um alerta quando prec
 ![Quatro sessões do Claude Code no escritório: uma editando na mesa, uma lendo na poltrona, uma publicando no rack de servidores, uma bloqueada pedindo permissão](docs/img/claude-code-room.jpg)
 
 > Estado: primeira versão aberta. Funciona no Windows, macOS e Linux com Node 22.9 ou mais novo.
+> A interface segue o idioma do navegador (inglês ou português); dá para trocar no menu (☰ → Language / Idioma).
 
 ## Começo rápido (Claude Code, sem chave de IA)
 

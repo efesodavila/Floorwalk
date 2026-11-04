@@ -9,7 +9,7 @@ when it reads, the server rack when it pushes, and it raises a flag when it need
 ![Four Claude Code sessions in the office: one editing at a desk, one reading in the armchair, one pushing at the server rack, one blocked waiting for permission](docs/img/claude-code-room.jpg)
 
 > Status: early open-source release. Works on Windows, macOS and Linux with Node 22.9+.
-> The app interface is in Portuguese for now; an English interface is planned.
+> The interface follows your browser language (English or Portuguese); switch it in the menu (☰ → Idioma / Language).
 
 ## Quick start (Claude Code, no API key)
 
@@ -109,7 +109,7 @@ to a computer.
 
 ## Known limits
 
-- The interface and the protocol's state names are in Portuguese.
+- The optional AI team screens (setup, business description, results) and the protocol's state names are still in Portuguese.
 - Claude Code is the only coding agent supported today. Codex and Gemini CLI are next.
 - Subagents do not get their own character yet; the main session goes to the meeting table when it delegates.
 - One office per server. The AI team runs up to 2 tasks at once; quality depends on the model you connect.

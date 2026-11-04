@@ -72,6 +72,7 @@ function renderMenu() {
   $('#m-dev').setAttribute('aria-pressed', String(devMode));
   $('#m-3d').setAttribute('aria-pressed', String(!!window.R3D?.wanted));
   { const v = typeof setupState !== 'undefined' ? setupState.view : null; $('#m-web').setAttribute('aria-pressed', String(v?.web !== false)); }
+  $('#m-lang').textContent = LANG === 'pt' ? 'Language: English' : 'Idioma: Português';
   $('#m-aiteam').textContent = aiTeamOn() ? 'Desligar a equipe de IA' : 'Ligar a equipe de IA (tarefas)';
   $('#m-edit').textContent = mode === 'build' ? 'Voltar ao trabalho (ao vivo)' : 'Editar a sala e as pessoas';
   const v = typeof setupState !== 'undefined' ? setupState.view : null;
@@ -95,6 +96,7 @@ menuEl.addEventListener('keydown', (e) => {
 for (const id of ['m-team', 'm-edit', 'm-office', 'ai-btn', 'open-rules', 'open-test', 'open-changes']) $('#' + id).addEventListener('click', () => closeMenu());
 $('#m-edit').onclick = () => { setMode(mode === 'build' ? 'live' : 'build'); renderMenu(); };
 $('#m-office').onclick = () => openOfficeStep();
+$('#m-lang').onclick = () => setLang(LANG === 'pt' ? 'en' : 'pt');
 // começar do zero: confirma, apaga o escritório no servidor e a sala salva neste navegador, e volta para "descrever o negócio"
 $('#m-reset').onclick = async () => {
   closeMenu();

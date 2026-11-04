@@ -632,3 +632,13 @@ disse que está **ótimo**).
   `tplClaude()` na primeira visita, gaveta Equipe só com sessões, "Começar do zero" só troca a sala local (não apaga o
   negócio no servidor). Menu ☰ → "Ligar a equipe de IA (tarefas)" / "Desligar…" (`setAiTeam`, recarrega). Nada do modo
   negócio foi apagado do código.
+- INTERFACE EM INGLÊS E PORTUGUÊS (2026-11-04, fase 1): `web/js/01-idioma.js` (carrega depois do catálogo). `LANG` =
+  `floorwalk.lang` ou o idioma do navegador (pt* → pt; resto → en). Em inglês: (1) dados do catálogo trocados pelo id (ITEMS,
+  RULES, KINDS, papéis, AFFN, PLACES.why, ACTS, pisos, paredes, cabelos…; `syncCatalog` embrulhada para os rótulos do
+  escritório); (2) um MutationObserver traduz textos e atributos da tela pelo dicionário `EN` (frase exata), `EN_HTML`
+  (elemento com tags) e `EN_RE` (padrões com variável, inclusive os detalhes do Claude Code vindos do servidor; o pedaço
+  variável passa por `T` de novo). `confirm`/`alert` também. Menu ☰ → "Language: English" / "Idioma: Português"
+  (`setLang`). Texto NOVO na tela: acrescente a tradução em `EN`/`EN_RE` (o teste confere os detalhes do servidor).
+  FALTA (fase 2): telas da equipe de IA (setup, descrever o negócio, resultado, missões), "Regras"/"O que mudou" do modo
+  dev, mensagens de erro do servidor, e a equipe de IA responder no idioma do usuário (prompts em server/office.mjs e
+  runner.mjs estão em português). Papéis e rótulos criados pela IA de um negócio são dados e ficam como vieram.

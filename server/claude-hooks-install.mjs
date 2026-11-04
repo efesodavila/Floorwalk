@@ -1,0 +1,85 @@
+// Instala e remove os hooks do Pixel HQ no settings.json do Claude Code (~/.claude/settings.json).
+// Regras (o arquivo é do usuário, guarda as permissões dele):
+// - arquivo ilegível ou com formato inesperado: aborta sem tocar em nada;
+// - antes da primeira escrita, faz uma cópia (settings.json.pixel-hq.backup) que nunca é sobrescrita;
+// - só mexe nas entradas cujo comando é o nosso (script claude-hook.mjs com a marca --pixel-hq);
+//   as do usuário e de outras ferramentas ficam como estão;
+// - grava num arquivo temporário e troca de uma vez (rename), mantendo a permissão do original; relê para conferir.
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { HOOK_EVENTS, TOOL_EVENTS } from './claude-code.mjs';
+
+export const BACKUP_SUFFIX = '.pixel-hq.backup';
+export const MARK = '--pixel-hq';
+export const defaultSettingsPath = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
+
+export const isOurs = (h) => typeof h?.command === 'string' && h.command.includes('claude-hook.mjs') && h.command.includes(MARK);
+export const hookCommand = (script) => `node "${script.replace(/\\/g, '/')}" ${MARK}`;
+
+const fail = (m) => Object.assign(new Error(m), { code: 'unsafe' });
+
+async function readSettings(file) {
+  let raw;
+  try { raw = await fs.readFile(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return { data: {}, exists: false, mode: 0o600 }; throw e; }
+  let data;
+  try { data = raw.trim() ? JSON.parse(raw) : {}; } catch { throw fail(`Não consegui ler ${file} (JSON inválido). Nada foi alterado.`); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw fail(`${file} não é um objeto JSON. Nada foi alterado.`);
+  if (data.hooks != null && (typeof data.hooks !== 'object' || Array.isArray(data.hooks))) throw fail(`"hooks" em ${file} tem um formato que não conheço. Nada foi alterado.`);
+  for (const [k, v] of Object.entries(data.hooks || {})) if (!Array.isArray(v)) throw fail(`"hooks.${k}" em ${file} não é uma lista. Nada foi alterado.`);
+  const mode = (await fs.stat(file)).mode & 0o777;
+  return { data, exists: true, mode };
+}
+
+// tira as nossas entradas (mantém o resto de cada grupo); devolve quantas tirou
+function strip(hooks) {
+  let n = 0;
+  for (const ev of Object.keys(hooks)) {
+    const before = hooks[ev];
+    hooks[ev] = before.map(g => {
+      if (!g || !Array.isArray(g.hooks)) return g;
+      const keep = g.hooks.filter(h => !isOurs(h)); n += g.hooks.length - keep.length;
+      return keep.length === g.hooks.length ? g : keep.length ? { ...g, hooks: keep } : null;
+    }).filter(Boolean);
+    if (!hooks[ev].length && before.length) delete hooks[ev];
+  }
+  return n;
+}
+
+async function writeSettings(file, data, mode, exists) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const backup = file + BACKUP_SUFFIX;
+  if (exists) { try { await fs.copyFile(file, backup, fs.constants.COPYFILE_EXCL); } catch (e) { if (e.code !== 'EEXIST') throw e; } }
+  const tmp = `${file}.pixel-hq-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
+  await fs.writeFile(tmp, text, { mode });
+  await fs.rename(tmp, file);
+  if (await fs.readFile(file, 'utf8') !== text) throw new Error(`A gravação de ${file} não conferiu. Restaure a cópia ${backup} se precisar.`);
+  return exists ? backup : null;
+}
+
+export async function install({ file = defaultSettingsPath(), script }) {
+  const { data, exists, mode } = await readSettings(file);
+  const hooks = data.hooks ? { ...data.hooks } : {};
+  strip(hooks); // reinstalar não duplica (e atualiza o caminho se a pasta mudou)
+  const entry = { type: 'command', command: hookCommand(script), timeout: 5 };
+  for (const ev of HOOK_EVENTS) (hooks[ev] ||= []).push(TOOL_EVENTS.has(ev) ? { matcher: '*', hooks: [entry] } : { hooks: [entry] });
+  const backup = await writeSettings(file, { ...data, hooks }, mode, exists);
+  return { file, backup, events: HOOK_EVENTS.length };
+}
+
+export async function uninstall({ file = defaultSettingsPath() } = {}) {
+  const { data, exists, mode } = await readSettings(file);
+  if (!exists || !data.hooks) return { file, removed: 0 };
+  const hooks = { ...data.hooks }, removed = strip(hooks);
+  if (!removed) return { file, removed: 0 };
+  const out = { ...data, hooks };
+  if (!Object.keys(hooks).length) delete out.hooks;
+  await writeSettings(file, out, mode, exists);
+  return { file, removed };
+}
+
+export async function status({ file = defaultSettingsPath() } = {}) {
+  const { data } = await readSettings(file);
+  const on = HOOK_EVENTS.filter(ev => (data.hooks?.[ev] || []).some(g => g?.hooks?.some(isOurs)));
+  return { file, installed: on.length === HOOK_EVENTS.length, events: on };
+}

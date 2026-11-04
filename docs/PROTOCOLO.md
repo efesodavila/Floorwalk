@@ -8,7 +8,7 @@ Transporte: WebSocket em `/events`, mensagens JSON, uma por frame (um array tamb
 | `type`  | Quando | Campos |
 |---------|--------|--------|
 | `hello` | ao conectar | `protocol` (1), `server`, `demo` |
-| `team`  | ao conectar | `agents: [{ name, role, roleName, kind }]`. A página cria quem não existe, cria papéis novos e corrige o papel de quem existe. |
+| `team`  | ao conectar e quando alguém entra | `agents: [{ name, role, roleName, kind, source? }]`. A página cria quem não existe, cria papéis novos e corrige o papel de quem existe. `source` (ex.: `claude-code`) marca agente de fora: fica na sala enquanto existir e não é salvo no escritório. |
 | `state` | um agente muda o que está fazendo | `agent`, `state`, `task`, `with?`, `detail?`, `run?` |
 | `log`   | algo útil sem mudar o estado (resultado de ferramenta) | `agent`, `text`, `run?` |
 | `result` | uma pessoa terminou a sua parte | `run`, `agent`, `action` (pesquisar, produzir, revisar, entregar), `title`, `text` (o texto completo) |
@@ -108,6 +108,14 @@ O servidor responde com mensagens `task` usando o mesmo `id`. Para cancelar:
 ```json
 { "type": "cancel", "id": "run-lq3x9" }
 ```
+
+## Claude Code → servidor
+
+Os hooks do Claude Code (`npm run hooks:install`) rodam `scripts/claude-hook.mjs`, que repassa cada evento em
+`POST /api/hooks/claude` com o cabeçalho `x-pixelhq-token` (senha de `~/.pixel-hq/hook.json`, gravada pelo
+servidor ao subir; `PIXELHQ_HOME` troca a pasta). Sem a senha: 403. `server/claude-code.mjs` traduz o evento em
+`team` + `state` (tabela no README). Eventos: SessionStart, SessionEnd, UserPromptSubmit, PreToolUse,
+PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, SubagentStop.
 
 ## Regras de convivência
 

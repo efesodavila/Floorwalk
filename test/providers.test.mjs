@@ -70,7 +70,7 @@ const call = (p, opts = {}) => fetch(url + p, { ...opts, headers: { origin: url,
 before(async () => {
   dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pixelhq-data-'));
   const port = 20000 + Math.floor(Math.random() * 20000);
-  srv = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(port), PIXELHQ_DATA_DIR: dataDir, OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', WORKSPACE_DIR: dataDir }, stdio: 'pipe' });
+  srv = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(port), PIXELHQ_DATA_DIR: dataDir, PIXELHQ_HOME: dataDir, OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', WORKSPACE_DIR: dataDir }, stdio: 'pipe' });
   url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 50; i++) { try { await fetch(url + '/health'); break; } catch { await new Promise(r => setTimeout(r, 100)); } }
 });

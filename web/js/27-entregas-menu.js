@@ -156,6 +156,8 @@ setInterval(() => {
   if (taskRunning()) return;
   for (const a of sim.agents) {
     if (a.present === false || a.held) continue;
+    // sessão de fora (Claude Code) ainda aberta: fica na sala; só sai quando a sessão termina (offline)
+    if (a.ext && a.status !== 'offline') continue;
     // chegou à saída: some
     if (a.leaving) {
       // some ao chegar perto da porta (não espera a fila dos outros terminar o caminho)

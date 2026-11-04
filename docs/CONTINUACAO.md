@@ -456,7 +456,7 @@ disse que está **ótimo**).
 ## 15. Estado e pendências (atualize aqui)
 
 - Commits em `main`. Sem remoto.
-- `npm test`: 90 testes; 89 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
+- `npm test`: 98 testes; 97 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
 - Plantas: o laço principal do `check:layouts` (retangular e em L × 6 e 10 pessoas × estilos × áreas × entrega =
   160 combinações, com a porta conferida) rodou no navegador sem problema. O script inteiro não rodou aqui (sem
   Playwright instalado).
@@ -582,3 +582,19 @@ disse que está **ótimo**).
   araras em fileira e salas fechadas só valem no gerador guardado (sem uso); `check:layouts` ainda espera a planta
   montada pela IA; criar o remoto.
 - Próximo passo recomendado: testar o fluxo completo com a IA do dono; criar o remoto.
+- PONTE CLAUDE CODE (2026-11-04, dono escolheu disputar o público dev do Pixel Agents, github.com/pixel-agents-hq):
+  `server/claude-code.mjs` (evento do hook → `team`/`state`, ferramenta → lugar, `redact` tira segredos dos
+  comandos), `server/claude-hooks-install.mjs` + `scripts/claude-hooks.mjs` (`npm run hooks:install|uninstall|status`;
+  aborta em JSON ruim, cópia `.pixel-hq.backup` uma vez só, só mexe em entradas com `claude-hook.mjs` + `--pixel-hq`,
+  grava tmp + rename e confere), `scripts/claude-hook.mjs` (hook: lê stdin, POST com senha, nunca escreve, sai 0, < 1 s).
+  Servidor: rota `POST /api/hooks/claude` (senha `x-pixelhq-token` de `~/.pixel-hq/hook.json`, mesma senha entre
+  reinícios; `PIXELHQ_HOME` troca a pasta — os testes e o `.claude/launch.json` usam pasta temporária para não
+  sobrescrever o arquivo real). `team` ganhou `source`. Página: agente com `source` (`a.ext`) não sai da sala no fim
+  das tarefas (só ao ficar `offline`), mantém a animação ligada e não entra no `save()`; chegando com a sala em
+  edição, espera em `extWaiting` e entra ao voltar ao escritório. Teste de ponta a ponta em `test/claude-code.test.mjs`
+  (sobe o servidor, roda o hook, confere o estado no WebSocket). Conferido no navegador: edição → mesa, `git push` →
+  rack, permissão → bloqueado. NÃO testado com uma sessão real do Claude Code (só eventos simulados no formato da doc).
+- Pendências da ponte (ordem): (1) testar com o Claude Code real (`hooks:install`, reiniciar o servidor, sessão nova);
+  (2) sem escritório montado a página pede a IA e o negócio antes: falta um caminho "só Claude Code", sem chave;
+  (3) subagentes como personagens próprios; (4) medidor de contexto, som ao terminar/pedir permissão; (5) Codex e
+  Gemini CLI; (6) publicar (`npx`), depois de decidir nome e licença dos modelos Meshy.

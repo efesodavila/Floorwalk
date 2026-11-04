@@ -14,7 +14,9 @@ export const msg = {
   hello: (demo = false) => ({ type: 'hello', protocol: PROTOCOL, server: 'pixel-hq', demo }),
   team: (agents) => ({ type: 'team', agents: agents.map(a => {
     if (!KINDS.includes(a.kind)) throw new Error(`tipo de papel inválido: ${a.kind}`);
-    return { name: a.name, role: a.role, roleName: a.roleName, kind: a.kind };
+    const o = { name: a.name, role: a.role, roleName: a.roleName, kind: a.kind };
+    if (/^[a-z][a-z0-9-]{0,30}$/.test(a.source || '')) o.source = a.source; // de onde vem o agente (ex.: claude-code)
+    return o;
   }) }),
   state: ({ agent, state, task, with: w, detail, run, place }) => {
     if (!STATES.includes(state)) throw new Error(`estado inválido: ${state}`);

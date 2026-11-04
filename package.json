@@ -13,7 +13,10 @@
     "demo": "node --env-file-if-exists=.env server/server.mjs --demo",
     "test": "node --test",
     "build:single": "node scripts/build-single.mjs",
-    "check:layouts": "node scripts/check-layouts.mjs"
+    "check:layouts": "node scripts/check-layouts.mjs",
+    "hooks:install": "node scripts/claude-hooks.mjs install",
+    "hooks:uninstall": "node scripts/claude-hooks.mjs uninstall",
+    "hooks:status": "node scripts/claude-hooks.mjs status"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.137.0",

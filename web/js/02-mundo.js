@@ -76,7 +76,8 @@ function tplVitrine() {
 if (VITRINE) W = tplVitrine();
 W = normalize(W);
 syncCatalog();
-function save() { if (VITRINE) return; try { localStorage.setItem(STORE, JSON.stringify(W)); } catch {} }
+// pessoas de fora (sessões do Claude Code) não entram no escritório salvo: existem só enquanto a sessão existe
+function save() { if (VITRINE) return; try { localStorage.setItem(STORE, JSON.stringify({ ...W, people: W.people.filter(p => !p.ext) })); } catch {} }
 
 let past = [], future = [];
 function snapshot() { return JSON.stringify(W); }

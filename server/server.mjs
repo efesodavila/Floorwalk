@@ -16,6 +16,9 @@ import { createPacer } from './pacer.mjs';
 import { runTask, teamOf } from './runner.mjs';
 import * as webAccess from './web.mjs';
 import { createLocks } from './locks.mjs';
+import { createClaudeBridge } from './claude-code.mjs';
+import crypto from 'node:crypto';
+import os from 'node:os';
 
 const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR || './workspace');
 
@@ -44,6 +47,25 @@ function broadcast(m) {
 const pacer = createPacer(broadcast, MIN_DWELL);
 // eventos de uma tarefa (o id da tarefa vai em cada evento: a página sabe de qual tarefa é)
 const logFor = (t) => (agent, text) => broadcast(msg.log(agent, text, t.id));
+// sessões do Claude Code (hooks): cada uma vira um personagem; ver server/claude-code.mjs
+const claude = createClaudeBridge({
+  say: (m, hold) => pacer.push(msg.state(m), hold),
+  log: (agent, text) => broadcast(msg.log(agent, text)),
+  team: () => broadcast(msg.team(claude.members())), // na hora: o primeiro estado da sessão vem logo atrás
+});
+// senha dos hooks: o script do hook lê de ~/.pixel-hq/hook.json (só o usuário lê) e manda no cabeçalho
+const HOOK_FILE = path.join(process.env.PIXELHQ_HOME || path.join(os.homedir(), '.pixel-hq'), 'hook.json');
+let HOOK_TOKEN = '';
+async function writeHookFile() {
+  try { HOOK_TOKEN = JSON.parse(await fs.readFile(HOOK_FILE, 'utf8')).token || ''; } catch {}
+  if (!/^[a-f0-9]{48}$/.test(HOOK_TOKEN)) HOOK_TOKEN = crypto.randomBytes(24).toString('hex');
+  await fs.mkdir(path.dirname(HOOK_FILE), { recursive: true });
+  await fs.writeFile(HOOK_FILE, JSON.stringify({ port: PORT, token: HOOK_TOKEN }), { mode: 0o600 });
+}
+const hookAuth = (req) => {
+  const got = Buffer.from(String(req.headers['x-pixelhq-token'] || '')), want = Buffer.from(HOOK_TOKEN);
+  return HOOK_TOKEN && got.length === want.length && crypto.timingSafeEqual(got, want);
+};
 const sayFor = (t) => (member, state, task, extra = {}, hold) =>
   pacer.push(msg.state({ agent: member.name, state, task, run: t.id, ...extra }), hold);
 
@@ -151,6 +173,13 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, demo: DEMO, tarefas: [...running.values()].map(t => t.text), fila: queue.length })); return; }
   // diz à página que ela está rodando com o servidor (liga o modo tempo real)
   if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.PIXELHQ_BRIDGE = true;\n`); return; }
+  // eventos do Claude Code (scripts/claude-hook.mjs): sem página, por isso a senha em vez da origem
+  if (url.pathname === '/api/hooks/claude') {
+    if (req.method !== 'POST' || !hookAuth(req)) { res.writeHead(403); res.end(); return; }
+    try { claude.handle(await readJSON(req, 4 * 1024 * 1024)); res.writeHead(204); res.end(); }
+    catch (e) { res.writeHead(typeof e.code === 'number' ? e.code : 400); res.end(); }
+    return;
+  }
   if (url.pathname.startsWith('/api/')) { await api(req, res, url); return; }
   if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
   // Three.js (cena 3D) servido do node_modules: só os módulos de build/ e examples/jsm/
@@ -297,6 +326,7 @@ wss.on('connection', (ws) => {
   clients.add(ws);
   ws.send(JSON.stringify(msg.hello(DEMO)));
   currentTeam().then(T => T.length && ws.readyState === 1 && ws.send(JSON.stringify(msg.team(T))));
+  if (claude.sessions.size) ws.send(JSON.stringify(msg.team(claude.members())));
   for (const t of running.values()) ws.send(JSON.stringify(msg.task(t.id, 'em_andamento', { text: t.text })));
   for (const m of lastState.values()) ws.send(JSON.stringify(m));
   ws.on('message', (raw) => {
@@ -316,6 +346,7 @@ wss.on('connection', (ws) => {
 });
 
 await fs.mkdir(path.join(WORKSPACE, 'projeto'), { recursive: true });
+await writeHookFile().catch(e => console.error('[claude code] não consegui gravar', HOOK_FILE, e.message));
 server.listen(PORT, HOST, () => {
   console.log(`Pixel HQ ${DEMO ? '(demo: tarefas simuladas)' : ''} em http://${HOST}:${PORT}`);
   settings.active().then(c => console.log(c ? `IA: ${PROVIDERS[c.provider].name} · ${c.model}` : 'IA ainda não configurada: abra a página para escolher.'));

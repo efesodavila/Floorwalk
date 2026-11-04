@@ -40,6 +40,41 @@ Quem preferir pode deixar a chave no `.env` (veja `.env.example`).
 Também dá para abrir `web/index.html` direto no navegador (sem servidor: sem agentes reais),
 ou gerar um arquivo único com `npm run build:single` (sai em `dist/pixel-hq.html`).
 
+## Com o Claude Code
+
+O Pixel HQ também mostra as sessões do [Claude Code](https://docs.anthropic.com/en/docs/claude-code) que você já
+usa no terminal: cada sessão vira um personagem com o nome da pasta do projeto e vai ao móvel certo conforme o que
+está fazendo. Não precisa de chave de IA para isso.
+
+```bash
+npm run hooks:install
+npm start
+```
+
+Abra uma sessão nova do Claude Code. Ela entra pela porta e:
+
+| o Claude Code está… | na sala |
+|---------------------|---------|
+| editando ou criando arquivos | trabalha no computador |
+| lendo, buscando, pesquisando na web | vai à estante |
+| rodando testes ou lint | revisando |
+| fazendo `git push`, deploy ou publicação | vai ao rack de servidores |
+| planejando ou delegando a subagentes | vai ao quadro (ou à mesa de reunião) |
+| pedindo permissão | fica bloqueado, com alerta |
+| esperando sua resposta | aguardando |
+| terminou o turno | comemora |
+| sessão encerrada | sai da sala |
+
+- `npm run hooks:install` registra os hooks no `~/.claude/settings.json`. Antes da primeira escrita guarda uma cópia
+  (`settings.json.pixel-hq.backup`); se o arquivo estiver ilegível ou num formato desconhecido, não mexe em nada. Só
+  as entradas do Pixel HQ são tocadas: seus hooks e permissões ficam como estão.
+- `npm run hooks:status` mostra se está ligado; `npm run hooks:uninstall` tira só as entradas do Pixel HQ.
+- O hook nunca atrapalha o Claude Code: não escreve nada, sempre sai com sucesso e desiste em menos de 1 s quando o
+  servidor está desligado.
+- Os eventos só vão para o seu computador (`127.0.0.1`), com uma senha guardada em `~/.pixel-hq/hook.json`. O texto
+  dos seus pedidos não é lido; comandos aparecem cortados e sem valores que pareçam senha ou chave.
+- As sessões não entram no escritório salvo: existem só enquanto a sessão está aberta.
+
 ## Visual 3D
 
 Com o servidor, o escritório é desenhado em 3D (Three.js), no estilo pixel art: sombras projetadas,

@@ -13,17 +13,35 @@ function connectWS(url) {
     sim.wsState = 'conectando'; renderSourceBox();
   } catch { sim.wsState = 'erro'; renderSourceBox(); }
 }
+// sessões de fora (Claude Code) que chegaram enquanto a sala estava em edição: entram quando ela volta ao escritório
+const extWaiting = { team: new Map(), state: new Map() };
+function flushExtWaiting() {
+  if (mode !== 'live' || !extWaiting.team.size) return;
+  const agents = [...extWaiting.team.values()], states = [...extWaiting.state.values()];
+  extWaiting.team.clear(); extWaiting.state.clear();
+  onBridgeMsg({ type: 'team', agents }); states.forEach(onBridgeMsg);
+}
 /* Protocolo Pixel HQ v1: mensagens com "type" (hello, team, state, log, task). Evento sem "type" = state (compatível com o formato antigo). */
 function onBridgeMsg(m) {
   if (Array.isArray(m)) { m.forEach(onBridgeMsg); return; }
   if (!m || typeof m !== 'object') return;
   const t = m.type || 'state';
   if (t === 'hello') { sim.bridge = m; logFeed({ name: 'Conexão', st: null, text: `Ponte conectada: ${m.server || 'servidor'} (protocolo ${m.protocol ?? '?'})` }); return; }
-  if (t === 'team') { if (mode === 'live') for (const x of m.agents || []) syncAgent(x.name, ensureRole(x.role, x.roleName, x.kind)); return; }
+  if (t === 'team') {
+    // fora do escritório (editando a sala): guarda quem é de fora para pôr na sala ao voltar
+    if (mode !== 'live') { for (const x of m.agents || []) if (x.source) extWaiting.team.set(String(x.name).toLowerCase(), x); return; }
+    for (const x of m.agents || []) {
+      const a = syncAgent(x.name, ensureRole(x.role, x.roleName, x.kind));
+      // agente de fora (ex.: sessão do Claude Code): fica na sala enquanto a sessão existir e não é salvo no escritório
+      if (a && x.source) { a.ext = String(x.source); const p = personOf(a); if (p && !p.ext) { p.ext = a.ext; try { save(); } catch {} } }
+    }
+    return;
+  }
   if (t === 'task') { bridgeTask(m); return; }
   if (t === 'result') { missionResult(m); return; }
   if (t === 'log') { const a = agentByRef(m.agent); logFeed({ name: a ? nameOf(a) : String(m.agent || 'Sistema'), st: null, text: String(m.text || '') }); if (a) histPush(a, { text: String(m.text || ''), src: 'log' }); return; }
-  if (t === 'state') { applyEvent(m); if (m.run) missionAddStep(m); }
+  if (t === 'state' && mode !== 'live' && extWaiting.team.has(String(m.agent).toLowerCase())) { extWaiting.state.set(String(m.agent).toLowerCase(), m); return; }
+  if (t === 'state') { applyEvent(m); if (m.run) missionAddStep(m); if (agentByRef(m.agent)?.ext && !sim.playing) { sim.playing = true; updatePlayer(); } }
 }
 window.addEventListener('message', (e) => { const d = e.data; if (d && typeof d === 'object' && d.pixelHQ) onBridgeMsg(d.pixelHQ); });
 window.pixelHQ = { emit: (ev) => onBridgeMsg(ev), states: Object.keys(RULES), agents: () => sim.agents.map(a => ({ name: nameOf(a), role: a.role, state: a.status, task: a.task, decision: a.decision })) };
@@ -81,7 +99,7 @@ function setMode(m) {
   $('.panel').hidden = live; $('#player').hidden = !live; $('#team').hidden = !live; $('#feed').hidden = !live; $('#ask').hidden = !live; $('#srcbox').hidden = true;
   placing = null; walling = null; selected = null; drag = null; tool = 'select'; closePop();
   // no escritório de verdade a equipe fica parada até chegar uma tarefa
-  if (live) { startSim(); sim.playing = !quietOffice(); }
+  if (live) { startSim(); sim.playing = !quietOffice(); flushExtWaiting(); }
   else { sim.playing = false; sim.agents = []; sim.reserved.clear(); sim.following = null; sim.inspect = null; ficha.hidden = true; renderPanel(); }
   renderBanner(); renderCtx(); updatePlayer(); renderTeam(); renderFeed(); fit(); dirty();
 }

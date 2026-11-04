@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pixel HQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="css/app.css">
 <!-- cena 3D: o Three.js vem do próprio servidor (node_modules), só é baixado quando o 3D está ligado -->
 <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
@@ -66,6 +66,7 @@
     <button type="button" role="menuitem" id="m-office" data-bridge>Descrever o negócio de novo</button>
     <button type="button" role="menuitem" id="ai-btn" data-bridge>Trocar a IA</button>
     <button type="button" role="menuitem" id="amb-btn" title="Iluminação por horário"></button>
+    <button type="button" role="menuitem" id="m-tour">Como usar (tour)</button>
     <!-- regras e ferramentas de desenvolvimento ficam fora do menu (dono); ?dev no endereço liga o modo desenvolvedor -->
     <button type="button" role="menuitem" id="open-rules" hidden>Como os personagens se comportam</button>
     <hr>
@@ -75,6 +76,8 @@
     <button type="button" role="menuitem" id="m-dev" aria-pressed="false" hidden>Ferramentas de desenvolvimento</button>
     <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
     <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>
+    <hr data-bridge>
+    <button type="button" role="menuitem" id="m-reset" class="danger" data-bridge title="Apaga o negócio, a equipe, a sala e o histórico">Começar do zero…</button>
   </div>
 </div>
 
@@ -180,6 +183,7 @@
 <script src="js/25-configuracao.js"></script>
 <script src="js/26-montagem.js"></script>
 <script src="js/27-entregas-menu.js"></script>
+<script src="js/28-tour.js"></script>
 <script src="js/99-inicio.js"></script>
 <script type="module" src="js3d/cena3d.js"></script>
 </body>

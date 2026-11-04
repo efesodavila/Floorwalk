@@ -35,7 +35,9 @@ export function teamOf(spec) {
   return spec.team.map(m => { const r = spec.roles.find(x => x.id === m.role); return { name: m.name, role: m.role, roleName: r?.name || m.role, kind: r?.kind || 'produz', bio: m.bio || '' }; });
 }
 const leadOf = (T) => T.find(m => m.kind === 'coordena') || T[0];
-const persona = (m, spec) => `Você é ${m.name}, ${m.roleName} em ${spec.name}${spec.service ? ` (${spec.service})` : ''}. ${m.bio ? 'Sua função: ' + m.bio + '.' : ''} Responda sempre em português do Brasil.`;
+// descrição completa do negócio (como o dono escreveu): contexto de todo agente e do plano
+const aboutBusiness = (spec) => spec.description ? `\n\nSOBRE O NEGÓCIO (descrição do dono):\n<<<${spec.description}>>>` : '';
+const persona = (m, spec) => `Você é ${m.name}, ${m.roleName} em ${spec.name}${spec.service ? ` (${spec.service})` : ''}. ${m.bio ? 'Sua função: ' + m.bio + '.' : ''} Responda sempre em português do Brasil.${aboutBusiness(spec)}`;
 
 function planPrompt(text, T, lead, available, spec, webOk = false) {
   const places = available.map(k => `- ${k}: ${placeDesc(k, spec)}`).join('\n');
@@ -44,6 +46,7 @@ function planPrompt(text, T, lead, available, spec, webOk = false) {
 
 PEDIDO DO CLIENTE:
 <<<${text}>>>
+${aboutBusiness(spec)}
 
 EQUIPE:
 ${team}
@@ -65,6 +68,8 @@ NO MODO "equipe"
   Entregar só se o pedido fala em enviar, publicar ou responder a alguém.
 - "pedido": instrução clara para a pessoa, de 1 a 3 frases.
 - "local": o lugar da lista acima onde aquilo é feito de verdade (gravar → estudio, analisar vendas → painel, escrever → computador).
+- No "pedido", diga a ação concreta com o verbo do ofício (ex.: "cortar o cabelo do cliente", "pesar o paciente",
+  "embalar os pedidos", "fritar os bolinhos"): é assim que a pessoa vai ao móvel certo dentro do lugar.
 
 INTERNET
 - "web": true quando a resposta depende de informação atual ou verificável (preços, notícias, leis, versões,

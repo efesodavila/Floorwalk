@@ -20,10 +20,18 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     // quinas retas (decisão do dono: móvel reto sem chanfro); o contorno preto marca cada aresta
     return new THREE.BoxGeometry(w, h, d);
   });
-  const cylG = (rt, rb, h, seg) => memo(`c${n3(rt)},${n3(rb)},${n3(h)},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg, 1));
+  // peças redondas são redondas de verdade (decisão do dono, 2026-11-04): muitos lados e luz lisa (smooth = mantém as
+  // normais da própria geometria em vez do facetado por face). seg < 5 continua sendo forma reta de propósito (pirâmide).
+  const ROUND = 32;
+  const smooth = (g) => { g.userData.smooth = true; return g; };
+  // estofado (assento, encosto, braço): caixa com as quinas LEVEMENTE arredondadas (decisão do dono, 2026-11-04).
+  // Só nos estofados; o resto continua com quina reta. Mantém as normais da própria geometria (luz acompanha a curva).
+  const softG = (w, h, d, r) => { const rr = Math.max(.008, Math.min(r, w / 2 - .002, h / 2 - .002, d / 2 - .002, .05)); return memo(`s${n3(w)},${n3(h)},${n3(d)},${n3(rr)}`, () => { const g = new RoundedBoxGeometry(w, h, d, 3, rr); g.userData.soft = true; return g; }); };
+  const cylG = (rt, rb, h, seg) => { const s = seg >= 5 ? Math.max(seg, ROUND) : seg; return memo(`c${n3(rt)},${n3(rb)},${n3(h)},${s}`, () => { const g = new THREE.CylinderGeometry(rt, rb, h, s, 1); return s >= 5 ? smooth(g) : g; }); };
   const icoG = (r, det) => memo(`i${n3(r)},${det}`, () => new THREE.IcosahedronGeometry(r, det));
+  const sphG = (r) => memo(`s${n3(r)}`, () => smooth(new THREE.SphereGeometry(r, ROUND, ROUND / 2)));
   const dodG = (r) => memo(`d${n3(r)}`, () => new THREE.DodecahedronGeometry(r, 0));
-  const latheG = (pts, seg) => memo('l' + pts.flat().join(',') + seg, () => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg));
+  const latheG = (pts, seg) => memo('l' + pts.flat().join(',') + Math.max(seg, ROUND), () => smooth(new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), Math.max(seg, ROUND))));
   // folha de palmeira/planta: tira que nasce estreita, alarga e cai na ponta, com nervura no meio (vira duas águas)
   const leafG = (len, wid, rise, droop, segs = 4) => memo(`f${n3(len)},${n3(wid)},${n3(rise)},${n3(droop)},${segs}`, () => {
     const pos = [], row = [];
@@ -55,24 +63,25 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       if (o.sx || o.sy || o.sz) g.scale(o.sx || 1, o.sy || 1, o.sz || 1);
       if (o.rz) g.rotateZ(o.rz); if (o.rx) g.rotateX(o.rx); if (o.ry) g.rotateY(o.ry);
       g.translate(x, y, z);
-      out.push({ geo: g, c: col(c), glow: o.glow ? col(o.glow === true ? c : o.glow) : null, double: !!o.double, glass: !!o.glass });
+      out.push({ geo: g, c: col(c), glow: o.glow ? col(o.glow === true ? c : o.glow) : null, double: !!o.double, glass: !!o.glass, smooth: !!geo.userData.smooth, soft: !!geo.userData.soft, anim: o.anim || null });
     };
     const P = {
       out,
-      box(x, z, w, d, y, h, c, o = {}) { put(rbox(w, h, d, o.r ?? .025), c, x + w / 2, y + h / 2, z + d / 2, o); },
+      box(x, z, w, d, y, h, c, o = {}) { put(o.soft ? softG(w, h, d, o.r ?? .04) : rbox(w, h, d, o.r ?? .025), c, x + w / 2, y + h / 2, z + d / 2, o); },
       cyl(cx, cz, rt, rb, y, h, c, o = {}) { put(cylG(rt, rb, h, o.seg || 8), c, cx, y + h / 2, cz, o); },
-      ball(cx, y, cz, r, c, o = {}) { put(o.dodeca ? dodG(r) : icoG(r, o.detail || 0), c, cx, y, cz, o); },
+      // bola: esfera lisa; folhagem/fruta pedem { detail: 0 } e continuam facetadas (moita, não bola)
+      ball(cx, y, cz, r, c, o = {}) { put(o.dodeca ? dodG(r) : o.detail != null ? icoG(r, o.detail) : sphG(r), c, cx, y, cz, o); },
       lathe(cx, cz, y, pts, c, o = {}) { put(latheG(pts, o.seg || 8), c, cx, y, cz, o); },
       // haste reta entre dois pontos
       rod(a, b, r, c, o = {}) {
         const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b), dir = Bv.clone().sub(A), len = dir.length();
-        const g = cylG(r, r, len, o.seg || 6).clone();
+        const g = cylG(r, r, len, o.seg || 16).clone();
         g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()));
         const m = A.add(Bv).multiplyScalar(.5); g.translate(m.x, m.y, m.z);
-        out.push({ geo: g, c: col(c), glow: null, double: false, glass: false });
+        out.push({ geo: g, c: col(c), glow: null, double: false, glass: false, smooth: true, anim: o.anim || null });
       },
-      leaf(cx, y, cz, yaw, len, wid, rise, droop, c) { put(leafG(len, wid, rise, droop), c, cx, y, cz, { ry: yaw, double: true }); },
-      garment(cx, y, cz, kind, c, yaw) { put(garmentG(kind), c, cx, y, cz, { ry: yaw }); },
+      leaf(cx, y, cz, yaw, len, wid, rise, droop, c, anim = null) { put(leafG(len, wid, rise, droop), c, cx, y, cz, { ry: yaw, double: true, anim }); },
+      garment(cx, y, cz, kind, c, yaw, anim = null) { put(garmentG(kind), c, cx, y, cz, { ry: yaw, anim }); },
       // caixas do catálogo (menos as animadas, as de cadeira e as indicadas em "except")
       base(except = []) {
         it.boxes.forEach((b, i) => {
@@ -95,35 +104,48 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.rod([x, .07, z], [ex, .05, ez], .018, MET); P.ball(ex, .03, ez, .03, '#1E1F24');
     }
     P.cyl(x, z, .03, .035, .06, .32, MET, { seg: 6 });
-    P.box(x - .25, z - .23, .5, .46, .37, .09, CHR, { r: .035 });
+    P.box(x - .25, z - .23, .5, .46, .37, .09, CHR, { r: .035, soft: true });
     const [bx, bz] = L(0, .2); P.rod([x, .4, z], [bx, .5, bz], .02, MET);
-    P.box(bx - .23, bz - .045, .46, .09, .48, .4, CHR, { r: .04, ry: yaw });
+    P.box(bx - .23, bz - .045, .46, .09, .48, .4, CHR, { r: .035, ry: yaw, soft: true });
   }
   // vaso com terra
   // y = altura do apoio (chão, prateleira ou tampo): o vaso fica sobre ele, junto com a planta
   function pot(P, cx, cz, r, h, c = POT, y = 0) {
-    P.lathe(cx, cz, y, [[0, 0], [r * .78, 0], [r, h * .85], [r * 1.06, h * .88], [r * 1.06, h], [r * .92, h], [0, h * .9]], c, { seg: 8 });
-    P.cyl(cx, cz, r * .9, r * .9, y + h * .9, .02, SOIL, { seg: 8 });
+    // boca aberta: a parede de dentro desce até a terra (antes o vaso tinha "tampa" e a terra não aparecia)
+    P.lathe(cx, cz, y, [[0, 0], [r * .78, 0], [r, h * .85], [r * 1.06, h * .88], [r * 1.06, h], [r * .92, h], [r * .92, h * .8], [0, h * .8]], c, { seg: 8 });
+    P.cyl(cx, cz, r * .92, r * .92, y + h * .8, h * .08, SOIL, { seg: 8 }); // terra: topo a 88% da altura do vaso
   }
-  // moita de folhas: bolas facetadas de verdes diferentes
+  // muda de folhas (no lugar das antigas bolas): roseta de folhas que sobem e se abrem, em 2 anéis
+  // y = altura da terra; r = raio da copa
   function bush(P, cx, y, cz, r, n = 5, seed = 0) {
-    for (let i = 0; i < n; i++) {
-      const a = (i + seed) * 2.4, d = i ? r * .55 : 0, rr = r * (i ? .6 + (i % 3) * .08 : .75);
-      P.ball(cx + Math.cos(a) * d, y + (i ? rr * .4 : rr * .7) + (i % 2) * r * .15, cz + Math.sin(a) * d * .8, rr, GREENS[(i + seed) % 4], { detail: 0 });
-    }
+    const out = Math.max(5, n + 3), inn = Math.max(3, n - 1), an = sway(cx, y, cz, 'b');
+    for (let i = 0; i < out; i++) { const a = (i / out) * Math.PI * 2 + seed * .7; P.leaf(cx, y, cz, a, r * 1.5, r * .55, r * 1.0, r * .9, GREENS[(i + seed) % 4], an); }
+    for (let i = 0; i < inn; i++) { const a = (i / inn) * Math.PI * 2 + seed * .7 + .5; P.leaf(cx, y, cz, a, r * 1.0, r * .45, r * 1.5, r * .5, GREENS[(i + seed + 1) % 4], an); }
+    water(P, cx, y + r * 1.6, cz);
+  }
+  /* ---------- partes animadas ----------
+     anim = { type, g (grupo: peças com o mesmo g mexem juntas), pivot [x,y,z] (no espaço do móvel), on: 'idle' | 'act' }
+     idle = sempre; act = só enquanto alguém usa o móvel. Os tipos são tocados em cena3d.js (updatePartAnims). */
+  const sway = (cx, y, cz, k) => ({ type: 'sway', g: `${k}${n3(cx)},${n3(y)},${n3(cz)}`, pivot: [cx, y, cz], on: 'idle' });
+  // gotas de água caindo sobre a planta enquanto alguém rega (a pessoa faz o gesto de regar)
+  function water(P, cx, top, cz) {
+    for (let k = 0; k < 3; k++) P.ball(cx + (k - 1) * .04, top, cz, .018, '#7FC4E8', { anim: { type: 'drip', g: `w${n3(cx)},${n3(cz)},${k}`, pivot: [cx + (k - 1) * .04, top, cz], on: 'act', acts: ['plants'], ph: k / 3, fall: .35 } });
   }
   // tufo de folhas compridas em leque (espada-de-são-jorge, capim)
   function spikes(P, cx, y, cz, n, h, seed = 0) {
+    const an = sway(cx, y, cz, 's');
     for (let i = 0; i < n; i++) {
       const a = (i + seed) * 2.1, lean = .25 + (i % 3) * .12;
-      P.leaf(cx + Math.cos(a) * .03, y, cz + Math.sin(a) * .03, a, h * lean, .09, h * (1 - lean * .5), h * lean * .5, GREENS[(i + seed) % 4]);
+      P.leaf(cx + Math.cos(a) * .03, y, cz + Math.sin(a) * .03, a, h * lean, .09, h * (1 - lean * .5), h * lean * .5, GREENS[(i + seed) % 4], an);
     }
+    water(P, cx, y + h * 1.05, cz);
   }
   // folhas caindo em volta (palmeira, samambaia)
   function crown(P, cx, y, cz, n, len, wid, droop, seed = 0) {
+    const an = sway(cx, y, cz, 'c');
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + seed;
-      P.leaf(cx, y, cz, a, len * (.85 + (i % 3) * .1), wid, len * .35, droop, GREENS[i % 4]);
+      P.leaf(cx, y, cz, a, len * (.85 + (i % 3) * .1), wid, len * .35, droop, GREENS[i % 4], an);
     }
   }
 
@@ -132,11 +154,12 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     palm(P) {
       pot(P, .5, .5, .26, .44);
       // tronco em gomos, levemente inclinado
-      let y = .42, x = .5, z = .5;
+      let y = .39, x = .5, z = .5; // tronco nasce da terra (topo da terra em .44 × .88)
       for (let k = 0; k < 5; k++) { const h = .22, nx = .5 + Math.sin(k * .7) * .035; P.cyl(nx, z, .065 - k * .006, .08 - k * .006, y, h, k % 2 ? '#8E5B3A' : WOOD_D, { seg: 6 }); y += h; x = nx; }
       crown(P, x, y, z, 9, .78, .26, .7, .3);
       crown(P, x, y + .04, z, 5, .5, .2, .2, 1.1);
       crown(P, x, y + .08, z, 3, .3, .14, -.15, 2.0);
+      water(P, x, y + .45, z);
     },
     planter(P) {
       P.box(0, .15, 2, .7, 0, .48, POT, { r: .05 });
@@ -165,9 +188,11 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       ROUPAS.forEach(([k, c], i) => {
         const cx = .4 + i * .24, yaw = Math.PI / 2; // de lado, perpendiculares à barra, alinhadas à grade (como numa loja)
         // cabide: gancho e ombro
-        P.rod([cx, 1.52, .5], [cx, 1.44, .5], .008, '#9AA0A8');
-        P.rod([cx - Math.cos(yaw) * .2, 1.4, .5 + Math.sin(yaw) * .2], [cx + Math.cos(yaw) * .2, 1.4, .5 - Math.sin(yaw) * .2], .012, k === 'calca' ? MET : '#DBB07A');
-        P.garment(cx, 1.42, .5, k, c, yaw);
+        // em uso (repondo a arara): cada cabide com a roupa balança no gancho
+        const an = { type: 'swing2', g: 'r' + i, pivot: [cx, 1.52, .5], on: 'act', ph: i * .9 };
+        P.rod([cx, 1.52, .5], [cx, 1.44, .5], .008, '#9AA0A8', { anim: an });
+        P.rod([cx - Math.cos(yaw) * .2, 1.4, .5 + Math.sin(yaw) * .2], [cx + Math.cos(yaw) * .2, 1.4, .5 - Math.sin(yaw) * .2], .012, k === 'calca' ? MET : '#DBB07A', { anim: an });
+        P.garment(cx, 1.42, .5, k, c, yaw, an);
       });
     },
     stool(P, o) {
@@ -179,19 +204,22 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     sofa(P, o, colorOf) {
       const dk = tone(colorOf, -.08), lt = tone(colorOf, .06);
       for (const fx of [.12, 2.82]) for (const fz of [.12, .82]) P.cyl(fx, fz, .04, .03, 0, .1, WOOD_D, { seg: 6 });
-      P.box(0, 0, 3, 1, .1, .32, 'C', { r: .06 });
-      P.box(.02, 0, 2.96, .3, .4, .55, dk, { r: .08 });
-      P.box(0, .25, .3, .75, .4, .27, 'C', { r: .08 }); P.box(2.7, .25, .3, .75, .4, .27, 'C', { r: .08 });
-      P.box(.32, .3, 1.16, .66, .42, .12, lt, { r: .05 }); P.box(1.52, .3, 1.16, .66, .42, .12, lt, { r: .05 });
-      P.box(.4, .26, .4, .14, .54, .34, '#F2B630', { r: .05, rx: -.25 }); P.box(2.2, .26, .4, .14, .54, .34, '#E4E1E0', { r: .05, rx: -.25 });
+      // estofado: quinas levemente arredondadas (soft)
+      P.box(0, 0, 3, 1, .1, .32, 'C', { r: .04, soft: true });
+      P.box(0, 0, 3, .3, .4, .55, dk, { r: .05, soft: true }); // encosto rente à base: recuo deixava um filete com cara de chanfro
+      P.box(0, .25, .3, .75, .4, .27, 'C', { r: .05, soft: true }); P.box(2.7, .25, .3, .75, .4, .27, 'C', { r: .05, soft: true });
+      // almofadas do assento afundam um pouco quando alguém senta
+      P.box(.32, .3, 1.16, .66, .42, .12, lt, { r: .045, soft: true, anim: { type: 'squash', g: 'a1', pivot: [.9, .42, .63], on: 'act' } });
+      P.box(1.52, .3, 1.16, .66, .42, .12, lt, { r: .045, soft: true, anim: { type: 'squash', g: 'a2', pivot: [2.1, .42, .63], on: 'act' } });
+      // sem almofadas soltas (decisão do dono, 2026-11-04)
     },
     armchair(P, o, colorOf) {
       const dk = tone(colorOf, -.08), lt = tone(colorOf, .06);
       for (const fx of [.12, .88]) for (const fz of [.12, .88]) P.cyl(fx, fz, .035, .025, 0, .1, WOOD_D, { seg: 6 });
-      P.box(0, 0, 1, 1, .1, .32, 'C', { r: .06 });
-      P.box(.02, 0, .96, .3, .4, .52, dk, { r: .08 });
-      P.box(0, .25, .2, .75, .4, .24, 'C', { r: .07 }); P.box(.8, .25, .2, .75, .4, .24, 'C', { r: .07 });
-      P.box(.21, .3, .58, .66, .42, .11, lt, { r: .05 });
+      P.box(0, 0, 1, 1, .1, .32, 'C', { r: .04, soft: true });
+      P.box(0, 0, 1, .3, .4, .52, dk, { r: .05, soft: true });
+      P.box(0, .25, .2, .75, .4, .24, 'C', { r: .05, soft: true }); P.box(.8, .25, .2, .75, .4, .24, 'C', { r: .05, soft: true });
+      P.box(.21, .3, .58, .66, .42, .11, lt, { r: .045, soft: true, anim: { type: 'squash', g: 'a1', pivot: [.5, .42, .63], on: 'act' } });
     },
     pouf(P, o, colorOf) {
       P.lathe(.5, .5, 0, [[0, 0], [.27, 0], [.32, .12], [.32, .3], [.27, .4], [0, .42]], 'C', { seg: 10 });
@@ -200,8 +228,8 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     ctable(P) {
       for (const fx of [.3, 1.7]) for (const fz of [.25, .75]) P.cyl(fx, fz, .03, .02, 0, .35, WOOD_D, { seg: 6 });
       P.box(.1, .15, 1.8, .7, .35, .07, '#C98F57', { r: .035 });
-      P.box(.35, .33, .36, .26, .42, .05, '#2F5FD0', { r: .01 }); P.box(.38, .35, .32, .24, .47, .05, '#F2B630', { r: .01, ry: .15 });
-      P.cyl(1.35, .48, .06, .05, .42, .11, '#FFFFFF', { seg: 8 });
+      flatBook(P, .53, .46, .42, .36, .26, .05, '#2F5FD0'); flatBook(P, .54, .47, .47, .32, .24, .05, '#F2B630', .15);
+      mug(P, 1.35, .48, .42);
       pot(P, 1.68, .5, .08, .12, POT, .42); bush(P, 1.68, .54, .5, .08, 3, 1);
     },
     floorlamp(P) {
@@ -229,8 +257,10 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.rod([.5, 1.24, .82], [.5, 1.24, .84], .065, '#2A2D3A', { seg: 8 });
     },
     cavalete(P) {
-      P.rod([.22, 0, .58], [.47, 1.6, .5], .025, WOOD); P.rod([.78, 0, .58], [.53, 1.6, .5], .025, WOOD);
-      P.rod([.5, 0, .1], [.5, 1.5, .45], .025, WOOD);
+      // pernas da frente ATRÁS da tela (a tela pintada fica à frente, apoiada no aparador); perna de trás afastada
+      P.rod([.22, 0, .44], [.47, 1.6, .4], .025, WOOD); P.rod([.78, 0, .44], [.53, 1.6, .4], .025, WOOD);
+      P.rod([.5, 0, .05], [.5, 1.5, .37], .025, WOOD);
+      P.box(.2, .4, .6, .04, 1.38, .05, WOOD, { r: 0 }); // trava de cima segurando a tela por trás
       P.box(.15, .5, .7, .07, .55, .05, WOOD, { r: .015 });
       P.box(.16, .47, .68, .05, .6, .78, '#FFFFFF', { r: .01 });
       P.box(.25, .52, .25, .01, .95, .3, '#2F5FD0', { r: 0 }); P.box(.5, .52, .2, .01, .75, .25, '#F2B630', { r: 0 }); P.box(.3, .52, .3, .01, .7, .15, '#E0473B', { r: 0 });
@@ -240,7 +270,8 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.box(.3, .4, .4, .4, .07, .01, '#5C5866', { r: 0 });
       P.rod([.5, .07, .42], [.5, 1.12, .42], .03, MET);
       P.box(.33, .33, .34, .12, 1.1, .22, '#24252B', { r: .03 });
-      P.box(.36, .45, .28, .01, 1.15, .14, '#3AA655', { glow: '#5CFF8A', r: 0 });
+      // visor: os números piscam enquanto alguém está sendo pesado
+      P.box(.36, .45, .28, .01, 1.15, .14, '#3AA655', { glow: '#5CFF8A', r: 0, anim: { type: 'blink', g: 'visor', pivot: [.5, 1.22, .455], on: 'act' } });
     },
     coffee(P) {
       P.base([5, 6, 7, 8, 9, 10]);
@@ -250,14 +281,17 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.cyl(.55, .7, .05, .05, 1.28, .08, MET, { seg: 8 });
       P.box(.38, .68, .34, .02, 1.25, .2, '#24252B', { r: 0 });
       P.cyl(1.47, .48, .065, .055, 1.03, .13, '#FFFFFF', { seg: 8 }); P.cyl(1.77, .48, .065, .055, 1.03, .13, '#FFFFFF', { seg: 8 });
-      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.35, .48, .18, 5, 2);
+      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.29, .48, .18, 5, 2);
     },
     fogao(P) {
       P.base([4, 5, 6, 7, 8, 9, 10]);
       for (const [cx, cz] of [[.5, .36], [1.5, .36], [.5, .72], [1.5, .72]]) { P.cyl(cx, cz, .17, .17, .9, .02, '#3A3C42', { seg: 8 }); P.cyl(cx, cz, .09, .09, .92, .015, '#24252B', { seg: 8 }); }
-      P.cyl(1.5, .72, .08, .08, .935, .01, '#E07A3B', { seg: 8, glow: '#FF8A3D' });
-      P.cyl(.5, .36, .16, .15, .92, .24, '#C9CDD4', { seg: 10 }); P.cyl(.5, .36, .17, .17, 1.16, .02, '#9AA0A8', { seg: 10 });
-      P.rod([.66, 1.1, .36], [.86, 1.12, .36], .015, MET);
+      // panela funda aberta (sem tampa: vê-se o fundo) e frigideira rasa com cabo
+      vessel(P, .5, .36, .92, .16, .22, '#C9CDD4', .15); P.rod([.66, 1.08, .36], [.86, 1.1, .36], .015, MET); P.rod([.34, 1.08, .36], [.2, 1.1, .36], .015, MET);
+      vessel(P, 1.5, .72, .95, .15, .05, '#3A3C42', .13); P.rod([1.64, .98, .72], [1.92, 1.0, .72], .018, '#24252B');
+      // em uso: chama acesa (tremendo) sob a panela e a frigideira, e vapor subindo da panela. Parado: fogão apagado
+      for (const [cx, cz, r] of [[.5, .36, .17], [1.5, .72, .16]]) P.cyl(cx, cz, r, r * .8, .92, .03, '#FF8A3D', { seg: 24, glow: '#FF8A3D', anim: { type: 'flame', g: 'f' + cx, pivot: [cx, .92, cz], on: 'act' } });
+      for (let k = 0; k < 3; k++) P.ball(.5 + (k - 1) * .05, 1.16, .36, .035, '#FFFFFF', { anim: { type: 'rise', g: 'v' + k, pivot: [.5 + (k - 1) * .05, 1.16, .36], on: 'act', ph: k / 3, up: .35 } });
     },
   };
   // a cadeira-padrão das mesas: só as caixas dela trocam
@@ -266,9 +300,14 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
   /* ---------- peças de escritório ---------- */
   // monitor: corpo fino com borda, pescoço e base; face = +1 (tela para +z) ou −1
   function monitor(P, x0, z0, w, d, y0, h, face) {
-    const cx = x0 + w / 2, zb = face > 0 ? z0 - .02 : z0 + d + .02;
-    P.cyl(cx, zb, .1, .11, .78, .02, MET, { seg: 8 });
-    P.rod([cx, .79, zb], [cx, y0 + h * .45, zb], .022, MET);
+    // pé estilo iMac: placa fina no tampo + chapa inclinada que sobe por trás e encosta nas costas do monitor
+    const cx = x0 + w / 2, back = face > 0 ? z0 : z0 + d, zc = z0 + d / 2, sw = Math.min(.22, w * .4);
+    // placa do pé vai da frente do monitor até onde a chapa toca o tampo: fica toda debaixo dele, não sobra na frente
+    const front = face > 0 ? z0 + d : z0, rear = back - face * .12, fz0 = Math.min(front, rear), fz1 = Math.max(front, rear);
+    P.box(cx - sw / 2, fz0, sw, fz1 - fz0, .77, .012, MET, { r: 0 });
+    const A = [.782, back - face * .1], Bp = [y0 + h * .5, back - face * .006];
+    const dy = Bp[0] - A[0], dz = Bp[1] - A[1], L = Math.hypot(dy, dz);
+    P.box(cx - sw / 2, (A[1] + Bp[1]) / 2 - .01, sw, .02, (A[0] + Bp[0]) / 2 - L / 2, L, MET, { r: 0, rx: Math.atan2(dz, dy) });
     P.box(x0, z0, w, d, y0, h, '#24252B', { r: .02 });
   }
   function keyboard(P, x0, z0, w, d, y) {
@@ -281,7 +320,43 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     P.rod([x, .02, z0], [x, h, z0], .028, MET); P.rod([x, .02, z1], [x, h, z1], .028, MET);
     P.rod([x, .03, z0 - .05], [x, .03, z1 + .05], .03, MET); P.rod([x, h - .03, z0], [x, h - .03, z1], .022, MET);
   }
-  function mug(P, x, z, y, c = '#FFFFFF') { P.cyl(x, z, .055, .05, y, .12, c, { seg: 8 }); P.box(x + .05, z - .012, .03, .024, y + .03, .06, c, { r: .008 }); }
+  // recipiente aberto (panela, pote, tigela): parede por fora na cor da peça e o lado de dentro (parede + fundo)
+  // num tom mais escuro, então se vê que é oco. rb = raio do fundo
+  function vessel(P, cx, cz, y, r, h, c, rb = r * .85) {
+    const t = Math.max(.006, r * .08), fb = Math.max(.01, h * .12);
+    P.lathe(cx, cz, y, [[0, 0], [rb, 0], [r, h], [r - t, h]], c, { seg: 32 });
+    P.lathe(cx, cz, y, [[r - t, h], [rb - t, fb], [0, fb]], tone(c, -.3), { seg: 32 });
+  }
+  // livro em pé, lombada para a frente (+z): duas capas, lombada e o miolo branco entre elas (aparece em cima e atrás)
+  function book(P, x, z, w, d, y, h, c) {
+    const t = Math.min(.012, w * .15);
+    P.box(x, z, t, d, y, h, c, { r: 0 }); P.box(x + w - t, z, t, d, y, h, c, { r: 0 });
+    P.box(x + t, z + d - t, w - 2 * t, t, y, h, c, { r: 0 });
+    P.box(x + t, z + .004, w - 2 * t, d - t - .004, y + .004, h - .01, '#FFFFFF', { r: 0 });
+  }
+  // livro deitado (centro cx, cz; giro yaw): capas em cima e embaixo, lombada no lado -x, miolo branco nos outros 3 lados
+  function flatBook(P, cx, cz, y, w, d, h, c, yaw = 0) {
+    const L = (lx, lz) => [cx + lx * Math.cos(yaw) + lz * Math.sin(yaw), cz - lx * Math.sin(yaw) + lz * Math.cos(yaw)];
+    const at = (lx, ly, lz, bw, bh, bd, col) => { const [x, z] = L(lx, lz); P.box(x - bw / 2, z - bd / 2, bw, bd, ly - bh / 2, bh, col, { r: 0, ry: yaw }); };
+    const t = Math.min(.008, h * .2);
+    at(0, y + t / 2, 0, w, t, d, c); at(0, y + h - t / 2, 0, w, t, d, c); at(-w / 2 + t / 2, y + h / 2, 0, t, h, d, c);
+    at((t - .006) / 2, y + h / 2, 0, w - t - .006, h - 2 * t, d - .008, '#FFFFFF');
+  }
+  // copo sem alça; a boca é um disco escuro logo abaixo da borda (café dentro), dá a ideia de fundo
+  function mug(P, x, z, y, c = '#FFFFFF') { P.cyl(x, z, .055, .05, y, .12, c, { seg: 8 }); P.cyl(x, z, .046, .046, y + .1, .022, '#3B2A20', { seg: 8 }); }
+  // notebook: base fina, tampa com a mesma ideia do monitor (caixa + tela embutida colorida), aberta ~105°
+  function laptop(P, cx, cz, y, yaw) {
+    const L = (lx, lz) => [cx + lx * Math.cos(yaw) + lz * Math.sin(yaw), cz - lx * Math.sin(yaw) + lz * Math.cos(yaw)];
+    const W = .4, D = .28, BH = .025, LD = .022, LH = .26, t = .26;
+    const at = (lx, ly, lz, w, h, d, c, o = {}) => { const [x, z] = L(lx, lz); P.box(x - w / 2, z - d / 2, w, d, ly - h / 2, h, c, { r: 0, ry: yaw, ...o }); };
+    at(0, y + BH / 2, 0, W, BH, D, '#3B3E46');
+    at(0, y + BH + .002, .03, W * .86, .004, D * .5, '#24252B'); // teclado
+    // tampa: dobradiça na beirada de trás da base, inclinada para trás
+    const hy = y + BH, hz = -D / 2, cyL = hy + Math.cos(t) * LH / 2, czL = hz - Math.sin(t) * LH / 2 + LD / 2;
+    at(0, cyL, czL, W, LH, LD, '#2A2D3A', { rx: -t });
+    const nY = Math.sin(t), nZ = Math.cos(t), off = LD / 2 + .002;
+    at(0, cyL + nY * off, czL + nZ * off, W * .88, LH * .82, .004, '#7D45D6', { rx: -t, glow: '#9D6BFF' });
+  }
   function handle(P, x0, x1, y, z) { P.rod([x0, y, z], [x1, y, z], .012, '#9AA0A8'); }
   // calçado low-poly: sola, corpo e bico; salto = sapato de salto
   function shoe(P, x, y, z, c, kind, tilt) {
@@ -306,17 +381,18 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     desk(P) {
       sled(P, .14, .15, .85, .7); sled(P, 1.86, .15, .85, .7);
       P.rod([.14, .3, .2], [1.86, .3, .2], .02, MET);
-      P.box(0, 0, 2, 1, .7, .07, '#EFE9E0', { r: .03 }); P.box(.02, .02, 1.96, .96, .695, .01, '#C9C2B8', { r: 0 });
+      P.box(0, 0, 2, 1, .7, .07, '#EFE9E0', { r: .03 });
       monitor(P, .65, .14, .7, .07, .9, .42, 1);
-      keyboard(P, .62, .52, .46, .16, .77); mug(P, 1.59, .29, .77);
-      P.box(1.3, .14, .2, .14, .77, .03, '#2F5FD0', { r: .005, ry: .2 }); P.box(1.32, .16, .17, .12, .8, .02, '#F2B630', { r: .005, ry: .1 });
+      // teclado e mouse como nas ilhas: centrados no monitor, 10 cm à frente dele
+      keyboard(P, .75, .31, .44, .15, .77); mug(P, 1.59, .29, .77);
+      flatBook(P, 1.4, .21, .77, .2, .14, .03, '#2F5FD0', .2); flatBook(P, 1.405, .22, .8, .17, .12, .02, '#F2B630', .1);
       P.chairs();
     },
     island(P) {
       for (const x of [.25, 3.75]) sled(P, x, .95, 2.05, .7);
       P.rod([.25, .3, 1.5], [3.75, .3, 1.5], .022, MET);
       P.box(0, .8, 4, 1.4, .7, .07, '#F2EDE6', { r: .03 });
-      P.box(.1, 1.46, 3.8, .08, .77, .45, '#D9D2DA', { r: .03 }); P.rod([.1, 1.23, 1.5], [3.9, 1.23, 1.5], .012, '#9AA0A8');
+      P.box(.1, 1.46, 3.8, .08, .77, .45, '#D9D2DA', { r: .03 }); // divisória reta (sem tubo no topo, que arredondava a quina)
       for (const cx of [1, 3]) {
         monitor(P, cx - .3, 1.2, .6, .06, .9, .4, -1); monitor(P, cx - .3, 1.68, .6, .06, .9, .4, 1);
         keyboard(P, cx - .25, .95, .44, .15, .77); keyboard(P, cx - .25, 1.89, .44, .15, .77);
@@ -329,9 +405,10 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       for (const x of [1.5, 4.0]) P.lathe(x, 1.5, 0, [[0, 0], [.32, 0], [.3, .04], [.08, .1], [.07, .6], [.16, .7], [0, .7]], MET, { seg: 8 });
       P.box(1.5, .8, 2.5, 1.4, .7, .07, '#C98F57', { r: .02 });
       for (const x of [1.5, 4.0]) P.cyl(x, 1.5, .7, .7, .7, .07, '#C98F57', { seg: 14 });
-      P.cyl(2.5, 1.5, .16, .18, .77, .05, '#24252B', { seg: 10 }); P.cyl(2.5, 1.5, .06, .06, .82, .01, '#3AA655', { seg: 8, glow: '#5CFF8A' });
-      P.box(3.2, 1.15, .4, .28, .77, .02, '#3B3E46', { r: .01, ry: -.3 }); P.box(3.22, 1.16, .36, .02, .79, .24, '#2A2D3A', { r: .005, ry: -.3, rx: -.3 });
-      mug(P, 1.4, 1.1, .77); mug(P, 3.9, 1.9, .77, '#E0473B');
+      P.cyl(2.5, 1.5, .16, .18, .77, .05, '#24252B', { seg: 10 });
+      // viva-voz: a luz pulsa enquanto há reunião
+      P.cyl(2.5, 1.5, .06, .06, .82, .01, '#3AA655', { seg: 8, glow: '#5CFF8A', anim: { type: 'pulse', g: 'voz', pivot: [2.5, .82, 1.5], on: 'act' } });
+      laptop(P, 3.4, 1.29, .77, -.3);
       P.chairs();
     },
     reception(P) {
@@ -347,8 +424,9 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     },
     fridge(P) {
       // caixa aberta na frente: dá para ver as bebidas pelo vidro
-      P.box(.05, .05, .9, .06, 0, 1.9, '#C9CDD4', { r: .03 });
-      P.box(.05, .05, .06, .88, 0, 1.9, '#C9CDD4', { r: .03 }); P.box(.89, .05, .06, .88, 0, 1.9, '#C9CDD4', { r: .03 });
+      // laterais e fundo param onde começa o teto vermelho (antes entravam nele e a quina "tremia")
+      P.box(.05, .05, .9, .06, 0, 1.72, '#C9CDD4', { r: .03 });
+      P.box(.05, .05, .06, .88, 0, 1.72, '#C9CDD4', { r: .03 }); P.box(.89, .05, .06, .88, 0, 1.72, '#C9CDD4', { r: .03 });
       P.box(.05, .05, .9, .88, 0, .15, '#9AA0A8', { r: .03 }); P.box(.05, .05, .9, .88, 1.72, .18, '#E0473B', { r: .04 });
       P.box(.11, .11, .78, .02, .15, 1.57, '#E9F6FF', { r: 0, glow: '#DDF3FF' });
       const COL = ['#E0473B', '#3AA655', '#F2B630', '#2F5FD0', '#8C4FE0', '#E07A3B'];
@@ -356,8 +434,10 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
         P.box(.11, .12, .78, .76, y, .025, '#FFFFFF', { r: 0 });
         for (let i = 0; i < 5; i++) { const c = COL[(i + k) % 6]; P.cyl(.2 + i * .15, .72, .045, .05, y + .025, .22, c, { seg: 6 }); P.cyl(.2 + i * .15, .72, .018, .03, y + .245, .07, c, { seg: 6 }); }
       }
-      P.box(.07, .9, .86, .04, .17, 1.53, '#BFE6FF', { glass: true, r: 0 });
-      P.rod([.84, .6, .96], [.84, 1.4, .96], .018, '#9AA0A8');
+      // porta de vidro com puxador: abre (gira na dobradiça da esquerda) enquanto alguém pega uma bebida
+      const door = { type: 'swing', g: 'porta', pivot: [.07, .17, .92], on: 'act', angle: -1.25 };
+      P.box(.07, .9, .86, .04, .17, 1.53, '#BFE6FF', { glass: true, r: 0, anim: door });
+      P.rod([.84, .6, .96], [.84, 1.4, .96], .018, '#9AA0A8', { anim: door });
     },
     rug(P, o, colorOf) {
       P.box(0, 0, 3, 2, 0, .025, 'C', { r: .012 });
@@ -414,10 +494,18 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       for (const [x, z] of [[.18, .28], [.82, .28], [.18, .72], [.82, .72]]) P.ball(x, .03, z, .03, '#24252B');
       P.box(.14, .79, .72, .015, .12, .16, '#C9CDD4', { r: 0 }); P.box(.14, .79, .72, .015, .3, .16, '#C9CDD4', { r: 0 });
       handle(P, .4, .6, .21, .81); handle(P, .4, .6, .39, .81);
-      P.box(.1, .2, .8, .6, .57, .14, '#5C5866', { r: .04 });
-      P.box(.58, .62, .28, .14, .71, .04, '#3A3C42', { r: .01, rx: -.3 }); P.box(.61, .66, .14, .01, .74, .05, '#3AA655', { r: 0, glow: '#5CFF8A', rx: -.3 });
-      P.box(.2, .3, .5, .38, .71, .015, '#FFFFFF', { r: 0 });
-      P.box(.25, .75, .5, .1, .44, .02, '#C9CDD4', { r: 0, rx: .2 });
+      // impressora multifuncional sobre o gabinete: corpo largo e baixo, tampa do scanner escura, painel inclinado
+      // com visor, fenda de saída na frente com bandeja e folha, bandeja de entrada de papel em pé atrás
+      P.box(.12, .22, .76, .56, .55, .17, '#F2F1EE', { r: 0 });             // corpo
+      P.box(.12, .22, .76, .46, .72, .05, '#5C5866', { r: 0 });             // tampa do scanner
+      P.box(.12, .68, .76, .1, .72, .03, '#D9D6D2', { r: 0 });              // faixa da frente, sob o painel
+      P.box(.5, .68, .3, .1, .75, .025, '#3A3C42', { r: 0, rx: .35 });      // painel
+      P.box(.53, .7, .14, .05, .77, .006, '#3AA655', { r: 0, glow: '#5CFF8A', rx: .35 }); // visor
+      P.box(.2, .776, .6, .006, .715, .035, '#24252B', { r: 0 });           // fenda de saída
+      P.box(.22, .78, .56, .16, .7, .012, '#C9CDD4', { r: 0 });             // bandeja de saída
+      P.box(.26, .78, .48, .12, .712, .006, '#FFFFFF', { r: 0 });           // folha impressa
+      P.box(.22, .16, .56, .02, .74, .22, '#C9CDD4', { r: 0, rx: -.35 });   // bandeja de entrada (atrás)
+      P.box(.26, .15, .48, .006, .78, .2, '#FFFFFF', { r: 0, rx: -.35 });   // papel em branco
     },
     maca(P) {
       for (const x of [.2, 1.8]) for (const z of [.25, .75]) P.rod([x, 0, z], [x, .5, z], .025, '#C9CDD4');
@@ -435,20 +523,35 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.box(.05, .25, 1.9, .5, 0, .06, WOOD_D, { r: .01 });
       P.box(.08, .79, .88, .02, .12, .7, '#E2DBD2', { r: .01 }); P.box(1.04, .79, .88, .02, .12, .7, '#E2DBD2', { r: .01 });
       P.rod([.9, .4, .82], [.9, .6, .82], .012, '#9AA0A8'); P.rod([1.1, .4, .82], [1.1, .6, .82], .012, '#9AA0A8');
-      [['#2F5FD0', .4], ['#E0473B', .34], ['#F2B630', .42], ['#3AA655', .36]].forEach(([c, h], i) => P.box(.2 + i * .13, .36, .11, .28, .9, h, c, { r: .01, rz: i === 3 ? -.25 : 0 }));
+      [['#2F5FD0', .4], ['#E0473B', .34], ['#F2B630', .42], ['#3AA655', .36]].forEach(([c, h], i) => book(P, .2 + i * .13, .36, .11, .28, .9, h, c));
       P.lathe(1.52, .5, .9, [[0, 0], [.08, 0], [.12, .12], [.08, .26], [.06, .3], [0, .3]], '#8C4FE0', { seg: 8 });
       spikes(P, 1.52, 1.18, .5, 4, .3, 1);
     },
     bancada_cozinha(P) {
-      P.base([5, 6, 7, 8, 9, 10]);
+      // armário e tampo montados à mão com um VÃO para a cuba (antes a pia era uma placa sobre o tampo, sem fundo)
+      P.base([0, 4, 5, 6, 7, 8, 9, 10]);
+      const SX0 = 1.95, SX1 = 2.6, SZ0 = .3, SZ1 = .7, TOP = '#3A3C42', BODY = '#E4E1E0', INOX = '#9AA0A8';
+      P.box(.05, .1, 2.9, .85, 0, .68, BODY, { r: 0 });                                  // corpo até a altura do fundo da cuba
+      P.box(.05, .1, SX0 - .05, .85, .68, .17, BODY, { r: 0 }); P.box(SX1, .1, 2.95 - SX1, .85, .68, .17, BODY, { r: 0 });
+      P.box(SX0, .1, SX1 - SX0, SZ0 - .1, .68, .17, BODY, { r: 0 }); P.box(SX0, SZ1, SX1 - SX0, .95 - SZ1, .68, .17, BODY, { r: 0 });
+      P.box(0, .05, SX0, .95, .85, .06, TOP, { r: 0 }); P.box(SX1, .05, 3 - SX1, .95, .85, .06, TOP, { r: 0 });   // tampo em volta do vão
+      P.box(SX0, .05, SX1 - SX0, SZ0 - .05, .85, .06, TOP, { r: 0 }); P.box(SX0, SZ1, SX1 - SX0, 1 - SZ1, .85, .06, TOP, { r: 0 });
+      // cuba funda: fundo escuro 20 cm abaixo do tampo e paredes inox por dentro
+      P.box(SX0, SZ0, SX1 - SX0, SZ1 - SZ0, .7, .01, '#5C6068', { r: 0 });
+      P.box(SX0, SZ0, .01, SZ1 - SZ0, .7, .21, '#7D828A', { r: 0 }); P.box(SX1 - .01, SZ0, .01, SZ1 - SZ0, .7, .21, '#7D828A', { r: 0 });
+      P.box(SX0, SZ0, SX1 - SX0, .01, .7, .21, '#6B7078', { r: 0 }); P.box(SX0, SZ1 - .01, SX1 - SX0, .01, .7, .21, '#6B7078', { r: 0 });
+      P.cyl((SX0 + SX1) / 2, (SZ0 + SZ1) / 2, .025, .025, .711, .004, '#3A3C42', { seg: 16 });   // ralo
       for (const x of [.55, 1.5, 2.45]) handle(P, x - .15, x + .15, .68, .97);
       P.box(0, 0, 3, .04, .91, .55, '#FFFFFF', { r: 0 });
       for (let i = 1; i < 6; i++) P.box(i * .5, .04, .01, .005, .91, .55, '#D9D6DE', { r: 0 });
-      P.box(1.9, .25, .75, .5, .89, .03, '#9AA0A8', { r: .01 }); P.box(1.95, .3, .65, .4, .88, .02, '#6B7078', { r: .01 });
       P.rod([2.27, .91, .15], [2.27, 1.22, .15], .022, MET); P.rod([2.27, 1.22, .15], [2.27, 1.2, .38], .018, MET);
+      // em uso: água saindo da torneira até o fundo da cuba
+      P.cyl(2.27, .38, .009, .009, .71, .48, '#9FD8F2', { seg: 8, anim: { type: 'pour', g: 'agua', pivot: [2.27, 1.19, .38], on: 'act' } });
       P.box(.35, .3, .65, .42, .91, .03, '#DBB07A', { r: .01 });
-      P.cyl(.55, .45, .06, .06, .94, .08, '#E0473B', { seg: 8 }); P.ball(.78, .99, .42, .06, '#3AA655', { detail: 0 });
-      P.cyl(1.4, .4, .12, .1, .91, .12, '#FFFFFF', { seg: 10 }); P.ball(1.36, 1.05, .4, .05, '#F2B630'); P.ball(1.45, 1.05, .43, .05, '#E07A3B');
+      // pote aberto, tomate e fruteira funda com frutas redondas
+      vessel(P, .55, .45, .94, .06, .1, '#E0473B'); P.ball(.78, .99, .42, .06, '#3AA655');
+      vessel(P, 1.4, .4, .91, .13, .11, '#FFFFFF', .08);
+      P.ball(1.36, 1.0, .38, .05, '#F2B630'); P.ball(1.45, 1.0, .43, .05, '#E07A3B'); P.ball(1.4, 1.04, .35, .045, '#E0473B');
     },
     estoque(P) {
       for (const x of [.05, 1.95]) for (const z of [.13, .87]) P.box(x - .025, z - .025, .05, .05, 0, 1.92, '#5C6670', { r: .01 });
@@ -472,6 +575,8 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       for (let i = 0; i < 9; i++) P.box(.12 + i * .2, .95, .12, .02, .12, .8, i % 2 ? '#B07A4A' : '#A06D40', { r: .01 });
       P.box(-.03, .05, 2.06, .95, 1, .05, '#24252B', { r: .02 });
       P.box(1.15, .3, .55, .45, 1.05, .16, '#3A3C42', { r: .03 });
+      // gaveta do caixa: abre para o lado de quem atende enquanto alguém vende
+      P.box(1.2, .27, .45, .04, 1.07, .07, '#2A2D3A', { r: 0, anim: { type: 'slide', g: 'gaveta', pivot: [1.42, 1.1, .29], on: 'act', dir: [0, 0, -1], dist: .14 } });
       P.rod([1.42, 1.2, .4], [1.42, 1.3, .32], .02, MET);
       P.base([0, 1, 2, 3]);
       P.box(.7, .5, .26, .18, 1.05, .28, '#DBB07A', { r: .01 }); P.box(.73, .48, .2, .01, 1.15, .1, '#8C4FE0', { r: 0 });
@@ -502,37 +607,55 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     coffee(P) {
       P.base([5, 6, 7, 8, 9, 10]);
       for (const x of [.52, 1.47, 2.42]) handle(P, x - .15, x + .15, .75, 1.0);
-      P.box(.28, .18, .54, .5, 1.03, .58, '#C9CDD4', { r: .05 });
-      P.box(.33, .62, .44, .1, 1.45, .12, '#9AA0A8', { r: .02 });
-      P.cyl(.55, .7, .05, .05, 1.28, .08, MET, { seg: 8 });
-      P.box(.38, .68, .34, .02, 1.25, .2, '#24252B', { r: 0 });
+      // máquina de espresso: corpo inox, grade de xícaras no topo, grupo com porta-filtro e cabo, bandeja de pingos
+      // com xícara embaixo do bico, bico de vapor e manômetro na frente (o vapor animado sai do topo)
+      const ZF = .7, AX = Math.PI / 2;
+      P.box(.3, .2, .5, .5, 1.03, .62, '#C9CDD4', { r: 0 });                       // corpo
+      P.box(.3, .2, .5, .5, 1.65, .015, '#9AA0A8', { r: 0 });                      // grade do topo
+      for (const x of [.43, .6]) vessel(P, x, .38, 1.665, .035, .05, '#FFFFFF', .03);  // xícaras vazias aquecendo (ocas)
+      P.box(.3, ZF - .005, .5, .01, 1.5, .05, '#24252B', { r: 0 });               // faixa do painel
+      P.cyl(.4, ZF + .005, .045, .045, 1.52, .01, '#FFFFFF', { seg: 16, rx: AX });  // manômetro
+      for (const x of [.58, .66]) P.cyl(x, ZF + .006, .018, .018, 1.517, .012, x < .6 ? '#3AA655' : '#E0473B', { seg: 12, rx: AX }); // botões
+      P.cyl(.5, ZF + .04, .065, .065, 1.36, .08, MET, { seg: 16, rx: AX });          // grupo
+      P.cyl(.5, ZF + .04, .06, .055, 1.27, .06, '#3A3C42', { seg: 16 });             // porta-filtro
+      P.rod([.5, 1.3, ZF + .1], [.5, 1.28, ZF + .26], .018, '#24252B');                // cabo
+      P.box(.33, ZF, .44, .2, 1.03, .03, '#3A3C42', { r: 0 });                      // bandeja de pingos
+      P.cyl(.5, ZF + .09, .035, .03, 1.06, .06, '#FFFFFF', { seg: 12 }); P.cyl(.5, ZF + .09, .029, .029, 1.1, .022, '#3B2A20', { seg: 12 }); // xícara com café
+      P.rod([.74, 1.42, ZF + .02], [.78, 1.16, ZF + .1], .01, MET);                    // bico de vapor
+      // em uso: fio de café caindo do porta-filtro na xícara
+      P.cyl(.5, ZF + .06, .007, .007, 1.12, .15, '#6B4226', { seg: 8, anim: { type: 'pour', g: 'cafe', pivot: [.5, 1.27, ZF + .06], on: 'act' } });
       mug(P, 1.47, .48, 1.03); mug(P, 1.77, .48, 1.03, '#E0473B');
-      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.35, .48, .18, 5, 2);
+      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.29, .48, .18, 5, 2);
     },
     // cadeira de barbeiro virada para o espelho: base cromada, assento e encosto altos estofados, apoio de cabeça e de pés
     cadeira_salao(P, o, colorOf) {
       const CR = '#C9CDD4', L = 'C', dk = tone(colorOf, -.08);
-      P.box(.1, .01, .68, .04, .8, 1.02, '#8A8F99', { r: .015 }); P.box(.13, .03, .62, .02, .83, .96, '#DCEEF8', { r: 0 });
-      P.box(.1, .02, .68, .2, .72, .04, '#F0EBE4', { r: .01 });
-      P.lathe(.24, .12, .76, [[0, 0], [.03, 0], [.035, .1], [.02, .14], [0, .14]], '#2F5FD0', { seg: 6 }); P.cyl(.4, .12, .03, .03, .76, .12, '#E0473B', { seg: 6 }); P.cyl(.58, .12, .035, .035, .76, .08, '#24252B', { seg: 6 });
+      // espelho maior (moldura até 2,05 m) com vidro azulado e faixas de brilho em diagonal, como reflexo
+      P.box(.04, .01, .78, .04, .78, 1.27, '#8A8F99', { r: 0 });
+      P.box(.08, .03, .7, .021, .82, 1.19, '#BFD3E2', { r: 0 });
+      for (const [x, y, w] of [[.2, 1.55, .5], [.36, 1.35, .32], [.14, 1.12, .22]]) P.box(x, .05, w, .003, y, .035, '#F4FAFF', { r: 0, rz: .55 });
+      P.box(.1, .02, .68, .2, .72, .04, '#F0EBE4', { r: .01 }); // bancada, sem frascos
       // poste de barbeiro
       P.cyl(.89, .07, .045, .045, 1.1, .04, CR, { seg: 8 });
-      for (let i = 0; i < 6; i++) P.cyl(.89, .07, .04, .04, 1.14 + i * .07, .07, ['#E0473B', '#FFFFFF', '#2F5FD0'][i % 3], { seg: 8 });
+      // listras do poste "sobem" sem parar (o poste de barbeiro clássico gira), mesmo sem ninguém usando
+      for (let i = 0; i < 6; i++) P.cyl(.89, .07, .04, .04, 1.14 + i * .07, .07, ['#E0473B', '#FFFFFF', '#2F5FD0'][i % 3], { seg: 8, anim: { type: 'loop', g: 'p' + i, pivot: [.89, 1.14 + i * .07, .07], on: 'idle', i, step: .07, n: 6 } });
       P.cyl(.89, .07, .045, .045, 1.56, .04, CR, { seg: 8 }); P.ball(.89, 1.62, .07, .035, CR);
       // base e coluna
       P.lathe(.5, .6, 0, [[0, 0], [.24, 0], [.22, .04], [.08, .09], [0, .1]], CR, { seg: 12 });
       P.cyl(.5, .6, .05, .06, .08, .26, CR, { seg: 8 });
       P.rod([.5, .06, .6], [.72, .05, .76], .015, CR); P.box(.68, .72, .1, .08, .03, .03, '#24252B', { r: .01 });
-      P.box(.22, .34, .56, .5, .34, .1, CR, { r: .02 });
+      // tudo de cima da coluna gira junto (vai e volta) enquanto alguém está sendo atendido
+      const GIRO = { type: 'yawOsc', g: 'giro', pivot: [.5, .34, .6], on: 'act' };
+      P.box(.22, .34, .56, .5, .34, .1, CR, { r: .02, anim: GIRO });
       // assento, braços, encosto inclinado e apoio de cabeça
-      P.box(.2, .3, .6, .52, .42, .14, L, { r: .06 });
-      for (const x of [.13, .79]) { P.box(x, .34, .08, .44, .48, .14, CR, { r: .02 }); P.box(x - .01, .3, .1, .48, .62, .07, dk, { r: .03 }); }
-      P.box(.21, .74, .58, .14, .52, .66, L, { r: .06, rx: .14 });
-      for (let i = 0; i < 3; i++) P.box(.24, .835 + i * .015, .52, .01, .66 + i * .2, .01, dk, { r: 0, rx: .14 });
-      P.rod([.5, 1.15, .9], [.5, 1.28, .93], .016, CR);
-      P.box(.34, .86, .32, .1, 1.26, .14, L, { r: .05, rx: .14 });
+      P.box(.2, .3, .6, .52, .42, .14, L, { r: .045, soft: true, anim: GIRO });
+      for (const x of [.13, .79]) { P.box(x, .34, .08, .44, .48, .14, CR, { r: .02, anim: GIRO }); P.box(x - .01, .3, .1, .48, .62, .07, dk, { r: .03, soft: true, anim: GIRO }); }
+      P.box(.21, .74, .58, .14, .52, .66, L, { r: .045, rx: .14, soft: true, anim: GIRO });
+      for (let i = 0; i < 3; i++) P.box(.24, .835 + i * .015, .52, .01, .66 + i * .2, .01, dk, { r: 0, rx: .14, anim: GIRO });
+      P.rod([.5, 1.15, .9], [.5, 1.28, .93], .016, CR, { anim: GIRO });
+      P.box(.34, .86, .32, .1, 1.26, .14, L, { r: .04, rx: .14, soft: true, anim: GIRO });
       // apoio de pés na frente (perto do espelho)
-      P.rod([.5, .38, .3], [.5, .16, .2], .018, CR); P.box(.32, .12, .36, .14, .13, .03, CR, { r: .01 });
+      P.rod([.5, .38, .3], [.5, .16, .2], .018, CR, { anim: GIRO }); P.box(.32, .12, .36, .14, .13, .03, CR, { r: .01, anim: GIRO });
     },
     // estante de sapatos de loja: painel alto com prateleiras inclinadas, pares de calçados expostos
     sapateira(P) {

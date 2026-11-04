@@ -48,6 +48,9 @@ let uiTick = 0;
 function peopleDrawables(T) {
   const out = [];
   if (mode === 'build') {
+    // construindo a sala, os avatares saem da frente (decisão do dono); só aparecem na aba Pessoas (ou enquanto um é
+    // arrastado/editado), onde o dono vê e ajusta a equipe
+    if (tab !== 'pessoas' && !editing && drag?.kind !== 'person') return out;
     for (const p of W.people) {
       let at = p.pos, lift = 0;
       if (drag?.kind === 'person' && drag.id === p.id && drag.moved) { at = drag.at; lift = .35; }

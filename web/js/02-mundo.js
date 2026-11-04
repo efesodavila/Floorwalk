@@ -57,9 +57,26 @@ const STORE = 'pixelhq.prototipo.v4';
 let W = null;
 try { W = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { W = null; }
 if (!W || !W.tiles || !Array.isArray(W.objects)) W = tplSala();
+/* ?vitrine=1: sala grande com UM de cada móvel do catálogo, para revisar o visual. Não salva nada e não conecta ao
+   escritório real (a sala salva da pessoa continua intacta). */
+const VITRINE = new URLSearchParams(location.search).has('vitrine');
+function tplVitrine() {
+  const base = tplSala(), WD = 26, wallFirst = ['tv', 'kanban', 'chroma'];
+  const rest = Object.keys(ITEMS).filter(k => !wallFirst.includes(k) && !ITEMS[k].door)
+    .sort((a, b) => ITEMS[b].d - ITEMS[a].d || ITEMS[b].w - ITEMS[a].w);
+  const order = [...wallFirst.filter(k => ITEMS[k]), ...rest, 'capacho'].filter(k => ITEMS[k]);
+  const objects = []; let x = 1, z = 0, rowD = 0;
+  for (const k of order) {
+    const { w, d } = ITEMS[k];
+    if (x + w > WD - 1) { x = 1; z += rowD + 2; rowD = 0; }
+    objects.push({ id: 'v-' + k, item: k, x, z, rot: 0 }); x += w + 1; rowD = Math.max(rowD, d);
+  }
+  return { ...base, name: 'Vitrine (todos os móveis)', tiles: rectTiles(WD, z + rowD + 2, 'lilas'), objects, walls: [] };
+}
+if (VITRINE) W = tplVitrine();
 W = normalize(W);
 syncCatalog();
-function save() { try { localStorage.setItem(STORE, JSON.stringify(W)); } catch {} }
+function save() { if (VITRINE) return; try { localStorage.setItem(STORE, JSON.stringify(W)); } catch {} }
 
 let past = [], future = [];
 function snapshot() { return JSON.stringify(W); }

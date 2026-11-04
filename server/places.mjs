@@ -23,8 +23,32 @@ export const PLACES = {
 
 // lugares que existem neste escritório
 // + os lugares dos móveis criados pela IA para este escritório (p_…)
-export const placesFor = (spec) => [...Object.keys(PLACES).filter(k => !PLACES[k].needs || PLACES[k].needs(spec)), ...(spec.custom || []).map(c => c.place)];
-export const placeDesc = (k, spec) => PLACES[k]?.desc || (() => { const c = (spec.custom || []).find(x => x.place === k); return c ? `${c.name}: ${c.purpose}` : k; })();
+// Móvel da sala → lugar. Quando a página manda a sala real (spec.room), ela decide; sem isso, vale o escritório montado.
+const ITEM_PLACE = {
+  desk: 'computador', island: 'computador', reception: 'recepcao', meeting: 'reuniao', kanban: 'quadro', tv: 'painel',
+  lowshelf: 'leitura', armchair: 'leitura', floorlamp: 'leitura', printer: 'impressora', rack: 'servidores',
+  chroma: 'estudio', softbox: 'estudio', tripod: 'estudio', colorlight: 'estudio',
+};
+const placeOfItem = (id) => ITEM_PLACE[id] || CATALOG[id]?.place || null;
+export const placesFor = (spec) => {
+  const custom = (spec.custom || []).map(c => c.place);
+  if (Array.isArray(spec.room) && spec.room.length) {
+    const have = new Set(spec.room.map(placeOfItem).filter(Boolean));
+    have.add('computador'); // sempre há onde trabalhar (sem mesa, a pessoa trabalha onde está)
+    // móvel criado pela IA (c_…) só vale se estiver na sala
+    return [...Object.keys(PLACES).filter(k => have.has(k)), ...(spec.custom || []).filter(c => spec.room.includes(c.id)).map(c => c.place)];
+  }
+  return [...Object.keys(PLACES).filter(k => !PLACES[k].needs || PLACES[k].needs(spec)), ...custom];
+};
+// a descrição traz os móveis que EXISTEM neste escritório naquele lugar e para que servem: a IA escreve o pedido do
+// passo com a ação concreta ("cortar o cabelo"), e a página usa essas palavras para levar a pessoa ao móvel certo
+export const placeDesc = (k, spec) => {
+  if (PLACES[k]) {
+    const here = [...new Set(spec?.room || spec?.extras || [])].filter(id => CATALOG[id]?.place === k).map(id => `${CATALOG[id].name} (${CATALOG[id].for})`);
+    return PLACES[k].desc + (here.length ? ` — móveis: ${here.join('; ')}` : '');
+  }
+  const c = (spec?.custom || []).find(x => x.place === k); return c ? `${c.name}: ${c.purpose}` : k;
+};
 
 // Sem indicação da IA: palavras do pedido, depois o padrão da ação.
 const HINTS = [

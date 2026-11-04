@@ -112,3 +112,20 @@ test('crítica visual: só a nota do desenho proposto, sem pedir blocos', async 
   const s = await scoreFurniture(async ({ messages }) => { sent = messages[0]; return '{"nota":4,"problemas":["ok"]}'; }, c, 'QUJD');
   assert.equal(s.score, 4); assert.match(sent.content, /NÃO refaça/); assert.equal(sent.images.length, 1);
 });
+
+// a sala real (mandada pela página com a tarefa) decide os lugares que a IA vê, não só o escritório montado
+test('lugares: a sala real manda — móvel posto à mão entra, lugar sem móvel sai', async () => {
+  const { placeDesc } = await import('../server/places.mjs');
+  const spec = { areas: {}, delivery: 'servidor', extras: [], custom: [{ id: 'c_torno', place: 'p_torno', name: 'Torno', purpose: 'tornear' }] };
+  // sem a sala: só o montado (sem estúdio, com servidores)
+  assert.ok(!placesFor(spec).includes('estudio'));
+  // com a sala: fundo verde e maca postos à mão aparecem; servidores (sem rack na sala) somem
+  const room = ['desk', 'chroma', 'maca', 'kanban'];
+  const p = placesFor({ ...spec, room });
+  for (const k of ['computador', 'estudio', 'atendimento', 'quadro']) assert.ok(p.includes(k), k);
+  for (const k of ['servidores', 'impressora', 'cozinha', 'p_torno']) assert.ok(!p.includes(k), k);
+  // o móvel criado pela IA só vale se estiver na sala
+  assert.ok(placesFor({ ...spec, room: [...room, 'c_torno'] }).includes('p_torno'));
+  // a descrição para a IA cita os móveis daquele lugar que estão na sala
+  assert.match(placeDesc('atendimento', { ...spec, room }), /Maca de atendimento/);
+});

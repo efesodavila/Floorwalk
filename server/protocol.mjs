@@ -41,5 +41,7 @@ export function parseClientMessage(raw) {
   const text = String(m.text ?? '').trim();
   if (!text || text.length > 2000) return null;
   const id = /^[\w-]{1,64}$/.test(String(m.id)) ? String(m.id) : 'run-' + Date.now().toString(36);
-  return { id, text };
+  // móveis que estão de verdade na sala (ids do catálogo; c_… = criado pela IA): decidem os lugares que a IA vê
+  const room = Array.isArray(m.room) ? [...new Set(m.room.map(String).filter(k => /^[a-z0-9_]{1,40}$/.test(k)))].slice(0, 80) : null;
+  return room?.length ? { id, text, room } : { id, text };
 }

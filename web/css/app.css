@@ -24,7 +24,7 @@ img { max-width: 100%; }
   --warn: #B3261E;
   --warn-soft: #FCECEA;
   --shadow: 0 1px 0 rgba(36,37,43,.04), 0 8px 24px -8px rgba(36,37,43,.18);
-  --font-label: "Pixelify Sans", "Courier New", monospace;
+  --font-label: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; /* sem fonte pixelada (dono) */
   --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --panel-w: 320px;
   color-scheme: light;
@@ -40,7 +40,7 @@ html.espera3d #scene { visibility: hidden !important; }
 html.espera3d #loader, body.booting #loader { display: grid; }
 body:has(#setup:not([hidden])) #loader { display: none; }
 .loader-box { display: grid; justify-items: center; gap: 14px; width: min(340px, calc(100vw - 48px)); font: 500 14px 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink-soft, #5C5866); }
-.loader-box b { font: 700 18px 'Pixelify Sans', system-ui, sans-serif; color: var(--ink, #24252B); }
+.loader-box b { font: 700 18px "IBM Plex Sans", system-ui, sans-serif; color: var(--ink, #24252B); }
 .loader-bar { width: 100%; height: 8px; border-radius: 99px; background: rgba(140, 79, 224, .16); overflow: hidden; }
 .loader-bar i { display: block; height: 100%; width: 5%; border-radius: inherit; background: var(--accent, #8C4FE0); transition: width .35s ease; }
 @media (prefers-reduced-motion: reduce) { .loader-bar i { transition: none; } }
@@ -526,3 +526,17 @@ body.clean .f-dev { display: none !important; }
 
 /* retratos feitos com o modelo 3D: suaves (não pixelados) */
 body.r3d-avatars .person img, body.r3d-avatars .ficha .f-head img, body.r3d-avatars .team-list img, body.r3d-avatars .trow img { image-rendering: auto; }
+
+/* ---------- Tour (28-tour.js): recorte em volta do elemento + cartão com o passo ---------- */
+.tour { position: fixed; inset: 0; z-index: 60; }
+.tour-hole { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(20, 18, 28, .55); transition: all .25s ease; pointer-events: none; outline: 2px solid #A78BFA; }
+.tour-card { position: fixed; background: #fff; color: #24252B; border-radius: 14px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); transition: left .25s ease, top .25s ease; }
+.tour-card h3 { margin: 2px 0 6px; font-size: 17px; }
+.tour-card p { margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
+.tour-n { color: #7C3AED; font-weight: 600; font-size: 12px; }
+.tour-actions { display: flex; gap: 8px; align-items: center; }
+.tour-actions .grow { flex: 1; }
+.tour-actions button { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 8px; border: 1px solid #DDD8E4; background: #fff; cursor: pointer; }
+.tour-actions .primary { background: #7C3AED; border-color: #7C3AED; color: #fff; }
+.tour-skip { border: 0 !important; color: #6B6577; }
+@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-card { transition: none; } }

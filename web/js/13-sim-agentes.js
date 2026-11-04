@@ -50,7 +50,10 @@ function reachable(a, sp) {
   if (!NAV.reach.has(k)) NAV.reach.set(k, !!(s && findPath(s[0], s[1], sp.stand[0], sp.stand[1])));
   return NAV.reach.get(k);
 }
-function bestSpot(a, affs, R) {
+// móvel de um ponto de uso ("objId#i" → item do catálogo)
+const itemOfSpot = (sp) => W.objects.find(o => o.id === sp.id.split('#')[0])?.item;
+// hint = texto do passo: o móvel cujo uso combina com ele ganha preferência (ITEM_HINT, em 01-catalogo.js)
+function bestSpot(a, affs, R, hint = '') {
   for (let i = 0; i < affs.length; i++) {
     const cands = NAV.spots.filter(sp => sp.act === affs[i] && (!sim.reserved.has(sp.id) || sim.reserved.get(sp.id) === a.id) && reachable(a, sp));
     if (!cands.length) continue;
@@ -58,6 +61,7 @@ function bestSpot(a, affs, R) {
     for (const sp of cands) {
       let s = Math.hypot(sp.x - a.x, sp.z - a.z);
       if (R.home && a.home === sp.id) s -= 30;
+      if (hint && ITEM_HINT[itemOfSpot(sp)]?.test(hint)) s -= 60;
       if (s < bs) { bs = s; best = sp; }
     }
     const why = [];
@@ -78,7 +82,7 @@ function decide(a, st, ev) {
   // lugar escolhido para o passo (computador, estúdio, recepção…): vale para quem trabalha sozinho
   const P = PLACES[ev.place];
   if (P && st !== 'reuniao' && !(R.visit && withA.length)) {
-    const pick = bestSpot(a, P.acts, R);
+    const pick = bestSpot(a, P.acts, R, ev.detail || '');
     if (pick) return { kind: 'spot', spot: pick.spot, reason: `${objName(pick.spot)}: ${P.why}` };
   }
   if (R.visit && withA.length) {

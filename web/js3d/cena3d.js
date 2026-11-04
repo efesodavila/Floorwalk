@@ -14,13 +14,16 @@ const qs = new URLSearchParams(location.search);
 // sempre 3D (a escolha antiga "pixelhq.3d = 0" não vale mais); ?2d força o 2D para testes
 const WANT = qs.has('3d') || (!qs.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D));
 window.R3D = { active: () => false, wanted: WANT, stats: { fps: 0 } };
-if (WANT) start().catch((e) => {
+// sem WebGL (ou a placa de vídeo perdeu o 3D): volta para o desenho 2D, com aviso (o dono aprovou esse plano B)
+function fail3d(e) {
   console.error('[3d]', e);
   window.R3D = { active: () => false, wanted: false, stats: { fps: 0 } };
   document.documentElement.classList.remove('espera3d');
   document.getElementById('scene').style.visibility = 'visible';
-  toast('Visual 3D indisponível neste navegador (' + e.message + '). Usando o 2D.');
-});
+  document.getElementById('scene3d')?.remove(); // a tela 3D (morta) não pode ficar por cima do 2D
+  toast('Visual 3D indisponível neste navegador (' + (e?.message || e) + '). Usando o 2D.');
+}
+if (WANT) start().catch(fail3d);
 
 async function start() {
   window.loadStep?.(.2, 'Carregando o 3D…');
@@ -49,7 +52,7 @@ async function start() {
 
   /* ---------- tamanho do pixel ----------
      1 (padrão) = modo nítido: desenha na resolução real da tela (até 2×), com bordas suavizadas (SMAA),
-     sombras suaves e texturas filtradas de longe. 2 a 4 (?px=) = visual pixel art do Pixel Moda. */
+     sombras chapadas e texturas filtradas de longe. 2 a 4 (?px=) = visual pixel art do Pixel Moda. */
   const PX = Math.min(4, Math.max(1, Number(qs.get('px')) || 1));
   const SMOOTH = PX === 1, DPR = SMOOTH ? Math.min(2, devicePixelRatio || 1) : 1;
 
@@ -64,11 +67,14 @@ async function start() {
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false }); }
   catch { canvas.remove(); ui.remove(); throw new Error('sem WebGL'); }
+  // placa de vídeo reiniciada / memória esgotada: o 3D some. Avisa com o motivo em vez de deixar a tela vazia ou o 2D
+  canvas.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); fail3d(new Error('a placa de vídeo perdeu o contexto 3D (webglcontextlost)')); });
   renderer.setPixelRatio(1);
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = SMOOTH ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  // sombra chapada (decisão do dono): borda dura, sem degradê nem penumbra
+  renderer.shadowMap.type = THREE.BasicShadowMap;
   const scene = new THREE.Scene();
   const BG = new THREE.Color('#E9E8EB');
   scene.background = BG.clone();
@@ -107,13 +113,67 @@ async function start() {
   // contorno preto (traço de nanquim) em tudo que não é personagem: sai da profundidade e das normais no
   // pós-processamento, igual para todo móvel, parede e piso. ?contornoMoveis=0 desliga.
   // Os móveis NÃO entram mais na máscara dos personagens (era isso que deixava o contorno só em parte deles).
-  const INK = qs.get('contornoMoveis') !== '0', FURN_OUTLINE = false, OUTLINE_LAYER = 3;
-  const unit = new THREE.BoxGeometry(1, 1, 1), unitBall = new THREE.IcosahedronGeometry(.5, 0);
+  // Teste do dono (2026-11-04): cenário SEM contorno nenhum por padrão; ?contornoMoveis=1 religa o traço.
+  const INK = qs.get('contornoMoveis') === '1', FURN_OUTLINE = false, OUTLINE_LAYER = 3;
+  const SCENE_SHADOWS = qs.get('sombraMoveis') === '1';
+  // estilo cartoon NPR (teste do dono, 2026-11-04) só em alguns móveis: traço preto fino de nanquim na silhueta e nas
+  // quinas + sombra de borda dura projetada. Os outros móveis seguem sem contorno e sem sombra. ?nanquim=sofa,armchair
+  // 2026-11-04: aprovado no sofá, vale para TODOS os móveis. ?nanquim=sofa,armchair limita a lista; ?nanquim=nada desliga
+  const INK_ITEMS = new Set((qs.get('nanquim') || '').split(',').filter(Boolean)), INK_LAYER = 4;
+  const inkItem = (k) => !qs.has('nanquim') || INK_ITEMS.has(k);
+  const unit = new THREE.BoxGeometry(1, 1, 1), unitBall = new THREE.SphereGeometry(.5, 32, 16); // bola redonda de verdade
   const FK = furnitureKit({ THREE, RoundedBoxGeometry, isAnim: (b) => ANIM(b) });
   // um móvel inteiro (modelo 3D ou caixas do catálogo), girado e posicionado
-  function addObject(o, at, opaque, glassB) {
-    const M = FK.matrix(o.item, o.rot || 0, at ? at.x : o.x, at ? at.z : o.z);
-    for (const pc of FK.pieces(o.item, objColor(o))) { pc.geo.applyMatrix4(M); (pc.glass ? glassB : opaque).addOwned(pc.geo, pieceMat(pc)); }
+  // live = { parent, ink }: na sala ao vivo, as peças com "anim" viram grupos próprios (com pivô) que updatePartAnims
+  // mexe. Sem live (miniatura, fantasma do editor), tudo fica parado e o que só aparece em uso (água, chama...) some.
+  const ONLY_IN_USE = new Set(['drip', 'pour', 'flame', 'rise']);
+  function addObject(o, at, opaque, glassB, live = null) {
+    const M = FK.matrix(o.item, o.rot || 0, at ? at.x : o.x, at ? at.z : o.z), groups = new Map();
+    for (const pc of FK.pieces(o.item, objColor(o))) {
+      if (pc.anim && !live && pc.anim.on === 'act' && ONLY_IN_USE.has(pc.anim.type)) { pc.geo.dispose(); continue; }
+      pc.geo.applyMatrix4(M);
+      if (pc.anim && live) { const k = pc.anim.g || 'x'; if (!groups.has(k)) groups.set(k, { a: pc.anim, list: [] }); groups.get(k).list.push(pc); continue; }
+      (pc.glass ? glassB : opaque).addOwned(pc.geo, pieceMat(pc), pc.smooth, pc.soft);
+    }
+    for (const { a, list } of groups.values()) {
+      const pv = new THREE.Vector3(...(a.pivot || [0, 0, 0])).applyMatrix4(M), grp = new THREE.Group(), op = batcher(), gl = batcher();
+      grp.position.copy(pv);
+      for (const pc of list) { pc.geo.translate(-pv.x, -pv.y, -pv.z); (pc.glass ? gl : op).addOwned(pc.geo, pieceMat(pc), pc.smooth, pc.soft); }
+      op.flush(grp, { ink: live.ink, outline: true }); gl.flush(grp, { shadows: false, layer: 1 });
+      live.parent.add(grp);
+      const dir = a.dir ? new THREE.Vector3(...a.dir).transformDirection(M) : null;
+      partAnims.push({ g: grp, a, obj: o.id, base: pv.clone(), dir, cur: 0, ph: (pv.x * 1.7 + pv.z * 2.3) % 6.28 });
+    }
+  }
+  /* partes dos móveis que se mexem: "idle" = sempre; "act" = enquanto alguém usa aquele móvel (e, se o.acts, fazendo
+     uma dessas atividades). Cada tipo: */
+  let partAnims = [];
+  function updatePartAnims(T, dt) {
+    const using = new Map();
+    if (mode === 'live') for (const ag of sim.agents) {
+      if (ag.mv !== 'act' || !ag.spot) continue;
+      const id = ag.spot.id.split('#')[0]; if (!using.has(id)) using.set(id, new Set()); using.get(id).add(ag.spot.act);
+    }
+    const ease = (p, target, k) => { p.cur += (target - p.cur) * Math.min(1, dt * k); return p.cur; };
+    for (const p of partAnims) {
+      const a = p.a, g = p.g, u = using.get(p.obj);
+      const on = a.on === 'idle' || (!!u && (!a.acts || a.acts.some(x => u.has(x))));
+      switch (a.type) {
+        case 'sway': g.rotation.z = Math.sin(T * 1.3 + p.ph) * .045; g.rotation.x = Math.cos(T * 1.05 + p.ph) * .03; break; // folhas ao vento
+        case 'pour': g.visible = on; if (on) g.scale.set(1 + Math.sin(T * 30) * .15, 1, 1 + Math.cos(T * 27) * .15); break; // fio de líquido
+        case 'drip': { g.visible = on; const t = (T * 1.4 + (a.ph || 0)) % 1; g.position.y = p.base.y - t * (a.fall || .3); g.scale.setScalar(1 - t * .4); break; } // gotas
+        case 'rise': { g.visible = on; const t = (T * .7 + (a.ph || 0)) % 1; g.position.y = p.base.y + t * (a.up || .3); g.scale.setScalar(.6 + t * 1.2); break; } // vapor
+        case 'flame': g.visible = on; if (on) g.scale.set(1, .7 + Math.abs(Math.sin(T * 17 + p.ph)) * .7, 1); break; // chama tremendo
+        case 'swing': g.rotation.y = ease(p, on ? a.angle : 0, 6); break; // porta abrindo
+        case 'slide': g.position.copy(p.base).addScaledVector(p.dir, ease(p, on ? a.dist : 0, 6)); break; // gaveta
+        case 'squash': g.scale.y = 1 - ease(p, on ? .28 : 0, 5); break; // almofada afundando
+        case 'pulse': g.scale.setScalar(on ? 1 + .35 * (.5 + .5 * Math.sin(T * 5)) : 1); break; // luz do viva-voz
+        case 'blink': g.visible = !on || Math.floor(T * 4) % 2 === 0; break; // visor piscando
+        case 'swing2': g.rotation.x = Math.sin(T * 3.2 + (a.ph || 0)) * ease(p, on ? .28 : 0, 3); break; // roupa balançando no cabide
+        case 'yawOsc': g.rotation.y = Math.sin(T * .9) * ease(p, on ? .35 : 0, 2); break; // cadeira girando
+        case 'loop': { const span = a.step * a.n; g.position.y = p.base.y - a.i * a.step + ((a.i * a.step + T * .05) % span); break; } // listras do poste
+      }
+    }
   }
   // partes animadas paradas (miniaturas e fantasma do editor): telas, LEDs, luz colorida
   function addAnimStatic(o, at, opaque, glassB) {
@@ -128,7 +188,7 @@ async function start() {
   const movingId = () => (mode === 'build' && drag?.kind === 'move' && drag.moved) ? drag.sel.id : null;
   // agrupa caixas por material e junta numa malha só (uma chamada de desenho por material)
   function batcher() {
-    const groups = new Map();
+    const groups = new Map(), groupsS = new Map();
     return {
       add(geo, mat, x, y, z) {
         const g = (geo.index ? geo.toNonIndexed() : geo.clone()).translate(x, y, z);
@@ -136,22 +196,33 @@ async function start() {
         if (!groups.has(mat)) groups.set(mat, []); groups.get(mat).push(g);
       },
       // geometria já posicionada (é consumida)
-      addOwned(g, mat) {
+      addOwned(g, mat, smooth = false, soft = false) {
         if (g.index) { const n = g.toNonIndexed(); g.dispose(); g = n; }
-        g.computeVertexNormals(); // sem vértices compartilhados: normal por face = facetado, como os personagens
+        // reto: normal por face (facetado). Redondo (smooth): mantém as normais da própria geometria = superfície lisa.
+        // Estofado (soft): caixa de quina arredondada, mantém as normais dela (a luz acompanha a curvinha da quina)
+        if (soft) {}
+        else if (!smooth) g.computeVertexNormals();
+        // redondo = uma cor só (decisão do dono): todas as normais para cima, então a luz é igual na peça inteira
+        // (sem faixas de sombra que pareciam arestas). Continua recebendo a sombra dos personagens.
+        else { const n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0); n.needsUpdate = true; }
         for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
         if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-        if (!groups.has(mat)) groups.set(mat, []); groups.get(mat).push(g);
+        // redondo vai num grupo próprio que NÃO recebe sombra: com a normal falsa (para cima) o teste de sombra erra na
+        // parede curva e desenha listras (vaso, tronco, abajur). Continua projetando sombra no chão.
+        const G = smooth ? groupsS : groups;
+        if (!G.has(mat)) G.set(mat, []); G.get(mat).push(g);
       },
-      flush(parent, { shadows = true, layer = 0, outline = false } = {}) {
-        for (const [mat, list] of groups) {
+      flush(parent, { shadows = true, layer = 0, outline = false, ink = false } = {}) {
+        for (const [G, recv] of [[groups, true], [groupsS, false]]) for (const [mat, list] of G) {
           const m = new THREE.Mesh(mergeGeometries(list, false), mat);
-          m.castShadow = shadows; m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); m.layers.set(layer);
+          // teste do dono (2026-11-04): só os personagens fazem sombra; cenário só a recebe. ?sombraMoveis=1 religa
+          m.castShadow = ink || (shadows && SCENE_SHADOWS); m.receiveShadow = recv; m.matrixAutoUpdate = false; m.updateMatrix(); m.layers.set(layer);
+          if (ink) m.layers.enable(INK_LAYER); // entra na máscara do traço de nanquim
           // contorno preto fino, como o dos personagens (entra na máscara do contorno)
           if (outline && FURN_OUTLINE) m.layers.enable(OUTLINE_LAYER);
           parent.add(m); list.forEach(g => g.dispose());
         }
-        groups.clear();
+        groups.clear(); groupsS.clear();
       },
     };
   }
@@ -177,7 +248,9 @@ async function start() {
   /* ---------- luz ---------- */
   const hemi = new THREE.HemisphereLight(0xFFFFFF, 0xCFC2EC, 1.35);
   const sun = new THREE.DirectionalLight(0xFFE3C2, 1.6);
-  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0008; sun.shadow.normalBias = .06; // evita "acne" (listras) nas paredes em ângulo raso
+  sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); // 4096 (~64 MB de vídeo); 8192 seria ~256 MB, pesado demais em máquina fraca // o Three grava a face de TRÁS no mapa de sombra: a face de costas para o sol se compara com ela mesma. bias POSITIVO
+// empurra essa comparação para dentro da sombra (antes era negativo e a face "piscava" em pontilhado)
+sun.shadow.bias = .0015; sun.shadow.normalBias = .05; // evita "acne" (listras) nas paredes em ângulo raso
   sun.shadow.camera.layers.enable(5); // sombras dos personagens (cilindros invisíveis na camada 5)
   scene.add(hemi, sun, sun.target);
 
@@ -190,9 +263,9 @@ async function start() {
   const center = (b) => [b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2];
   function rebuild() {
     scene.remove(world); world.traverse(o => { if (o.isMesh && o.geometry !== unit) o.geometry.dispose(); });
-    world = new THREE.Group(); scene.add(world); wallGroups = []; animated = []; kanbans = []; doors = []; steams = [];
+    world = new THREE.Group(); scene.add(world); wallGroups = []; animated = []; partAnims = []; kanbans = []; doors = []; steams = [];
     const b = bounds(), B = batcher(), has = (x, z) => !!W.tiles[key(x, z)];
-    room = { cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2, span: Math.hypot(b.x1 - b.x0, b.z1 - b.z0) };
+    room = { cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2, span: Math.hypot(b.x1 - b.x0, b.z1 - b.z0), b };
     // piso (um plano texturizado por quadrado) e laje um pouco abaixo (na mesma altura os dois "brigam" pelo pixel)
     const tile = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     for (const [k, m] of Object.entries(W.tiles)) {
@@ -204,20 +277,20 @@ async function start() {
     // paredes do fundo (as que ficam entre a câmera e a sala baixam ao girar a vista)
     // as 4 faces da sala têm parede (girar a vista dá a mesma sala de qualquer lado); as que ficam entre a
     // câmera e a sala baixam até virar rodapé (updateCamera)
-    const wc = W.wall, cap = shade(wc, 1.12), sides = { z: new THREE.Group(), x: new THREE.Group(), z2: new THREE.Group(), x2: new THREE.Group() }, T = .14, WB = batcher(), XB = batcher(), ZB2 = batcher(), XB2 = batcher();
+    const wc = W.wall, sides = { z: new THREE.Group(), x: new THREE.Group(), z2: new THREE.Group(), x2: new THREE.Group() }, T = .14, WB = batcher(), XB = batcher(), ZB2 = batcher(), XB2 = batcher();
     // porta de entrada: na parede do fundo/esquerda encostada no capacho (os personagens entram e saem por ela)
     // (enquanto a porta é arrastada no editor, o fantasma mostra o lugar novo e a parede fica fechada)
     entryDoor = movingId() && movingId() === W.objects.find(isDoor)?.id ? null : doorInfo();
     const DH = 2.1, inDoor = (x, z, side) => entryDoor && entryDoor.side === side && entryDoor.cells.has(x + ',' + z);
     for (const k in W.tiles) {
       const [x, z] = k.split(',').map(Number);
-      if (!has(x, z - 1) && inDoor(x, z, 'z')) { WB.add(box(1, WH - DH, T), toon(wc), x + .5, DH + (WH - DH) / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
-      else if (!has(x - 1, z) && inDoor(x, z, 'x')) { XB.add(box(T, WH - DH, 1), toon(shade(wc, .94)), x - T / 2, DH + (WH - DH) / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
-      if (!has(x, z - 1) && !inDoor(x, z, 'z')) { WB.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
-      if (!has(x - 1, z) && !inDoor(x, z, 'x')) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
+      if (!has(x, z - 1) && inDoor(x, z, 'z')) { WB.add(box(1, WH - DH, T), toon(wc), x + .5, DH + (WH - DH) / 2, z - T / 2); }
+      else if (!has(x - 1, z) && inDoor(x, z, 'x')) { XB.add(box(T, WH - DH, 1), toon(shade(wc, .94)), x - T / 2, DH + (WH - DH) / 2, z + .5); }
+      if (!has(x, z - 1) && !inDoor(x, z, 'z')) { WB.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z - T / 2); }
+      if (!has(x - 1, z) && !inDoor(x, z, 'x')) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); }
       // lados da frente: presas no rodapé (y = 0) para baixar escalando sem sair do chão
-      if (!has(x, z + 1)) { ZB2.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z + 1 + T / 2); ZB2.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z + 1 + T / 2); }
-      if (!has(x + 1, z)) { XB2.add(box(T, WH, 1), toon(shade(wc, .94)), x + 1 + T / 2, WH / 2, z + .5); XB2.add(box(T + .02, .06, 1), toon(cap), x + 1 + T / 2, WH, z + .5); }
+      if (!has(x, z + 1)) { ZB2.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z + 1 + T / 2); }
+      if (!has(x + 1, z)) { XB2.add(box(T, WH, 1), toon(shade(wc, .94)), x + 1 + T / 2, WH / 2, z + .5); }
     }
     // batente e as duas folhas (abrem para dentro quando alguém chega perto)
     if (entryDoor) {
@@ -246,7 +319,7 @@ async function start() {
     WB.flush(sides.z); XB.flush(sides.x); ZB2.flush(sides.z2); XB2.flush(sides.x2);
     world.add(sides.z, sides.x, sides.z2, sides.x2); wallGroups = [sides.z, sides.x, sides.z2, sides.x2];
     // móveis e divisórias (paredes de vidro/divisórias também entram no contorno)
-    const rest = batcher(), glassOnly = batcher();
+    const rest = batcher(), glassOnly = batcher(), inkB = batcher(); // inkB: móveis no estilo cartoon (INK_ITEMS)
     const addStatic = (bx) => {
       if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) return;
       const [x, y, z] = center(bx);
@@ -256,12 +329,12 @@ async function start() {
     for (const o of W.objects) {
       const it = ITEMS[o.item]; if (!it || o.id === hid) continue;
       if (it.dyn === 'kanban') { const g = new THREE.Group(); world.add(g); kanbans.push({ o, g, sig: '' }); continue; }
-      addObject(o, null, rest, glassOnly);
+      addObject(o, null, inkItem(o.item) ? inkB : rest, glassOnly, { parent: world, ink: inkItem(o.item) });
       const model = FK.hasModel(o.item);
       for (const bx of worldBoxes(o)) {
         if (!ANIM(bx) || (bx.sway && model)) continue;
         if (bx.steam) { if (!model) addStatic(bx); steams.push({ b: bx, parts: [0, 1, 2, 3].map(() => { const m = new THREE.Mesh(unit, steamMat); m.layers.set(1); world.add(m); return m; }) }); continue; }
-        const m = new THREE.Mesh(bx.pulse ? unitBall : unit, matFor(bx, false)); m.castShadow = !bx.g; m.receiveShadow = true; if (FURN_OUTLINE) m.layers.enable(OUTLINE_LAYER); world.add(m); animated.push({ b: bx, m });
+        const m = new THREE.Mesh(bx.pulse ? unitBall : unit, matFor(bx, false)); m.castShadow = !bx.g && SCENE_SHADOWS; m.receiveShadow = true; if (FURN_OUTLINE) m.layers.enable(OUTLINE_LAYER); world.add(m); animated.push({ b: bx, m });
       }
     }
     for (const s of W.walls) {
@@ -269,11 +342,22 @@ async function start() {
       if (s.kind === 'porta' || s.kind === 'vidro_porta') { const g = new THREE.Group(); world.add(g); doors.push({ s, g, open: -1 }); continue; }
       for (const bx of segBoxes(s, null, 0)) addStatic(bx);
     }
-    rest.flush(world, { outline: true }); glassOnly.flush(world, { shadows: false, layer: 1 });
+    rest.flush(world, { outline: true }); glassOnly.flush(world, { shadows: false, layer: 1 }); inkB.flush(world, { ink: true });
     // sol e sombra ajustados ao tamanho da sala
     const c = new THREE.Vector3(room.cx, 0, room.cz), dir = new THREE.Vector3(-11, 19, 15).normalize();
     sun.position.copy(c).addScaledVector(dir, room.span * 1.6); sun.target.position.copy(c);
-    const sc = sun.shadow.camera, r = room.span * .75; sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r; sc.near = 1; sc.far = room.span * 4; sc.updateProjectionMatrix();
+    // caixa da sombra JUSTA na sala (antes era um quadrado folgado): cada ponto do mapa cobre menos chão, então a borda
+    // dura da sombra fica com degraus bem menores. Projeta os 8 cantos da sala (até a altura da parede) na vista do sol.
+    const sc = sun.shadow.camera; sun.updateMatrixWorld(); sun.target.updateMatrixWorld();
+    sc.position.copy(sun.position); sc.lookAt(sun.target.position); sc.updateMatrixWorld();
+    const inv = sc.matrixWorldInverse, bb = room.b || { x0: room.cx - room.span / 2, x1: room.cx + room.span / 2, z0: room.cz - room.span / 2, z1: room.cz + room.span / 2 };
+    let l = Infinity, rr = -Infinity, bo = Infinity, to = -Infinity, nf = Infinity, ff = -Infinity; const v = new THREE.Vector3();
+    for (const x of [bb.x0 - .5, bb.x1 + .5]) for (const y of [0, 2.8]) for (const z of [bb.z0 - .5, bb.z1 + .5]) {
+      v.set(x, y, z).applyMatrix4(inv); l = Math.min(l, v.x); rr = Math.max(rr, v.x); bo = Math.min(bo, v.y); to = Math.max(to, v.y); nf = Math.min(nf, -v.z); ff = Math.max(ff, -v.z);
+    }
+    sc.left = l; sc.right = rr; sc.bottom = bo; sc.top = to; sc.near = Math.max(.1, nf - 2); sc.far = ff + 2;
+    sc.updateProjectionMatrix();
+    sun.shadow.needsUpdate = true;
   }
   // grupo pequeno refeito quando muda (quadro kanban, portas)
   function refill(g, boxes) {
@@ -285,6 +369,8 @@ async function start() {
 
   /* ---------- animações dos móveis (as mesmas regras do 2D, via animBox) ---------- */
   function updateAnimations(T) {
+    const dt = Math.min(.1, Math.max(0, T - (updateAnimations.t ?? T))); updateAnimations.t = T;
+    updatePartAnims(T, dt);
     ACTIVE = computeActive();
     for (const { b, m } of animated) {
       const a = animBox(b, T);
@@ -406,12 +492,14 @@ async function start() {
   const WALK = new Set(['walk', 'approach', 'leave']);
   // o que a pessoa está fazendo → pose
   // cada uso de móvel tem o próprio gesto (poses nos kits de personagem); móvel criado pela IA (x_*) usa as mãos
-  const ACT_POSE = { work: 'typing', meeting: 'talk', plan: 'board', tv: 'watch', read: 'read', coffee: 'drink', fridge: 'drink', cook: 'stir', stock: 'lift', sell: 'counter', attend: 'counter', care: 'care', craft: 'hammer', print: 'press', infra: 'hands', record: 'present', plants: 'water', relax: 'relax' };
+  const ACT_POSE = { work: 'typing', meeting: 'talk', plan: 'board', tv: 'watch', read: 'read', coffee: 'drink', fridge: 'drink', cook: 'stir', stock: 'lift', sell: 'counter', attend: 'counter', care: 'care', craft: 'hammer', print: 'press', infra: 'hands', record: 'present', film: 'hands', plants: 'water', relax: 'relax' };
   function actOf(a, o) {
     if (a.held) return 'held';
     const act = a.spot?.act, here = a.mv === 'act';
     if (o.sit) {
       if (here && (act === 'relax' || act === 'read')) return ACT_POSE[act];
+      // sentado fazendo outra coisa que não trabalho/reunião (ex.: café na banqueta alta): o gesto daquela atividade
+      if (here && ACT_POSE[act] && act !== 'work' && act !== 'meeting') return ACT_POSE[act];
       return a.status === 'trabalhando' || a.status === 'revisando' || o.act != null && here && WORKING.has(a.status) ? 'typing' : a.status === 'reuniao' ? 'talk' : null;
     }
     if (!here) return null;
@@ -499,7 +587,8 @@ async function start() {
   let RW = 2, RH = 2;
   const _r = new THREE.Vector3(), _u = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
   function updateCamera() {
-    if (!rot) cam.yaw += (cam.yawGoal - cam.yaw) * .2;
+    // o giro anda só em passos de 90° (a sala fica sempre em isometria, retangular): aqui só anima até o alvo
+    cam.yaw += (cam.yawGoal - cam.yaw) * .25; if (Math.abs(cam.yawGoal - cam.yaw) < 1e-3) cam.yaw = cam.yawGoal;
     const halfW = room.span * .62 / cam.zoom, halfH = halfW * RH / RW;
     camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH; camera.updateProjectionMatrix();
     _t.set(room.cx + cam.panX, 0, room.cz + cam.panZ);
@@ -522,22 +611,28 @@ async function start() {
   class PixelPass extends Pass {
     constructor() {
       super();
-      this.beauty = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(2, 2) });
+      // MSAA na cena (modo nítido): 4 amostras por pixel; as linhas desenhadas depois (contorno) passam ainda pelo SMAA
+      this.beauty = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(2, 2), samples: SMOOTH ? 4 : 0 });
       this.normals = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
       this.normalMat = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
       // personagens sozinhos, cada região com uma cor de id e com a própria profundidade
       this.mask = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(2, 2) });
+      // móveis no estilo cartoon (INK_LAYER) sozinhos, só a profundidade: diz quais pixels recebem o traço de nanquim
+      this.inkMask = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(2, 2) });
+      this.inkMat = new THREE.MeshBasicMaterial({ colorWrite: false });
       this.quad = new FullScreenQuad(new THREE.ShaderMaterial({
-        uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tMask: { value: null }, tMaskC: { value: null }, res: { value: new THREE.Vector4() }, px: { value: Math.max(1, Math.round(DPR)) }, cNear: { value: .5 }, cFar: { value: 400 }, dK: { value: .38 }, nK: { value: .72 }, cK: { value: CHAR_OUTLINE ? 1 : 0 }, iK: { value: INK ? 1 : 0 } },
+        uniforms: { TK: { value: qs.get('traco') === 'preto' ? 0 : 1 }, tInk: { value: null }, tDiffuse: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tMask: { value: null }, tMaskC: { value: null }, res: { value: new THREE.Vector4() }, px: { value: Math.max(1, Math.round(DPR)) }, cNear: { value: .5 }, cFar: { value: 400 }, dK: { value: .38 }, nK: { value: .72 }, cK: { value: CHAR_OUTLINE ? 1 : 0 }, iK: { value: INK ? 1 : 0 } },
         vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
         fragmentShader: `
-          uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform sampler2D tNormal; uniform sampler2D tMask; uniform sampler2D tMaskC; uniform vec4 res; uniform float px; uniform float cNear; uniform float cFar; uniform float dK; uniform float nK; uniform float cK; uniform float iK;
+          uniform float TK; uniform sampler2D tInk; uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform sampler2D tNormal; uniform sampler2D tMask; uniform sampler2D tMaskC; uniform vec4 res; uniform float px; uniform float cNear; uniform float cFar; uniform float dK; uniform float nK; uniform float cK; uniform float iK;
           varying vec2 vUv;
           float D(vec2 uv){ return cNear + texture2D(tDepth, uv).x * (cFar - cNear); }
           vec3 N(vec2 uv){ return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
           // o pixel é de um personagem quando a profundidade visível bate com a do personagem sozinho
           bool CH(vec2 uv, float d){ return abs(cNear + texture2D(tMask, uv).x * (cFar - cNear) - d) < 0.02; }
           vec3 RID(vec2 uv){ return texture2D(tMaskC, uv).rgb; }
+          // o pixel é de um móvel cartoon quando a profundidade visível bate com a dele sozinho (nada na frente)
+          bool INKP(vec2 uv, float d){ float k = texture2D(tInk, uv).x; return k < 0.9999 && abs(cNear + k * (cFar - cNear) - d) < 0.02; }
           void main(){
             vec4 col = texture2D(tDiffuse, vUv);
             float d = D(vUv);
@@ -563,20 +658,47 @@ async function start() {
               float dInd = clamp(sign(d - nd + 0.1), 0.0, 1.0);
               nE += (1.0 - dot(n, nn)) * ind * dInd;
             }
-            // silhueta dos personagens com 2 px (as linhas internas ficam com 1 px)
-            if (isC && cE < 0.5) for (int i=0;i<4;i++){ vec2 uv3 = vUv + o[i]*res.zw*px*2.0; float nd3 = D(uv3); if (!CH(uv3, nd3) && nd3 - d > -0.05) cE = 1.0; }
+            // TUDO com 1 px (decisão do dono, 2026-11-04): personagem também — silhueta e linhas internas de 1 px, na cor
+            // do próprio personagem mais escura (como os móveis). ?traco=preto volta ao preto
             vec3 inkC = col.rgb * 0.05 + vec3(0.02, 0.018, 0.024);
-            if (cE > 0.5 && cK > 0.5) col.rgb = inkC;
+            if (cE > 0.5 && cK > 0.5) col.rgb = TK > 0.5 ? col.rgb * 0.5 : inkC;
             else if (isC) {}
             // resto da cena: mesmo traço preto dos personagens na silhueta (degrau) e nas quinas (dobra da face)
             else if (iK > 0.5 && (dE > 0.5 || nE > 0.35)) col.rgb = inkC;
-            else if (dE > 0.5) col.rgb *= dK; else if (nE > 0.35) col.rgb *= nK;
+            // móvel cartoon: traço fino de nanquim na silhueta (degrau de profundidade) e nas quinas (dobra da face)
+            // móvel cartoon (fora da cadeia acima, de propósito): traço na silhueta/quinas do próprio móvel e, para a
+            // silhueta ficar com 2 px, também no pixel de fora (atrás) colado nele
+            bool isI = INKP(vUv, d);
+            // o SMAA do fim apaga linha preta de 1 px (acha que é serrilhado): no móvel cartoon o traço tem 2 px
+            // traço fino: 1 px preto cheio + um 2º pixel só meio escurecido (borda macia), o bastante para o SMAA
+            // não apagar e sem engrossar. Silhueta: 1 px dentro + meio px fora; quina: 1 px + meio px ao lado
+            // cor do traço (decisão do dono, 2026-11-04): a cor do próprio móvel, mais escura (não preto).
+            // ?traco=preto volta ao nanquim preto
+            // UMA espessura em todas as bordas (decisão do dono): o pixel vira traço quando ele ou o vizinho é do móvel
+            // cartoon e os dois estão separados por um degrau de profundidade (silhueta) ou por uma dobra (quina).
+            // A regra é simétrica, então toda linha fica com 2 px (1 de cada lado) — o SMAA não apaga e nada engrossa.
+            // 1 px: só o pixel DO MÓVEL vira traço, e só de um lado de cada linha (o da frente no degrau; nas dobras, o
+            // lado de um sentido fixo), então nenhuma linha fica com 2 px
+            if (!isC && isI) {
+              bool hit = false;
+              for (int i=0;i<4;i++){
+                vec2 uv6 = vUv + o[i]*res.zw*px; float nd6 = D(uv6); bool nI = INKP(uv6, nd6);
+                // degrau de verdade (o vizinho está mais longe): o salto é bem maior que a inclinação de cada lado
+                float od6 = D(vUv - o[i]*res.zw*px), fd6 = D(vUv + o[i]*res.zw*px*2.0);
+                bool step = (nd6 - d) - max(abs(d - od6), abs(fd6 - nd6)) > 0.03;
+                // fronteira móvel × não-móvel (piso, parede, fundo): é a silhueta, sempre vira traço (peças redondas)
+                if (!nI && nd6 - d > -0.005) step = true;
+                bool fold = nI && (i == 0 || i == 2) && dot(n, N(uv6)) < 0.8;
+                if (step || fold) hit = true;
+              }
+              if (hit) col.rgb = TK > 0.5 ? col.rgb * 0.45 : vec3(0.02, 0.018, 0.024); // 1 px pede tom mais escuro que 2 px
+            }
             gl_FragColor = col;
           }`,
         depthTest: false, depthWrite: false,
       }));
     }
-    setSize(w, h) { this.beauty.setSize(w, h); this.normals.setSize(w, h); this.mask.setSize(w, h); this.quad.material.uniforms.res.value.set(w, h, 1 / w, 1 / h); }
+    setSize(w, h) { this.beauty.setSize(w, h); this.normals.setSize(w, h); this.mask.setSize(w, h); this.inkMask.setSize(w, h); this.quad.material.uniforms.res.value.set(w, h, 1 / w, 1 / h); }
     render(r, writeBuffer) {
       const u = this.quad.material.uniforms, bg = scene.background;
       camera.layers.set(0); scene.overrideMaterial = this.normalMat; scene.background = null;
@@ -584,6 +706,8 @@ async function start() {
       for (const m of kit.MESHES) { m.userData.mat = m.material; m.material = m.userData.idMat; }
       camera.layers.set(kit.LAYER); r.setClearColor(0x000000, 0); r.setRenderTarget(this.mask); r.clear(); r.render(scene, camera); camera.layers.set(0);
       for (const m of kit.MESHES) m.material = m.userData.mat;
+      camera.layers.set(INK_LAYER); scene.overrideMaterial = this.inkMat; r.setRenderTarget(this.inkMask); r.clear(); r.render(scene, camera); scene.overrideMaterial = null; camera.layers.set(0);
+      u.tInk.value = this.inkMask.depthTexture;
       scene.background = bg;
       r.setRenderTarget(this.beauty); r.clear(); r.render(scene, camera);
       // camada 1 (vidro e vapor) depois: fica fora do contorno
@@ -597,7 +721,9 @@ async function start() {
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), .4, .3, 1.0);
   composer.addPass(bloom);
   // suaviza o serrilhado das bordas (inclusive dos contornos) no modo nítido
-  const smaa = SMOOTH ? new SMAAPass(2, 2) : null;
+  // traço de 1 px (dono): o SMAA apagava a linha fina. Desligado por padrão; a geometria já sai suave pelo MSAA 4×.
+  // ?smaa=1 religa (para comparar)
+  const smaa = SMOOTH && qs.get('smaa') === '1' ? new SMAAPass(2, 2) : null;
   if (smaa) composer.addPass(smaa);
   composer.addPass(new OutputPass());
 
@@ -627,6 +753,17 @@ async function start() {
   const ndc = (x, y) => new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
   const groundAt = (x, y) => { ray.setFromCamera(ndc(x, y), camera); return ray.ray.intersectPlane(ground, _g) ? _g.clone() : null; };
   let vdrag = null, rot = null;
+  // arrastar de lado gira 90° a cada ~70 px (nunca para num ângulo torto)
+  const ROT_STEP_PX = 70;
+  function stepRot(r, x) {
+    const dx = x - r.x;
+    if (Math.abs(dx) >= ROT_STEP_PX) { cam.yawGoal = snapYaw(cam.yawGoal) - Math.sign(dx) * Math.PI / 2; r.x = x; }
+  }
+  // mover a vista pelas setas/WASD, na direção da tela (vale em qualquer giro)
+  function panBy(sx, sy) {
+    const k = room.span * .05 / cam.zoom, c = Math.cos(cam.yawGoal), s = Math.sin(cam.yawGoal);
+    cam.panX += (c * sx - s * sy) * k; cam.panZ += (-s * sx - c * sy) * k;
+  }
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   // mouse (como nos visualizadores 3D): esquerdo arrasta = gira · direito ou meio arrasta = move · clique = abre a ficha
   canvas.addEventListener('pointerdown', (e) => {
@@ -638,7 +775,7 @@ async function start() {
   canvas.addEventListener('pointermove', (e) => {
     if (rot) {
       if (!rot.moved && Math.hypot(e.clientX - rot.x, e.clientY - rot.y) > 4) { rot.moved = true; canvas.classList.add('rotating'); }
-      if (rot.moved) { cam.yaw = rot.yaw - (e.clientX - rot.x) * .008; cam.yawGoal = cam.yaw; }
+      if (rot.moved) stepRot(rot, e.clientX);
       return;
     }
     if (!vdrag) return;
@@ -652,7 +789,7 @@ async function start() {
   const endPointer = (e) => {
     canvas.classList.remove('dragging', 'rotating');
     // girou: encaixa no ângulo isométrico mais próximo; só clicou (sem arrastar): vale como clique numa pessoa
-    if (rot) { const r0 = rot; rot = null; if (r0.moved) { cam.yawGoal = snapYaw(cam.yaw); return; } }
+    if (rot) { const r0 = rot; rot = null; if (r0.moved) return; }
     else { const was = vdrag; vdrag = null; if (!was || was.moved) return; }
     if (e.type !== 'pointerup') return;
     ray.setFromCamera(ndc(e.clientX, e.clientY), camera);
@@ -673,6 +810,8 @@ async function start() {
     if (!active() || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     if (e.key === 'q' || e.key === 'Q') cam.yawGoal += Math.PI / 2;
     if (e.key === 'e' || e.key === 'E') cam.yawGoal -= Math.PI / 2;
+    const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1], a: [-1, 0], d: [1, 0], w: [0, 1], s: [0, -1] }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (mv && !document.querySelector('[role=menu]:not([hidden])')) { e.preventDefault(); panBy(mv[0], mv[1]); }
   });
   // "Centralizar" do 2D também vale aqui
   const fit3d = () => { cam.panX = 0; cam.panZ = 0; cam.zoom = 1; };
@@ -719,9 +858,9 @@ async function start() {
       cam.panX = edPan.px; cam.panZ = edPan.pz; updateCamera();
       const now = groundAt(sx + ox, sy + oy); if (now) { cam.panX = edPan.px + edPan.start.x - now.x; cam.panZ = edPan.pz + edPan.start.z - now.z; }
     },
-    rotStart(sx) { edRot = { x: sx, yaw: cam.yaw }; },
-    rotMove(sx) { if (edRot) { cam.yaw = edRot.yaw - (sx - edRot.x) * .008; cam.yawGoal = cam.yaw; } },
-    rotEnd() { edRot = null; cam.yawGoal = snapYaw(cam.yaw); },
+    rotStart(sx) { edRot = { x: sx }; },
+    rotMove(sx) { if (edRot) stepRot(edRot, sx); },
+    rotEnd() { edRot = null; },
     zoomAt(f, sx, sy) {
       const [ox, oy] = offset(), before = groundAt(sx + ox, sy + oy);
       cam.zoom = Math.min(5, Math.max(.6, cam.zoom * f)); updateCamera();

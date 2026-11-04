@@ -10,6 +10,30 @@ const FILE = path.resolve(process.env.PIXELHQ_DATA_DIR || './data', 'office.json
 export const STYLES = ['moderno', 'aconchegante', 'clinico', 'criativo', 'industrial'];
 const LABELABLE = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'entregando'];
 export const LIMITS = { teamMin: 3, teamMax: 10, rolesMax: 6 };
+/* Biblioteca de móveis da sala (mesmos ids de web/js/01-catalogo.js ITEMS; o teste confere). A IA escolhe, daqui e do
+   CATALOG, TODOS os móveis do negócio (decisão do dono, 2026-11-04): nada de "pacote de escritório" fixo. */
+export const LIBRARY = {
+  desk: 'mesa com computador para 1 pessoa (escrever, editar, planilhas, atender por mensagem)',
+  island: 'ilha com 4 computadores (equipe que trabalha junta no computador)',
+  meeting: 'mesa de reunião para até 7 pessoas',
+  reception: 'balcão de recepção para receber clientes',
+  kanban: 'quadro kanban para organizar tarefas',
+  tv: 'TV com gráficos para acompanhar números',
+  coffee: 'balcão de café (copa)', fridge: 'geladeira de bebidas', stool: 'banqueta alta',
+  sofa: 'sofá (descanso ou espera)', armchair: 'poltrona de leitura', pouf: 'pufe', ctable: 'mesinha de centro', rug: 'tapete',
+  lowshelf: 'estante baixa com livros', floorlamp: 'luminária de chão',
+  palm: 'palmeira em vaso', planter: 'floreira', plantshelf: 'estante de plantas', vase: 'vaso decorativo',
+  chroma: 'fundo infinito / chroma (onde se fotografa ou grava)', softbox: 'luz de estúdio (softbox)', tripod: 'tripé com câmera', colorlight: 'luz colorida decorativa',
+  printer: 'impressora', rack: 'rack de servidores (só para quem publica sites ou sistemas)',
+};
+const MAX_EACH = 4, MAX_TOTAL = 28;
+// piso e cor das paredes: as mesmas opções do editor (web/js/01-catalogo.js MATS e WALLS; o teste confere)
+export const FLOORS = { lilas: 'lilás', porcelanato: 'porcelanato claro', madeira_clara: 'madeira clara', madeira_escura: 'madeira escura',
+  salvia: 'vinílico verde-sálvia', cimento: 'cimento queimado', grafite: 'carpete grafite', azul: 'carpete azul', xadrez: 'ladrilho xadrez preto e branco' };
+export const WALL_COLORS = { lilas: '#D5CED6', areia: '#ECE5D6', azul: '#C2D2DE', salvia: '#CAD8C1', pessego: '#EBCBB7', grafite: '#3A3C44' };
+// salas fechadas: tipo de parede → como fica (o gerador monta com porta ou abertura)
+export const ROOM_WALLS = { alvenaria: 'parede inteira com porta (privacidade total: consultório, cabine)', vidro: 'vidro com porta (reunião, aquário)',
+  meia: 'meia-parede com passagem (separa sem fechar)', biombo: 'painel acústico baixo com passagem (isolar barulho, estúdio)' };
 
 export function buildPrompt(description) {
   return `Você monta escritórios virtuais onde cada pessoa é um agente de IA que trabalha para um negócio.
@@ -31,25 +55,21 @@ REGRAS
   entrega  = publica, envia ou entrega ao cliente
 - "funcao": uma frase curta dizendo o que a pessoa faz neste negócio.
 - "rotulos": como chamar, neste negócio, os estados ${LABELABLE.join(', ')} (até 20 letras, verbo no gerúndio). Ex.: trabalhando → "Escrevendo".
-- "estilo": um destes: ${STYLES.join(', ')}.
-- "entrega": "servidor" se o resultado é digital (site, app, sistema); "impressora" se é documento, relatório ou material físico.
-- "areas": "estudio" true se o negócio grava vídeo ou fotos; "recepcao" true se atende clientes presencialmente.
-- "planta": "retangular" (sala única) ou "em_l" (sala em L: uma ala na frente, junto da entrada, com sala de espera
-  e área de descanso). Use "em_l" quando o negócio recebe clientes ou precisa de um canto separado do trabalho.
-- O escritório já tem: mesas com computador, quadro kanban, sala de reunião com TV, copa, estante, poltrona e sofá.
-  "elementos": até 3 móveis EXTRAS deste catálogo que o negócio realmente usa no dia a dia (ids):
+- A SALA quem monta é o dono, no editor, com os móveis da biblioteca abaixo. Você NÃO escolhe móveis, piso, paredes
+  nem planta. A biblioteca (só para saber o que já existe):
+${Object.entries(LIBRARY).map(([id, d]) => `    ${id}: ${d}`).join('\n')}
 ${Object.entries(CATALOG).map(([id, c]) => `    ${id}: ${c.name} (${c.for})`).join('\n')}
-- "moveis_novos": só se o negócio precisa de um móvel essencial que NÃO está em nada acima (ex.: cadeira de dentista,
+- "moveis_novos": só se o negócio precisa de um móvel essencial que NÃO está na biblioteca (ex.: cadeira de dentista,
   forno de pizza, mesa de som). No máximo 2. Cada um: {"nome":"...","finalidade":"para que serve, em poucas palavras","parecido_com":"id do catálogo mais parecido"}.
   Na dúvida, não peça móvel novo.
 - "tarefas_exemplo": 6 tarefas típicas deste negócio (até 40 letras cada). "pesquisas_exemplo": 4 temas de pesquisa.
 - Tudo em português do Brasil.
 
 Responda SOMENTE com o JSON, sem texto antes ou depois, neste formato:
-{"nome":"Nome do escritório","servico":"uma frase","estilo":"moderno","entrega":"servidor","areas":{"estudio":false,"recepcao":false},"planta":"retangular",
+{"nome":"Nome do escritório","servico":"uma frase",
 "papeis":[{"id":"coordenacao","nome":"Coordenação","tipo":"coordena"},{"id":"redacao","nome":"Redação","tipo":"produz"}],
 "equipe":[{"nome":"Ana","papel":"coordenacao","funcao":"Organiza as entregas da semana"},{"nome":"Bia","papel":"redacao","funcao":"Escreve os posts"}],
-"rotulos":{"trabalhando":"Escrevendo"},"elementos":[],"moveis_novos":[],
+"rotulos":{"trabalhando":"Escrevendo"},"moveis_novos":[],
 "tarefas_exemplo":["..."],"pesquisas_exemplo":["..."]}`;
 }
 
@@ -111,15 +131,41 @@ export function normalizeSpec(raw) {
   const list = (a, n, len) => (Array.isArray(a) ? a : []).map(x => clip(x, len)).filter(Boolean).slice(0, n);
 
   if (problems.length) throw Object.assign(new Error(problems.join('; ')), { problems });
+  // móveis da sala: só ids da biblioteca ou do catálogo, no máximo MAX_EACH de cada e MAX_TOTAL no total
+  const furniture = [], count = {};
+  // só a lista nova ("moveis") liga o modo "a IA escolhe tudo"; ficha antiga ("elementos") segue o programa de antes
+  for (const x of Array.isArray(raw.moveis) ? raw.moveis : []) {
+    const id = String(x).toLowerCase().trim();
+    if (!(LIBRARY[id] || CATALOG[id]) || (count[id] || 0) >= MAX_EACH || furniture.length >= MAX_TOTAL) continue;
+    count[id] = (count[id] || 0) + 1; furniture.push(id);
+  }
+  // as áreas e a entrega seguem os móveis escolhidos (quando a IA mandou a lista)
+  const has = (id) => furniture.includes(id);
   return {
     name: clip(raw.nome, 40) || 'Meu escritório',
     service: clip(raw.servico, 200),
     style: STYLES.includes(raw.estilo) ? raw.estilo : 'moderno',
-    delivery: raw.entrega === 'impressora' ? 'impressora' : 'servidor',
-    areas: { studio: !!raw.areas?.estudio, reception: !!raw.areas?.recepcao },
+    delivery: furniture.length ? (has('printer') && !has('rack') ? 'impressora' : has('rack') ? 'servidor' : raw.entrega === 'impressora' ? 'impressora' : 'servidor') : raw.entrega === 'impressora' ? 'impressora' : 'servidor',
+    areas: furniture.length ? { studio: has('chroma'), reception: has('reception') } : { studio: !!raw.areas?.estudio, reception: !!raw.areas?.recepcao },
+    furniture,
+    // piso e parede escolhidos pela IA (vazios = os do estilo)
+    floor: FLOORS[raw.piso] ? raw.piso : null,
+    wallColor: WALL_COLORS[String(raw.parede || '').toLowerCase()] || null,
+    // salas fechadas: só com móveis que estão na lista; cada móvel em uma sala só
+    rooms: (() => {
+      const used = new Set(), out = [];
+      for (const r of Array.isArray(raw.salas) ? raw.salas : []) {
+        const kind = ROOM_WALLS[r?.parede] ? r.parede : 'alvenaria';
+        const items = [...new Set((Array.isArray(r?.moveis) ? r.moveis : []).map(x => String(x).toLowerCase().trim()))].filter(id => furniture.includes(id) && !used.has(id)).slice(0, 3);
+        if (!items.length) continue;
+        items.forEach(id => used.add(id)); out.push({ items, wall: kind, why: clip(r?.motivo, 60) });
+        if (out.length >= 3) break;
+      }
+      return out;
+    })(),
     layout: /^em[_ ]?l$/i.test(String(raw.planta || '').trim()) ? 'L' : 'rect',
     roles: finalRoles, team, labels,
-    extras: [...new Set((Array.isArray(raw.elementos) ? raw.elementos : []).map(x => String(x).toLowerCase().trim()).filter(id => CATALOG[id]))].slice(0, 3),
+    extras: furniture.length ? [...new Set(furniture.filter(id => CATALOG[id]))] : [...new Set((Array.isArray(raw.elementos) ? raw.elementos : []).map(x => String(x).toLowerCase().trim()).filter(id => CATALOG[id]))].slice(0, 3),
     customRequests: (Array.isArray(raw.moveis_novos) ? raw.moveis_novos : []).map(m => ({ name: clip(m?.nome, 40), purpose: clip(m?.finalidade, 120), like: String(m?.parecido_com || '').toLowerCase().trim() }))
       .filter(m => m.name && !Object.values(CATALOG).some(c => furnSlug(c.name) === furnSlug(m.name))).slice(0, 2),
     tasks: list(raw.tarefas_exemplo, 8, 40),
@@ -147,12 +193,16 @@ export async function planOffice(chatOrCfg, description, onLog = () => {}) {
       spec.custom = [];
       for (const req of spec.customRequests) { const c = await designFurniture(chat, req, onLog); if (!spec.custom.some(x => x.id === c.id)) spec.custom.push(c); }
       delete spec.customRequests;
+      // a descrição completa fica na ficha: os agentes recebem como contexto do negócio em toda tarefa
+      spec.description = clip(description, 1500);
       return spec;
     }
   }
   throw Object.assign(new Error(`A IA não montou uma ficha válida (${lastErr.message}). Tente descrever o serviço com mais detalhes.`), { code: 'invalid_spec' });
 }
 
+// começar do zero: apaga o escritório salvo (equipe, papéis, descrição, móveis criados pela IA)
+export async function clear() { await fs.rm(FILE, { force: true }); }
 export async function load() { try { return JSON.parse(await fs.readFile(FILE, 'utf8')); } catch { return null; } }
 export async function save(spec) {
   await fs.mkdir(path.dirname(FILE), { recursive: true });

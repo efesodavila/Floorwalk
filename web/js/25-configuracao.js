@@ -96,8 +96,13 @@ async function setupInit() {
   try { setupState.view = await setupApi('/api/settings'); setupState.office = (await setupApi('/api/office')).office; }
   catch { document.body.classList.remove('booting'); return; }
   renderAIButton();
+  // servidor rodando código velho (arquivos mudaram depois que ele subiu): avisa, senão as melhorias não valem
+  fetch('/api/stale').then(r => r.json()).then(s => { if (s?.stale) toast('O servidor está com código antigo: pare (Ctrl+C) e rode npm start de novo para as melhorias valerem.'); }).catch(() => {});
   // o escritório salvo no servidor manda: outro navegador ou um escritório novo recarregam a planta
+  // só um escritório NOVO troca a sala: a sala que o dono montou nunca é refeita sozinha
   if (setupState.office && W.officeId !== setupState.office.createdAt) applyOffice(setupState.office);
+  // primeira vez neste navegador com um negócio pronto (ex.: criado antes do tour existir): abre no Construir com o tour
+  else if (setupState.office) { let seen = false; try { seen = localStorage.getItem('pixelhq.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
   reviewCustomFurniture(setupState.office);
   document.body.classList.toggle('has-office', !!setupState.office);
   renderMenu();
@@ -146,7 +151,6 @@ $('#office-form').onsubmit = async (e) => {
     clearInterval(tick);
     if (!r.ok) { officeStatus(r.error, 'err'); return; }
     setupState.office = r.office; document.body.classList.add('has-office'); renderMenu(); closeSetup(); applyOffice(r.office); reviewCustomFurniture(r.office);
-    toast(`${r.office.name} está pronto. A equipe de ${r.office.team.length} pessoas entra na sala quando você pedir uma tarefa.`);
   } catch (err) { clearInterval(tick); officeStatus(err.message || 'O servidor do Pixel HQ não respondeu.', 'err'); }
   finally { btn.disabled = false; $('#office-back').disabled = false; }
 };

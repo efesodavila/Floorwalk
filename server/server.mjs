@@ -20,6 +20,7 @@ import { createLocks } from './locks.mjs';
 const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR || './workspace');
 
 const DEMO = process.argv.includes('--demo');
+const STARTED_AT = Date.now(); // hora em que o servidor subiu (para /api/stale)
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const MIN_DWELL = Number(process.env.MIN_DWELL_MS || 3500);
@@ -94,7 +95,9 @@ const webOn = async () => process.env.PIXELHQ_WEB !== '0' && (await settings.loa
 async function realRun(task) {
   const cfg = await settings.active();
   if (!cfg) throw new Error('Conecte uma IA antes de delegar tarefas (menu no canto superior direito).');
-  const spec = await office.load();
+  // a sala real (o que a página mandou com a tarefa) vale mais que o escritório montado: móvel posto à mão no editor
+  // entra na lista de lugares que a IA vê
+  const spec0 = await office.load(), spec = task.room?.length ? { ...spec0, room: task.room } : spec0;
   const log = logFor(task);
   const chat = async (o) => {
     try { return await llm.chat(o, (from, to) => log('Sistema', `O modelo ${from} foi recusado pela ${PROVIDERS[cfg.provider].name}; a equipe passou a usar ${to}.`)); }
@@ -139,6 +142,12 @@ const WEB = path.join(ROOT, 'web');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  // código do servidor mudou depois que ele subiu? (a página avisa: "reinicie o servidor")
+  if (url.pathname === '/api/stale') {
+    let stale = false;
+    try { for (const f of await fs.readdir(path.join(ROOT, 'server'))) if (f.endsWith('.mjs') && (await fs.stat(path.join(ROOT, 'server', f))).mtimeMs > STARTED_AT) { stale = true; break; } } catch {}
+    json(res, 200, { stale }); return;
+  }
   if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, demo: DEMO, tarefas: [...running.values()].map(t => t.text), fila: queue.length })); return; }
   // diz à página que ela está rodando com o servidor (liga o modo tempo real)
   if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.PIXELHQ_BRIDGE = true;\n`); return; }
@@ -210,6 +219,16 @@ async function api(req, res, url) {
       return json(res, 200, { ok: true, settings: settings.publicView(await settings.load()) });
     }
     if (url.pathname === '/api/office' && req.method === 'GET') return json(res, 200, { office: await office.load() });
+    // começar do zero (menu): cancela as tarefas, esquece o estado dos agentes e apaga o escritório. A IA conectada e
+    // os arquivos já entregues (workspace/entregas) continuam. Exige JSON (outro site não consegue disparar)
+    if (url.pathname === '/api/office/reset' && req.method === 'POST') {
+      await readJSON(req);
+      for (const t of running.values()) t.abort?.abort();
+      for (const q of queue.splice(0)) broadcast(msg.task(q.id, 'cancelada', { text: q.text }));
+      lastState.clear();
+      await office.clear();
+      return json(res, 200, { ok: true });
+    }
     // crítica visual de um móvel criado pela IA, em duas etapas (no máximo 2 chamadas por móvel, uma vez só):
     // 1) a página manda a foto do móvel; a IA dá nota e, se ruim, propõe um desenho (guardado como "pending");
     // 2) a página manda a foto do desenho proposto (candidate: true); ele só fica se a nota nova for maior

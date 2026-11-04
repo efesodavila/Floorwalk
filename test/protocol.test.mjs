@@ -48,3 +48,10 @@ test('state leva o lugar só se ele existir', () => {
   assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', place: 'piscina' }).place, undefined);
   assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', place: 'p_forno_de_pizza' }).place, 'p_forno_de_pizza', 'lugar de móvel criado pela IA');
 });
+
+test('tarefa da página: a lista de móveis da sala é validada', async () => {
+  const { parseClientMessage } = await import('../server/protocol.mjs');
+  const t = parseClientMessage(JSON.stringify({ type: 'task', id: 'r1', text: 'oi', room: ['desk', 'desk', 'chroma', '../x', 'C_maiusc', 7] }));
+  assert.deepEqual(t.room, ['desk', 'chroma', '7']);
+  assert.equal(parseClientMessage(JSON.stringify({ type: 'task', id: 'r2', text: 'oi' })).room, undefined);
+});

@@ -93,6 +93,16 @@ menuEl.addEventListener('keydown', (e) => {
 for (const id of ['m-team', 'm-edit', 'm-office', 'ai-btn', 'open-rules', 'open-test', 'open-changes']) $('#' + id).addEventListener('click', () => closeMenu());
 $('#m-edit').onclick = () => { setMode(mode === 'build' ? 'live' : 'build'); renderMenu(); };
 $('#m-office').onclick = () => openOfficeStep();
+// começar do zero: confirma, apaga o escritório no servidor e a sala salva neste navegador, e volta para "descrever o negócio"
+$('#m-reset').onclick = async () => {
+  closeMenu();
+  const ok = confirm('Começar do zero?\n\nApaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer.\n\nContinuam: a IA conectada e os arquivos que os agentes já entregaram.');
+  if (!ok) return;
+  try { await setupApi('/api/office/reset', {}); }
+  catch (e) { toast?.('Não consegui apagar: ' + e.message); return; }
+  try { localStorage.setItem(STORE, JSON.stringify(tplVazio())); } catch {}
+  location.reload();
+};
 // pesquisa na internet: liga/desliga no servidor (vale para as próximas tarefas)
 $('#m-web').onclick = async () => {
   const on = !(setupState.view?.web !== false);

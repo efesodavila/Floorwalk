@@ -161,7 +161,8 @@ $('#ask-form').addEventListener('submit', async (e) => {
   if (!sim.agents.length) { askSt('Adicione pelo menos uma pessoa no modo Construir.', true); return; }
   if (socket && socket.readyState === 1 && sim.source === 'tempo_real') {
     const id = 'run-' + Date.now().toString(36);
-    socket.send(JSON.stringify({ type: 'task', id, text }));
+    // manda junto os móveis que estão na sala: o servidor só oferece à IA os lugares que existem de verdade
+    socket.send(JSON.stringify({ type: 'task', id, text, room: [...new Set(W.objects.map(o => o.item))] }));
     bridgeTask({ id, text, status: 'na_fila' }); $('#ask-in').value = ''; return;
   }
   askBusy = true; $('#ask-go').disabled = true;

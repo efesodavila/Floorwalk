@@ -51,15 +51,15 @@ const chair = (x, z, back = 's') => {
 const ITEMS = {
   desk: { n: 'Mesa de trabalho', cat: 'trabalho', w: 2, d: 2, desk: true, seats: [[1, 1.5]], boxes: [
     ...chair(1, 1.5, 's'), B(.1, .1, .08, .8, 0, .7, MET), B(1.82, .1, .08, .8, 0, .7, MET), B(0, 0, 2, 1, .7, .08, '#EFE9E0'),
-    B(.92, .18, .16, .1, .78, .14, MET), B(.65, .14, .7, .08, .9, .42, '#24252B'), B(.69, .22, .62, .02, .94, .34, '#7D45D6', { g: '#9D6BFF' }),
+    B(.92, .18, .16, .1, .78, .14, MET), B(.65, .14, .7, .08, .9, .42, '#24252B'), B(.69, .192, .62, .02, .94, .34, '#7D45D6', { g: '#9D6BFF' }),
     B(.6, .5, .5, .18, .78, .02, '#3B3E46'), B(1.5, .2, .18, .18, .78, .16, '#FFFFFF')] },
   island: { n: 'Ilha com 4 estações', cat: 'trabalho', w: 4, d: 3, desk: true, seats: [[1, .35], [3, .35], [1, 2.65], [3, 2.65]], boxes: [
     ...chair(1, .35, 'n'), ...chair(3, .35, 'n'),
     B(.2, .9, .1, 1.2, 0, .7, MET), B(3.7, .9, .1, 1.2, 0, .7, MET), B(0, .8, 4, 1.4, .7, .08, '#F2EDE6'), B(.1, 1.46, 3.8, .08, .78, .45, '#D9D2DA'),
     // um computador por estação: pé, monitor e tela acesa virada para quem senta
     ...[1, 3].flatMap(cx => [
-      B(cx - .08, 1.24, .16, .08, .78, .12, MET), B(cx - .3, 1.2, .6, .06, .9, .4, '#24252B'), B(cx - .26, 1.18, .52, .02, .94, .32, '#7D45D6', { g: '#9D6BFF' }),
-      B(cx - .08, 1.66, .16, .08, .78, .12, MET), B(cx - .3, 1.68, .6, .06, .9, .4, '#24252B'), B(cx - .26, 1.74, .52, .02, .94, .32, '#7D45D6', { g: '#9D6BFF' }),
+      B(cx - .08, 1.24, .16, .08, .78, .12, MET), B(cx - .3, 1.2, .6, .06, .9, .4, '#24252B'), B(cx - .26, 1.198, .52, .02, .94, .32, '#7D45D6', { g: '#9D6BFF' }),
+      B(cx - .08, 1.66, .16, .08, .78, .12, MET), B(cx - .3, 1.68, .6, .06, .9, .4, '#24252B'), B(cx - .26, 1.722, .52, .02, .94, .32, '#7D45D6', { g: '#9D6BFF' }), // tela embutida: rente à frente da caixa (+2 mm), não sai dela
       B(cx - .25, .95, .5, .16, .78, .02, '#3B3E46'), B(cx - .25, 1.89, .5, .16, .78, .02, '#3B3E46'),
     ]),
     ...chair(1, 2.65, 's'), ...chair(3, 2.65, 's')] },
@@ -134,7 +134,7 @@ const ITEMS = {
     B(.02, .12, 1.96, .81, .73, .45, '#BFE6FF', { glass: 1 }), B(0, .1, 2, .85, 1.18, .03, '#C9CDD4')] },
   caixa: { n: 'Caixa (balcão de vendas)', cat: 'comércio', w: 2, d: 1, boxes: [
     B(0, .1, 2, .85, 0, 1, '#C98F57'), B(.1, .95, 1.8, .01, .15, .7, '#B07A4A'), B(0, .05, 2, .95, 1, .05, '#24252B'),
-    B(1.15, .3, .55, .45, 1.05, .22, '#3A3C42'), B(1.2, .26, .45, .04, 1.27, .26, '#24252B'), B(1.23, .3, .39, .01, 1.3, .2, '#7D45D6', { g: '#9D6BFF' }), B(.35, .45, .16, .26, 1.05, .1, '#24252B'), B(.38, .48, .1, .1, 1.15, .01, '#3AA655', { g: '#5CFF8A' })] },
+    B(1.15, .3, .55, .45, 1.05, .22, '#3A3C42'), B(1.2, .26, .45, .04, 1.27, .26, '#24252B'), B(1.23, .292, .39, .01, 1.3, .2, '#7D45D6', { g: '#9D6BFF' }), B(.35, .45, .16, .26, 1.05, .1, '#24252B'), B(.38, .48, .1, .1, 1.15, .01, '#3AA655', { g: '#5CFF8A' })] },
   sapateira: { n: 'Estante de sapatos', cat: 'comércio', w: 2, d: 1, boxes: [
     B(0, 0, 2, .1, .12, 2.0, '#F0EBE4'), B(0, 0, .07, .55, 0, 2.1, '#DBB07A'), B(1.93, 0, .07, .55, 0, 2.1, '#DBB07A'), B(0, 0, 2, .55, 0, .12, '#B07A4A'), B(0, 0, 2, .5, 2.06, .06, '#DBB07A'),
     ...[.32, .72, 1.12, 1.52].flatMap((y, r) => [B(.07, .1, 1.86, .42, y, .03, '#DBB07A'), ...[0, 1, 2].map(i => B(.28 + i * .62, .2, .2, .22, y + .03, .1, ['#E0473B', '#24252B', '#2F5FD0', '#8E5B3A', '#FFFFFF', '#E89BB5'][(r * 3 + i) % 6]))])] },
@@ -194,7 +194,27 @@ const ALIASES = {
   idle: 'ocioso', free: 'ocioso', livre: 'ocioso', stopped: 'offline',
 };
 const normState = (st) => { st = String(st ?? '').toLowerCase().trim(); return RULES[st] ? st : (ALIASES[st] || null); };
-const AFFN = { care: 'Maca, cadeira ou balança', cook: 'Cozinha', stock: 'Estoque', sell: 'Balcão de vendas', craft: 'Bancada de oficina', attend: 'Recepção', work: 'Mesa de trabalho', meeting: 'Mesa de reunião', plan: 'Quadro kanban', read: 'Estante ou poltrona', relax: 'Sofá ou pufe', coffee: 'Balcão de café', fridge: 'Geladeira', infra: 'Rack de servidores', plants: 'Plantas', print: 'Impressora', tv: 'TV', record: 'Estúdio' };
+const AFFN = { care: 'Maca, cadeira ou balança', cook: 'Cozinha', stock: 'Estoque', sell: 'Balcão de vendas', craft: 'Bancada de oficina', attend: 'Recepção', work: 'Mesa de trabalho', meeting: 'Mesa de reunião', plan: 'Quadro kanban', read: 'Estante ou poltrona', relax: 'Sofá ou pufe', coffee: 'Balcão de café', fridge: 'Geladeira', infra: 'Rack de servidores', plants: 'Plantas', print: 'Impressora', tv: 'TV', record: 'Estúdio', film: 'Luz ou câmera do estúdio' };
+/* Dentro de um lugar com vários móveis (atendimento, cozinha, estoque, loja, oficina, estúdio), a IA só diz o LUGAR.
+   O pedido do passo decide o móvel: "corte de cabelo" → cadeira de barbeiro, não a balança. Sem palavra que case,
+   vale o livre mais perto. */
+const ITEM_HINT = {
+  cadeira_salao: /cabel|corte|barb|maquiag|estétic|estetic|penteado|escova|unha/i,
+  balanca: /\bpes(ar|o|agem)\b|medir|altura|imc|balança/i,
+  maca: /exam|consult|procediment|massag|curativ|vacin|fisio|sessão/i,
+  fogao: /cozinh|frit|ferv|assar|refog|cozer|molho|sopa|grelh|fog[aã]o/i,
+  bancada_cozinha: /cort|pic(ar|ad)|prepar|lav(ar|e)|salada|tempero|mont(ar|e) .{0,10}prato|massa/i,
+  arara: /roupa|vestid|camis|cal[cç]a|peça|cabide|arara/i,
+  estoque: /separ|confer|invent|repor|reposi|estoque|prateleira/i,
+  mesa_embalagem: /embal|despach|envio|etiquet|pacote/i,
+  caixa: /cobr|pagament|venda|vender|caixa|troco|nota fiscal/i,
+  vitrine: /vitrine|expor|exposi|mostrar (o|os) produto/i,
+  sapateira: /sapat|t[eê]nis|cal[cç]ad|bota/i,
+  bancada_oficina: /consert|repar|mont(ar|agem)|ferrament|sold|furar|parafus/i,
+  cavalete: /pint|desenh|ilustr|aquarel|tela/i,
+  chroma: /grav|v[ií]deo|filma|apresent|podcast|reels|stories/i,
+  tripod: /c[aâ]mera|enquadr|filmar/i, softbox: /\bluz\b|ilumina/i,
+};
 /* Lugares com finalidade: a IA escolhe um por passo da tarefa; "acts" diz quais elementos servem,
    em ordem de preferência. Mesma lista em server/places.mjs (o teste "protocol" confere). */
 const PLACES = {
@@ -203,7 +223,7 @@ const PLACES = {
   reuniao:    { acts: ['meeting', 'work'], why: 'conversar em grupo' },
   leitura:    { acts: ['read', 'relax', 'work'], why: 'estudar e consultar referências' },
   painel:     { acts: ['tv', 'meeting', 'work'], why: 'analisar números' },
-  estudio:    { acts: ['record', 'work'], why: 'gravar' },
+  estudio:    { acts: ['record', 'film', 'work'], why: 'gravar' },
   recepcao:   { acts: ['attend', 'work'], why: 'atender o cliente' },
   impressora: { acts: ['print', 'work'], why: 'imprimir' },
   servidores: { acts: ['infra', 'work'], why: 'publicar no sistema' },
@@ -296,6 +316,10 @@ const SPOTS = {
   vitrine: [[1, 1.45, 'sell', 0, 0, -1]], sapateira: [[1, 1.45, 'sell', 0, 0, -1]], caixa: [[1, 1.45, 'sell', 0, 0, -1]],
   bancada_oficina: [[1, 1.45, 'craft', 0, 0, -1]], cavalete: [[.5, 1.45, 'craft', 0, 0, -1]],
   chroma: [[1.5, .6, 'record', 0, 0, 1]],
+  // equipamentos de estúdio, abajur e vaso também são usados (antes ninguém ia até eles)
+  // luz e câmera: quem OPERA o equipamento (film); quem aparece no vídeo vai para o fundo verde (record)
+  softbox: [[.5, 1.4, 'film', 0, 0, -1]], tripod: [[.5, 1.4, 'film', 0, 0, -1]], colorlight: [[.5, 1.4, 'film', 0, 0, -1]],
+  floorlamp: [[.5, 1.4, 'read', 0, 0, -1]], vase: [[.5, 1.4, 'plants', 0, 0, -1]],
   // o segundo ponto fica atrás da mesa de reunião, de frente para a TV (o primeiro costuma estar bloqueado)
   tv: [[1, 1.7, 'tv', 0, 0, -1], [1, 4.4, 'tv', 0, 0, -1]],
 };
@@ -314,6 +338,7 @@ const ACTS = {
   plants:  { label: 'Regando as plantas', go: 'Indo regar as plantas', icon: 'drop', w: 4, dur: [3, 5], lunch: 1 },
   print:   { label: 'Imprimindo', go: 'Indo à impressora', icon: 'paper', w: 4, dur: [3, 5], lunch: .5 },
   record:  { label: 'Gravando conteúdo', go: 'Indo gravar', icon: 'camera', w: 4, dur: [7, 11], lunch: .3 },
+  film:    { label: 'Ajustando luz e câmera', go: 'Indo ao equipamento', icon: 'camera', w: 2, dur: [4, 7], lunch: .2 },
   tv:      { label: 'Vendo os números', go: 'Indo ver a TV', icon: 'chart', w: 3, dur: [4, 6], lunch: 1 },
   read:    { label: 'Lendo', go: 'Indo ler', icon: 'book', w: 5, dur: [6, 10], lunch: 1 },
   wander:  { label: 'Dando uma volta', go: 'Dando uma volta', icon: null, w: 7, dur: [1, 3], lunch: 1.5 },

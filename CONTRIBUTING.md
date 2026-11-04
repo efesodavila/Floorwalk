@@ -49,8 +49,9 @@ Código que roda no carregamento (fora de funções) só pode usar o que já foi
 | `22-missoes.js` | campo de tarefa, planos e missões |
 | `24-quadros.js` | cartões que expandem e retraem |
 | `25-configuracao.js` | tela inicial: escolher a IA, testar a conexão e descrever o serviço |
-| `26-montagem.js` | monta a planta a partir da ficha do escritório e confere se ela é válida |
+| `26-montagem.js` | negócio novo = sala vazia (o dono monta); confere a planta; gerador de planta guardado (`suggestOffice`, sem uso) |
 | `27-entregas-menu.js` | painel de resultado da tarefa e menu do canto superior direito |
+| `28-tour.js` | tour "Como usar": abre na primeira vez e pelo menu ☰ |
 | `../js3d/cena3d.js` | cena 3D (módulo ES, padrão com o servidor): lê os mesmos dados do 2D (`worldBoxes`, `segBoxes`, `animBox`, `peopleDrawables`) e desenha com Three.js |
 | `../js3d/personagens3d-meshy.js` | **padrão**: modelos GLB de `web/modelos/` (um por penteado), acessórios por ilha de malha, repintura da textura por pessoa |
 | `../js3d/personagens3d-lowpoly.js` | personagens low-poly feitos só em código (reserva quando os modelos não carregam) |

@@ -456,10 +456,129 @@ disse que está **ótimo**).
 ## 15. Estado e pendências (atualize aqui)
 
 - Commits em `main`. Sem remoto.
-- `npm test`: 85 testes; 84 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
+- `npm test`: 90 testes; 89 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
 - Plantas: o laço principal do `check:layouts` (retangular e em L × 6 e 10 pessoas × estilos × áreas × entrega =
   160 combinações, com a porta conferida) rodou no navegador sem problema. O script inteiro não rodou aqui (sem
   Playwright instalado).
 - Saldo Meshy: **230** créditos (conferido em 2026-11-03, depois dos 7 ternos).
 - Estilo padrão: Meshy; reserva: low-poly. A sala abre sem precisar de `?estilo=`.
-- Próximo passo recomendado: testar a crítica visual com a IA do dono; criar o remoto.
+- Câmera (2026-11-04): giro só em passos de 90° (arrastar ~70 px de lado, ou Q/E), a sala nunca fica torta;
+  setas/WASD movem a vista. Contorno do cenário DESLIGADO como teste do dono (`?contornoMoveis=1` religa);
+  personagens mantêm o contorno.
+- Sombra chapada (2026-11-04): `BasicShadowMap` (sem penumbra/degradê), mapa 4096, `normalBias .1`. Tirados os filetes
+  que pareciam chanfro: arremate do topo das paredes, recuo do encosto do sofá/poltrona, tubo no topo da divisória da
+  ilha, placa sob o tampo da mesa e laterais da geladeira entrando no teto.
+- Teste do dono: só personagens fazem sombra (`SCENE_SHADOWS`, `?sombraMoveis=1` religa). Anti-aliasing da sala:
+  MSAA 4× no alvo `beauty` do `PixelPass` + SMAA no fim (pega as linhas feitas no pós-processamento).
+- Peças redondas dos móveis são redondas (2026-11-04): cilindro/torno com ≥ 32 lados, haste 16, bola = esfera, e
+  normais lisas (`smooth` em `moveis3d.js` → `addOwned(..., smooth)`). seg < 5 (pirâmide) e folhagem `{ detail: 0 }`
+  continuam facetadas. Personagens não foram tocados (decisão do dono: não mexer neles).
+  Redondo = **uma cor só** (dono): em `addOwned` as normais das peças `smooth` apontam todas para cima.
+- Monitores: tela embutida rente à caixa (catálogo `desk`/`island`/`caixa`, +2 mm), pé estilo iMac (placa no tampo +
+  chapa inclinada) em `monitor()`. Sofá sem as almofadas soltas.
+- Placa do pé do monitor fica só debaixo dele (da frente até a chapa). Teclado da mesa simples centrado como nas
+  ilhas. Copos sem alça, boca escura (`mug`). Notebook novo (`laptop`: base, teclado, tampa inclinada, tela roxa).
+  Vaso com boca aberta e terra visível (`pot`); `bush` virou roseta de folhas (antes bolas). Impressora redesenhada
+  (corpo baixo, scanner, painel, fenda/bandeja de saída, bandeja de entrada) — não está na sala padrão.
+- Vitrine: `?vitrine=1` abre sala 26 × 18 com UM de cada móvel do catálogo (`tplVitrine` em `02-mundo.js`). Não salva
+  (`save()` desligado) e não conecta ao escritório real (`99-inicio.js`). Bom para revisar o visual dos móveis.
+- Profundidade: `vessel()` (recipiente aberto, por dentro em tom mais escuro) em panela/frigideira do fogão, pote e
+  fruteira da bancada. Bancada de cozinha com vão de verdade e cuba funda (tampo e armário montados em volta).
+  Máquina de espresso refeita (grupo, porta-filtro, bandeja, xícara, manômetro, bico de vapor). Cavalete com pernas
+  atrás da tela. Cadeira de barbeiro sem frascos e com espelho maior + faixas de brilho. Mesa de reunião sem copos.
+- Copo vazio também é oco (`vessel`: xícaras no topo da máquina de café). Livros com miolo branco: `book()` (em pé,
+  lombada para a frente — estante baixa) e `flatBook()` (deitado — mesa de centro).
+- Estilo cartoon NPR só no sofá (teste do dono): `INK_ITEMS` em `cena3d.js` (padrão `sofa`; `?nanquim=sofa,armchair`
+  troca a lista). Esses móveis vão num lote próprio (`inkB`): projetam sombra dura e entram na camada `INK_LAYER` (4),
+  renderizada sozinha no alvo `inkMask`; o `PixelPass` pinta traço preto na silhueta e nas quinas deles.
+  Espessura (dono achou 2 px grosso): 1 px preto + 2º pixel a 50% (borda macia). Só 1 px some: o SMAA do fim lê
+  linha preta de 1 px como serrilhado e apaga. Regra final (dono: "contorno em tudo, uma única espessura"): pixel vira
+  traço se ele ou o vizinho é do móvel cartoon e há degrau de profundidade ou dobra entre os dois — simétrica, 2 px
+  em toda linha. Cor: a do próprio móvel × 0,62; `?traco=preto` volta ao preto.
+  Aprovado → vale para TODOS os móveis (traço + sombra dura). `?nanquim=sofa,...` limita; `?nanquim=nada` desliga.
+  Sombra (2026-11-04): caixa da sombra JUSTA na sala (8 cantos projetados na vista do sol) em vez do quadrado folgado
+  → degraus da borda bem menores com o mesmo mapa 4096 (8192 = ~256 MB de vídeo, descartado). `bias` POSITIVO
+  (.0015) e `normalBias` .05: o Three grava a face de trás no mapa, e com bias negativo a face de costas para o sol
+  "piscava" em pontilhado. NÃO usar `shadowSide: FrontSide` (enche as faces iluminadas de pontilhado).
+  Peças redondas (`smooth`) NÃO recebem sombra (grupo `groupsS` no `batcher`, `receiveShadow = false`): com a normal
+  falsa para cima, o teste de sombra errava na parede curva e desenhava listras (vaso, tronco, abajur). Projetam sim.
+  Traço: degrau "de verdade" (salto maior que a inclinação dos dois lados, para faces inclinadas não virarem listra)
+  + fronteira móvel × não-móvel SEMPRE vira traço (senão as peças redondas perdiam a silhueta).
+- Estofados com quina levemente arredondada (dono): `P.box(..., { soft: true, r })` usa `RoundedBoxGeometry` (raio
+  até 5 cm) e mantém as normais dela (`addOwned(..., soft)`). Aplicado em sofá, poltrona, assento/encosto das cadeiras
+  de escritório e assento/encosto/braços/apoio de cabeça da cadeira de barbeiro. O resto continua com quina reta.
+- Partes animadas dos móveis (2026-11-04): peça com `anim: { type, g, pivot, on: 'idle'|'act', acts? }` em
+  `moveis3d.js` vira grupo próprio na sala ao vivo (`addObject(..., live)`) e `updatePartAnims` (cena3d) toca.
+  `act` = enquanto alguém usa aquele móvel (spot.id), `acts` filtra a atividade. Tipos: sway (folhas, sempre),
+  loop (listras do poste de barbeiro, sempre), drip (gotas ao regar), pour (café na xícara, água na pia), flame + rise
+  (fogo e vapor no fogão), swing (porta da geladeira), slide (gaveta do caixa), squash (almofada do sofá/poltrona),
+  pulse (viva-voz da reunião), blink (visor da balança), swing2 (roupas da arara), yawOsc (cadeira de barbeiro).
+  Miniatura e fantasma do editor: tudo parado, e o que só existe em uso (água, chama, vapor, gotas) não aparece.
+  Novos pontos de uso: softbox/tripé/luz colorida (gravar), abajur (ler), vaso (regar). Sentado fazendo algo que não
+  é trabalho/reunião (café na banqueta) agora usa o gesto da atividade. Tapete e capacho seguem sem ponto (piso/porta).
+- Traço com 1 px em TUDO (dono, 2026-11-04): móveis marcam só o pixel do próprio móvel e só um lado de cada linha
+  (cor × 0,45); personagens com silhueta e linhas internas de 1 px na cor deles × 0,5 (`?traco=preto` volta ao
+  preto). SMAA DESLIGADO por padrão (apagava a linha de 1 px); a geometria segue suave pelo MSAA 4×. `?smaa=1` religa.
+- IA → móvel certo (2026-11-04): a IA escolhe só o LUGAR do passo; dentro do lugar, o texto do pedido escolhe o móvel
+  (`ITEM_HINT` em 01-catalogo.js + `bestSpot(..., hint)` em 13-sim-agentes.js; ex.: "corte de cabelo" → cadeira de
+  barbeiro). `placeDesc` (server/places.mjs) lista os móveis existentes de cada lugar e o `planPrompt` pede o verbo do
+  ofício no pedido. Estúdio: fundo verde = `record` (quem aparece), softbox/tripé/luz = `film` (quem opera, gesto mãos).
+  Sala real (resolvido): a página manda `room` (ids dos móveis da sala) junto com a tarefa (`22-missoes.js`); o
+  servidor valida (`parseClientMessage`) e `placesFor` usa a sala real quando vem (`ITEM_PLACE` + `CATALOG.place`;
+  computador sempre; móvel da IA `c_…` só se estiver na sala). Sem `room`, vale o escritório montado. Testes novos em
+  `furniture.test.mjs` e `protocol.test.mjs`.
+- Planta NOVA a cada negócio (dono, 2026-11-04): `officeWorld` agora chama `generateOffice` (26-montagem.js): sala
+  dimensionada pela equipe (16–18 × 11–12; 21+ com 7 ou mais), sorteio próprio do pedido (`createdAt`), entrada na
+  parede esquerda, kanban/TV/fundo verde nas paredes visíveis, reunião/recepção/ilhas/mesas/lounge no meio com
+  corredor em volta, copa/entrega/estante/plantas/extras nas paredes, frente de cada móvel livre. Até 40 tentativas,
+  cada uma passa por `officeProblems`; sem nenhuma boa, `officeWorldBase` (a planta-base antiga).
+  Incluído depois (mesmo dia): sala de reunião de vidro com porta num canto do fundo (~45% das plantas, com a TV dentro),
+  lounge garantido ANTES das mesas (bloco sofá + tapete + mesinha) com divisória ripada atrás do sofá, e planta em L
+  (`spec.layout === 'L'`: ala na frente à esquerda com a sala de espera e a entrada; a frente da sala que dá para a ala
+  fica livre). WING_OBJECTS: palmeira e abajur da ala com rot 1 (o ponto de uso do abajur caía na palmeira e quebrava a
+  ala em L, inclusive na planta-base). Teste: 200 plantas → 200 novas, 0 problemas; 89 com sala de vidro, 100 em L.
+  `OFFICE_GEN` (26-montagem.js): a sala salva guarda a versão do gerador (`W.gen`); ao abrir, `setupInit` monta de novo
+  se a versão mudou. Suba `OFFICE_GEN` sempre que mudar o gerador (senão a sala antiga salva no navegador fica).
+- Falha do 3D: o dono APROVA cair no 2D quando o WebGL não funciona (`fail3d` em cena3d.js: aviso + 2D; vale também
+  para `webglcontextlost`, e a tela 3D morta é removida para não cobrir o 2D).
+- A IA escolhe TODOS os móveis (dono, 2026-11-04): `LIBRARY` (server/office.mjs) + `CATALOG` vão no prompt; a ficha
+  traz `furniture` (ids, até 4 de cada, 28 no total; estúdio/recepção/entrega seguem a lista). Com `furniture`, o
+  gerador (`generateOffice`, `listMode`) monta a sala SÓ com esses móveis (estúdio = fundo + câmera/luz de frente; lounge
+  com o que veio; reunião/recepção/ilhas/mesas no meio; o resto nas paredes; sempre ≥ 1 lugar de trabalho). Ficha antiga
+  (sem `moveis`) segue o programa de escritório de antes. `OFFICE_GEN` = 'g4'. Mudou o prompt: REINICIAR o servidor.
+- A IA também escolhe piso, cor da parede e salas fechadas (2026-11-04): `FLOORS`, `WALL_COLORS`, `ROOM_WALLS`
+  (server/office.mjs) → ficha com `floor`, `wallColor`, `rooms: [{ items, wall, why }]` (até 3; cada móvel numa sala só;
+  tipo inválido vira alvenaria). Gerador (`1a` em generateOffice): cada sala encosta no fundo ou na direita, do tamanho
+  dos móveis de dentro (leva TODAS as cópias do móvel, até 4 peças), paredes do tipo pedido nos lados internos e porta no
+  lado de baixo (`porta`/`vidro_porta`; meia/biombo = abertura de 2). A sala de vidro sorteada só vale nas fichas
+  antigas. `OFFICE_GEN` = 'g5'. Teste: 240 plantas de 5 negócios → todas com as salas pedidas, 0 problemas.
+- Loja de moda saiu com cara de escritório (2026-11-04): o EXEMPLO do prompt (desk, meeting, kanban...) puxava a IA para
+  escritório — trocado por exemplo neutro + instrução "pense no espaço físico real" com arquétipos (loja = salão de
+  vendas...). Gerador: salas fechadas ANTES da ala em L e a entrada por último (a ala tomava o sofá da sala de vidro; o
+  corredor da entrada tomava o lugar da mesinha); `onWallRow` põe iguais de parede lado a lado (araras em fileira).
+  `/api/stale` + aviso na página quando o servidor roda código antigo. `OFFICE_GEN` = 'g6'.
+- SALA VAZIA (dono, 2026-11-04, decisão que vale sobre tudo acima): a IA NÃO monta mais o cenário. O prompt da ficha
+  não pede móveis/piso/parede/salas/planta/estilo (só equipe, papéis, rótulos, exemplos e móveis novos que faltam na
+  biblioteca). `officeWorld` devolve sala vazia (16 × 11, 20 com 7+ pessoas; porta na esquerda; equipe em fileira) e
+  `applyOffice` abre no modo Construir com aviso. O gerador virou `suggestOffice` (não usado; para um futuro "sugerir
+  planta"). A sala montada à mão NUNCA é refeita sozinha (setupInit só troca com escritório novo; OFFICE_GEN não manda).
+- "Começar do zero…" (menu ☰, último item, vermelho, só com servidor): confirma e chama `POST /api/office/reset`
+  (cancela tarefas, limpa o estado dos agentes, apaga `data/office.json` via `office.clear()`); a página troca a sala
+  salva por `tplVazio()` e recarrega → abre "Conte o que o seu negócio faz". Ficam: a IA conectada e `workspace/entregas`.
+- No Construir os avatares não aparecem (dono), só na aba Pessoas ou enquanto um é editado/arrastado
+  (`peopleDrawables`, 16-fonte-tempo-real.js).
+- Tour "Como usar" (web/js/28-tour.js + estilo `.tour` no fim do app.css): 11 passos com recorte em volta do elemento
+  (modos, abas Planta/Elementos/Pessoas, desfazer, câmera, concluir, campo de tarefa, menu). Abre sozinho no negócio
+  novo (`applyOffice` → `tourMaybe`, uma vez: `localStorage pixelhq.tour.v1`) e pelo menu ☰ "Como usar (tour)".
+  Esc/Pular fecha; setas navegam. Cada passo põe a tela no modo/aba certo.
+- Descrição completa do negócio guardada na ficha (`spec.description`, até 1500 letras) e mandada a todo agente
+  (`persona`) e ao plano (`planPrompt`) como "SOBRE O NEGÓCIO".
+- Fonte: sem fonte pixelada (dono, 2026-11-04). `--font-label` = IBM Plex Sans; Pixelify Sans saiu do index.html.
+- Primeira visita com negócio já pronto (sem tour visto): `setupInit` abre no Construir e mostra o tour.
+- Fluxo atual do dono: descrever o negócio → IA monta equipe/papéis/rótulos/exemplos e guarda a descrição → sala
+  VAZIA no Construir + tour → dono monta (Planta, Elementos, Pessoas) → Ao vivo → delegar tarefas. Menu ☰ tem
+  "Começar do zero…". Depois de mudar arquivos de `server/`, REINICIAR o servidor (a página avisa via `/api/stale`).
+- Pendências: testar com a IA do dono (sala vazia + tour, descrição nos agentes, lugar certo de cada tarefa);
+  araras em fileira e salas fechadas só valem no gerador guardado (sem uso); `check:layouts` ainda espera a planta
+  montada pela IA; criar o remoto.
+- Próximo passo recomendado: testar o fluxo completo com a IA do dono; criar o remoto.

@@ -612,3 +612,6 @@ disse que está **ótimo**).
   AskUserQuestion → aguardando; ferramenta MCP → "Usando <ferramenta> (<servidor>)".
 - A "Clínica NutriViva" do data/office.json da 8787 saiu do exemplo "Clínica de nutrição" da etapa 2 (texto idêntico),
   criada em 2026-11-04 às 17:04 (horário de Brasília).
+- Equipe recolhida (dono, 2026-11-04): com sessão do Claude Code aberta e nenhuma tarefa delegada nesta visita
+  (`MISSIONS` vazio), a gaveta vira "Sessões do Claude Code" e a equipe do negócio fica num link "Mostrar a equipe"
+  (`showBizTeam`, 27-entregas-menu.js). Delegou uma tarefa: a equipe volta a aparecer.

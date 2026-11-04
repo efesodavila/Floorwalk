@@ -51,7 +51,8 @@ npm run hooks:install
 npm start
 ```
 
-Abra uma sessão nova do Claude Code. Ela entra pela porta e:
+Na primeira tela, clique em **Ver o Claude Code sem IA**: abre uma sala de dev pronta, sem chave e sem descrever
+um negócio (dá para conectar uma IA depois, pelo menu). Abra uma sessão nova do Claude Code. Ela entra pela porta e:
 
 | o Claude Code está… | na sala |
 |---------------------|---------|

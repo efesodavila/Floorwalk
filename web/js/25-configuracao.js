@@ -104,12 +104,32 @@ async function setupInit() {
   // primeira vez neste navegador com um negócio pronto (ex.: criado antes do tour existir): abre no Construir com o tour
   else if (setupState.office) { let seen = false; try { seen = localStorage.getItem('pixelhq.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
   reviewCustomFurniture(setupState.office);
-  document.body.classList.toggle('has-office', !!setupState.office);
+  document.body.classList.toggle('has-office', !!setupState.office || (claudeOnly() && !setupState.view.configured));
   renderMenu();
   document.body.classList.remove('booting');
-  if (!setupState.view.configured) openSetup(false);
+  // modo "só Claude Code": sem IA e sem negócio, a sala de dev pronta mostra as sessões do Claude Code
+  const soClaude = claudeOnly() && !setupState.view.configured;
+  document.body.classList.toggle('so-claude', soClaude);
+  if (soClaude) hooksHint();
+  else if (!setupState.view.configured) openSetup(false);
   else if (setupState.view.modelBroken) openSetup(true, setupState.view.modelBroken.reason);
   else if (!setupState.office) openOfficeStep();
+}
+
+/* ---------- Atalho: só ver o Claude Code (sem chave, sem negócio) ---------- */
+const CLAUDE_KEY = 'pixelhq.claude';
+function claudeOnly() { try { return localStorage.getItem(CLAUDE_KEY) === '1'; } catch { return false; } }
+// sala de dev pronta (a da software house, sem a equipe): as sessões do Claude Code entram pela porta
+function tplClaude() { const w = tplSala(); w.name = 'Claude Code'; w.service = 'Sessões do Claude Code trabalhando.'; w.people = []; delete w.demo; return w; }
+$('#setup-claude').onclick = () => {
+  try { localStorage.setItem(CLAUDE_KEY, '1'); localStorage.setItem('pixelhq.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); } catch {}
+  location.reload();
+};
+// os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar
+async function hooksHint() {
+  let on = null; try { on = (await setupApi('/api/hooks/status')).installed; } catch {}
+  if (on === false) toast('Falta ligar o Claude Code: rode npm run hooks:install no terminal e abra uma sessão nova.');
+  else if (on) toast('Pronto. Abra uma sessão do Claude Code: ela entra pela porta.');
 }
 
 /* ---------- Etapa 2: descrever o serviço; a IA monta equipe e áreas ---------- */
@@ -122,7 +142,7 @@ const OFFICE_EXAMPLES = [
 function setStep(n) {
   const li = setupEl.querySelectorAll('.setup-steps li');
   li.forEach((x, i) => { x.toggleAttribute('aria-current', i === n - 1); if (i === n - 1) x.setAttribute('aria-current', 'step'); x.classList.toggle('done', i < n - 1); });
-  $('#setup-form').hidden = n !== 1; $('#office-form').hidden = n !== 2;
+  $('#setup-form').hidden = n !== 1; $('#office-form').hidden = n !== 2; $('#setup-claude-box').hidden = n !== 1 || !!setupState.view?.configured;
   $('#setup-title').textContent = n === 1 ? 'Qual IA vai trabalhar no seu escritório?' : 'Conte o que o seu negócio faz';
   setupEl.querySelector('.setup-lead').textContent = n === 1
     ? 'Cada personagem será um agente dessa IA. A chave fica guardada só no servidor, neste computador.'

@@ -17,6 +17,7 @@ import { runTask, teamOf } from './runner.mjs';
 import * as webAccess from './web.mjs';
 import { createLocks } from './locks.mjs';
 import { createClaudeBridge } from './claude-code.mjs';
+import { status as hooksStatus } from './claude-hooks-install.mjs';
 import crypto from 'node:crypto';
 import os from 'node:os';
 
@@ -247,6 +248,8 @@ async function api(req, res, url) {
       await settings.setWeb(b.web !== false);
       return json(res, 200, { ok: true, settings: settings.publicView(await settings.load()) });
     }
+    // os hooks do Claude Code estão instalados? (a página do modo "só Claude Code" avisa o que rodar)
+    if (url.pathname === '/api/hooks/status' && req.method === 'GET') { try { return json(res, 200, { installed: (await hooksStatus()).installed }); } catch { return json(res, 200, { installed: false }); } }
     if (url.pathname === '/api/office' && req.method === 'GET') return json(res, 200, { office: await office.load() });
     // começar do zero (menu): cancela as tarefas, esquece o estado dos agentes e apaga o escritório. A IA conectada e
     // os arquivos já entregues (workspace/entregas) continuam. Exige JSON (outro site não consegue disparar)

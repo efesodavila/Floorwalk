@@ -438,7 +438,7 @@ disse que está **ótimo**).
 - [x] `scripts/reduzir-textura-glb.py`, `scripts/glb-ilhas.mjs`, `scripts/retratos.mjs` + `web/dev/retratos.html`.
 - [x] Carregar só os modelos em uso.
 - [x] `docs/PROTOCOLO.md` atualizado (paralelismo, `run`, internet).
-- [ ] Sobras de estilos antigos fora do git (`web/js3d/personagens3d.js`, `-glb.js`, `-toon.js`,
+- [x] (2026-11-04: movidas para `C:/Users/User/pixel-hq-sobras`; `web/_retrato.html` saiu do git) Sobras de estilos antigos fora do git (`web/js3d/personagens3d.js`, `-glb.js`, `-toon.js`,
       `web/modelos/personagem-base.glb`) e a página velha `web/_retrato.html` (substituída por `web/dev/retratos.html`):
       ninguém usa; apagar. Cópia guardada fora do projeto antes.
 
@@ -456,7 +456,8 @@ disse que está **ótimo**).
 ## 15. Estado e pendências (atualize aqui)
 
 - Commits em `main`. Sem remoto.
-- `npm test`: 98 testes; 97 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
+- `npm test`: 98 testes, todos passam (a conferência da permissão 0600 é pulada no Windows, onde o Node não aplica
+  permissões POSIX). CI em `.github/workflows/testes.yml` (Linux, Windows, Mac; Node 22) — ainda não rodou: sem remoto.
 - Plantas: o laço principal do `check:layouts` (retangular e em L × 6 e 10 pessoas × estilos × áreas × entrega =
   160 combinações, com a porta conferida) rodou no navegador sem problema. O script inteiro não rodou aqui (sem
   Playwright instalado).
@@ -595,6 +596,9 @@ disse que está **ótimo**).
   (sobe o servidor, roda o hook, confere o estado no WebSocket). Conferido no navegador: edição → mesa, `git push` →
   rack, permissão → bloqueado. NÃO testado com uma sessão real do Claude Code (só eventos simulados no formato da doc).
 - Pendências da ponte (ordem): (1) testar com o Claude Code real (`hooks:install`, reiniciar o servidor, sessão nova);
-  (2) sem escritório montado a página pede a IA e o negócio antes: falta um caminho "só Claude Code", sem chave;
+  (2) FEITO: botão "Ver o Claude Code sem IA" na 1ª tela (`#setup-claude`, 25-configuracao.js): grava `pixelhq.claude`,
+  a sala `tplClaude()` (= `tplSala` sem equipe) e marca o tour como visto; sem IA conectada a página não abre o setup,
+  esconde o campo de tarefa (`body.so-claude`) e avisa se os hooks estão desligados (`GET /api/hooks/status`).
+  Conectar uma IA pelo menu sai desse modo (segue para "descreva o negócio");
   (3) subagentes como personagens próprios; (4) medidor de contexto, som ao terminar/pedir permissão; (5) Codex e
   Gemini CLI; (6) publicar (`npx`), depois de decidir nome e licença dos modelos Meshy.

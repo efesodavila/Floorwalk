@@ -98,7 +98,8 @@ test('API: conectar escolhe sozinho um modelo que responde, salva e nunca devolv
   assert.ok(!JSON.stringify(view.body).includes(GOOD), 'a chave vazou para a página');
   assert.equal(view.body.providers.find(p => p.id === 'anthropic').key.hint, '…1234');
   const st = await fs.stat(path.join(dataDir, 'settings.json'));
-  assert.equal(st.mode & 0o077, 0, 'settings.json não deveria ser legível por outros usuários');
+  // no Windows o Node não aplica permissões POSIX (sempre informa 0o666): quem protege o arquivo é a ACL da pasta
+  if (process.platform !== 'win32') assert.equal(st.mode & 0o077, 0, 'settings.json não deveria ser legível por outros usuários');
 });
 
 test('API: endereço inválido é recusado', async () => {

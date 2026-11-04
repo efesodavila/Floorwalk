@@ -1,4 +1,4 @@
-# Pixel HQ — documento de continuação
+# Floorwalk — documento de continuação
 
 Este documento permite que qualquer agente de IA (ou pessoa) continue o projeto de onde parou, sem ter visto
 a conversa que o originou. Leia inteiro antes de mexer. Atualize a seção **15. Estado e pendências** a cada
@@ -8,7 +8,7 @@ entrega.
 
 ---
 
-## 1. O que é o Pixel HQ
+## 1. O que é o Floorwalk
 
 Um escritório em pixel art/3D, de código aberto, em que **agentes de IA trabalham de forma visível**. O usuário
 conecta uma IA, descreve o serviço dele, a IA monta o escritório, e cada tarefa digitada faz os personagens certos
@@ -63,11 +63,11 @@ npm run check:layouts   # (opcional, precisa de Playwright) valida as plantas: r
 npm run build:single    # arquivo único em dist/ COM 3D e modelos (~10 MB); --sem-modelos (~1 MB) | --sem-3d
 ```
 
-Variáveis úteis: `PORT`, `HOST`, `PIXELHQ_DATA_DIR` (onde ficam `settings.json` e `office.json`),
-`WORKSPACE_DIR` (onde os agentes salvam entregas), `MIN_DWELL_MS` (permanência mínima por etapa), `PIXELHQ_MODEL`
-(força um modelo), `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, `PIXELHQ_PARALELO` (tarefas simultâneas, padrão 2),
-`PIXELHQ_WEB=0` (desliga a internet dos agentes), `BRAVE_API_KEY` (busca pela Brave em vez do DuckDuckGo),
-`PIXELHQ_BUSCA_URL` e `PIXELHQ_WEB_LOCAL=1` (só para testes: busca falsa e rede local liberada).
+Variáveis úteis: `PORT`, `HOST`, `FLOORWALK_DATA_DIR` (onde ficam `settings.json` e `office.json`),
+`WORKSPACE_DIR` (onde os agentes salvam entregas), `MIN_DWELL_MS` (permanência mínima por etapa), `FLOORWALK_MODEL`
+(força um modelo), `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, `FLOORWALK_PARALELO` (tarefas simultâneas, padrão 2),
+`FLOORWALK_WEB=0` (desliga a internet dos agentes), `BRAVE_API_KEY` (busca pela Brave em vez do DuckDuckGo),
+`FLOORWALK_BUSCA_URL` e `FLOORWALK_WEB_LOCAL=1` (só para testes: busca falsa e rede local liberada).
 
 Endereços de depuração: `?2d` força o desenho 2D, `?3d` força o 3D, `?px=N` resolução do 3D (padrão 1 = nítido),
 `?estilo=lowpoly` personagens feitos em código, `?contorno=0` desliga o contorno dos personagens, `?flat=0` (estilo
@@ -76,7 +76,7 @@ Meshy) usa material realista em vez do sombreado chapado.
 Para ver a sala já montada sem configurar IA, crie dados de teste: um `settings.json` com
 `{"provider":"ollama","model":"teste","keys":{},"baseUrls":{}}` e um `office.json` gerado por
 `normalizeSpec` (veja o formato em `test/office.test.mjs`, função `good()`), e rode
-`PIXELHQ_DATA_DIR=<pasta> PORT=8611 node server/server.mjs --demo`.
+`FLOORWALK_DATA_DIR=<pasta> PORT=8611 node server/server.mjs --demo`.
 
 ## 4. Arquitetura
 
@@ -126,8 +126,8 @@ pausa com a sala vazia.
 
 ## 5. O visual 3D
 
-**Sempre 3D** quando há servidor (`PIXELHQ_BRIDGE`) ou no arquivo único (`PIXELHQ_3D`). A antiga preferência
-`localStorage pixelhq.3d = 0` é ignorada; `?2d` força o 2D só para testes. `00-base.js` põe `espera3d` no `<html>`
+**Sempre 3D** quando há servidor (`FLOORWALK_BRIDGE`) ou no arquivo único (`FLOORWALK_3D`). A antiga preferência
+`localStorage floorwalk.3d = 0` é ignorada; `?2d` força o 2D só para testes. `00-base.js` põe `espera3d` no `<html>`
 (esconde o canvas 2D e mostra "Carregando o escritório…"); `cena3d.js` tira a classe no primeiro quadro 3D, ou se o
 3D falhar (aí o 2D aparece).
 
@@ -161,7 +161,7 @@ ativo; sem WebGL cai para o 2D). Pontos-chave:
   substitui `window.iso/unIso/hitAny/hitPerson` (raio da câmera → chão/caixas), então o editor 2D inteiro funciona
   sem mudança. Roda/botão direito/pan vão para `R3D.zoomAt/rotStart/panStart` (`17-entrada.js`).
 - **Arquivo único:** `scripts/build-single.mjs` empacota `cena3d.js` + three com esbuild e embute os GLB como
-  `data:` em `window.PIXELHQ_MODELOS`; `PIXELHQ_MODELOS=false` (`--sem-modelos`) começa no low-poly.
+  `data:` em `window.FLOORWALK_MODELOS`; `FLOORWALK_MODELOS=false` (`--sem-modelos`) começa no low-poly.
 - **Móveis 3D** (`web/js3d/moveis3d.js`): **todos os 37 itens** do catálogo têm MODELO low-poly (vasos torneados,
   troncos em gomos, folhas recortadas, roupas no cabide, cadeiras com base em estrela, estofados chanfrados). O
   catálogo continua mandando em tamanho, colisão, pontos de uso e no 2D; sem modelo, o item usa as caixas do
@@ -341,7 +341,7 @@ disse que está **ótimo**).
   (por isso a segunda avaliação); em outras rodadas a correção reprovou nas regras e o original ficou. O desenho
   inicial dessa IA também reprova com frequência ("bloco escondido dentro de outro") e cai no plano B.
   **Modelo fixo da crítica (decisão do dono, 2026-11-03): na OpenAI usa sempre `gpt-6.1-sol`** (`CRITIC_MODEL` e
-  `critiqueChat` em `server/llm.mjs`; `PIXELHQ_CRITIC_MODEL` troca). Sem troca automática de modelo (ela salvaria o
+  `critiqueChat` em `server/llm.mjs`; `FLOORWALK_CRITIC_MODEL` troca). Sem troca automática de modelo (ela salvaria o
   modelo da crítica como o da equipe); se falhar, o móvel fica "sem avaliação". Outros provedores usam o modelo da conta.
   Teste real com o Sol: mesa de som nota 1 → desenho novo passou nas regras → nota 4, aprovado.
   Imagens nos provedores: `images: [{mime, data}]` na mensagem (`asResponses`, `asChatCompletions`, `asAnthropic`,
@@ -400,7 +400,7 @@ disse que está **ótimo**).
    visão (ex.: muitos do Ollama), o móvel fica como foi desenhado. Testada com OpenAI (gpt-5.4-mini e gpt-6.1-sol).
 8. Licença dos GLB do Meshy: o dono decidiu tirar da lista de pendências (fica por conta dele).
 9. O repositório git **local**; **não há remoto** (GitHub) ainda.
-10. O nome "Pixel HQ" colide com um app existente (PixelHQ); o dono decidiu tirar da lista de pendências.
+10. O nome antigo "Pixel HQ" colidia com um app existente (PixelHQ) e com o concorrente pixel-agents-hq; em 2026-11-04 o dono escolheu **Floorwalk** (npm e GitHub sem projeto parecido; marca registrada e domínio NÃO conferidos).
 
 ## 13. Pendências, em ordem de prioridade
 
@@ -438,7 +438,7 @@ disse que está **ótimo**).
 - [x] `scripts/reduzir-textura-glb.py`, `scripts/glb-ilhas.mjs`, `scripts/retratos.mjs` + `web/dev/retratos.html`.
 - [x] Carregar só os modelos em uso.
 - [x] `docs/PROTOCOLO.md` atualizado (paralelismo, `run`, internet).
-- [x] (2026-11-04: movidas para `C:/Users/User/pixel-hq-sobras`; `web/_retrato.html` saiu do git) Sobras de estilos antigos fora do git (`web/js3d/personagens3d.js`, `-glb.js`, `-toon.js`,
+- [x] (2026-11-04: movidas para `C:/Users/User/floorwalk-sobras`; `web/_retrato.html` saiu do git) Sobras de estilos antigos fora do git (`web/js3d/personagens3d.js`, `-glb.js`, `-toon.js`,
       `web/modelos/personagem-base.glb`) e a página velha `web/_retrato.html` (substituída por `web/dev/retratos.html`):
       ninguém usa; apagar. Cópia guardada fora do projeto antes.
 
@@ -570,7 +570,7 @@ disse que está **ótimo**).
   (`peopleDrawables`, 16-fonte-tempo-real.js).
 - Tour "Como usar" (web/js/28-tour.js + estilo `.tour` no fim do app.css): 11 passos com recorte em volta do elemento
   (modos, abas Planta/Elementos/Pessoas, desfazer, câmera, concluir, campo de tarefa, menu). Abre sozinho no negócio
-  novo (`applyOffice` → `tourMaybe`, uma vez: `localStorage pixelhq.tour.v1`) e pelo menu ☰ "Como usar (tour)".
+  novo (`applyOffice` → `tourMaybe`, uma vez: `localStorage floorwalk.tour.v1`) e pelo menu ☰ "Como usar (tour)".
   Esc/Pular fecha; setas navegam. Cada passo põe a tela no modo/aba certo.
 - Descrição completa do negócio guardada na ficha (`spec.description`, até 1500 letras) e mandada a todo agente
   (`persona`) e ao plano (`planPrompt`) como "SOBRE O NEGÓCIO".
@@ -586,17 +586,17 @@ disse que está **ótimo**).
 - PONTE CLAUDE CODE (2026-11-04, dono escolheu disputar o público dev do Pixel Agents, github.com/pixel-agents-hq):
   `server/claude-code.mjs` (evento do hook → `team`/`state`, ferramenta → lugar, `redact` tira segredos dos
   comandos), `server/claude-hooks-install.mjs` + `scripts/claude-hooks.mjs` (`npm run hooks:install|uninstall|status`;
-  aborta em JSON ruim, cópia `.pixel-hq.backup` uma vez só, só mexe em entradas com `claude-hook.mjs` + `--pixel-hq`,
+  aborta em JSON ruim, cópia `.floorwalk.backup` uma vez só, só mexe em entradas com `claude-hook.mjs` + `--floorwalk`,
   grava tmp + rename e confere), `scripts/claude-hook.mjs` (hook: lê stdin, POST com senha, nunca escreve, sai 0, < 1 s).
-  Servidor: rota `POST /api/hooks/claude` (senha `x-pixelhq-token` de `~/.pixel-hq/hook.json`, mesma senha entre
-  reinícios; `PIXELHQ_HOME` troca a pasta — os testes e o `.claude/launch.json` usam pasta temporária para não
+  Servidor: rota `POST /api/hooks/claude` (senha `x-floorwalk-token` de `~/.floorwalk/hook.json`, mesma senha entre
+  reinícios; `FLOORWALK_HOME` troca a pasta — os testes e o `.claude/launch.json` usam pasta temporária para não
   sobrescrever o arquivo real). `team` ganhou `source`. Página: agente com `source` (`a.ext`) não sai da sala no fim
   das tarefas (só ao ficar `offline`), mantém a animação ligada e não entra no `save()`; chegando com a sala em
   edição, espera em `extWaiting` e entra ao voltar ao escritório. Teste de ponta a ponta em `test/claude-code.test.mjs`
   (sobe o servidor, roda o hook, confere o estado no WebSocket). Conferido no navegador: edição → mesa, `git push` →
   rack, permissão → bloqueado. NÃO testado com uma sessão real do Claude Code (só eventos simulados no formato da doc).
 - Pendências da ponte (ordem): (1) testar com o Claude Code real (`hooks:install`, reiniciar o servidor, sessão nova);
-  (2) FEITO: botão "Ver o Claude Code sem IA" na 1ª tela (`#setup-claude`, 25-configuracao.js): grava `pixelhq.claude`,
+  (2) FEITO: botão "Ver o Claude Code sem IA" na 1ª tela (`#setup-claude`, 25-configuracao.js): grava `floorwalk.claude`,
   a sala `tplClaude()` (= `tplSala` sem equipe) e marca o tour como visto; sem IA conectada a página não abre o setup,
   esconde o campo de tarefa (`body.so-claude`) e avisa se os hooks estão desligados (`GET /api/hooks/status`).
   Conectar uma IA pelo menu sai desse modo (segue para "descreva o negócio");
@@ -615,3 +615,11 @@ disse que está **ótimo**).
 - Equipe recolhida (dono, 2026-11-04): com sessão do Claude Code aberta e nenhuma tarefa delegada nesta visita
   (`MISSIONS` vazio), a gaveta vira "Sessões do Claude Code" e a equipe do negócio fica num link "Mostrar a equipe"
   (`showBizTeam`, 27-entregas-menu.js). Delegou uma tarefa: a equipe volta a aparecer.
+- NOME NOVO: **Floorwalk** (dono, 2026-11-04). Trocado em tudo que é visível, no pacote e nos nomes internos, com
+  compatibilidade: `server/env.mjs` copia `PIXELHQ_*` → `FLOORWALK_*`; o instalador reconhece entradas `--pixel-hq` (troca
+  pelas `--floorwalk`) e trata `settings.json.pixel-hq.backup` como a cópia original; senha do hook em `~/.floorwalk`
+  (reaproveita a de `~/.pixel-hq`); o hook lê as duas pastas; `00-base.js` copia as chaves `pixelhq.*` do navegador
+  para `floorwalk.*`; `window.pixelHQ` e `postMessage({ pixelHQ })` seguem aceitos. A pasta do projeto no disco ainda
+  se chama `pixel-hq`: se renomear, rode `npm run hooks:install` de novo (o caminho do hook muda). Achado na pesquisa de
+  nomes: concorrentes diretos além do Pixel Agents — AgentSystemLabs/agent-office (876★, escritório 3D cartoon com
+  Claude Code), agentville (VS Code), agentloft e deskling (pixel art). Marca registrada e domínio não conferidos.

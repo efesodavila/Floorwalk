@@ -1,10 +1,14 @@
 'use strict';
 
+// troca de nome (Pixel HQ → Floorwalk): o que o navegador guardou com o nome antigo (sala, tour, preferências) passa
+// para as chaves novas, uma vez; as antigas ficam (quem voltar a uma versão velha não perde nada)
+try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('pixelhq.')) { const n = 'floorwalk.' + k.slice(8); if (localStorage.getItem(n) === null) localStorage.setItem(n, localStorage.getItem(k)); } } } catch {}
+
 // O 3D carrega depois (módulo); até ele desenhar o primeiro quadro, o 2D fica escondido, para não "piscar" a sala 2D.
 // Mesma regra de web/js3d/cena3d.js (WANT). Se o 3D falhar, cena3d.js tira a classe e o 2D aparece.
 (() => {
   const q = new URLSearchParams(location.search);
-  if (q.has('3d') || (!q.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D))) document.documentElement.classList.add('espera3d');
+  if (q.has('3d') || (!q.has('2d') && (!!window.FLOORWALK_BRIDGE || !!window.FLOORWALK_3D))) document.documentElement.classList.add('espera3d');
 })();
 // barra da tela de carregamento: cada etapa (scripts, 3D, modelos, servidor) avança até a fração dada; nunca volta
 let loadP = 0;

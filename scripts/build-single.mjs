@@ -1,4 +1,4 @@
-// Gera dist/pixel-hq.html: a página inteira num único arquivo, sem servidor.
+// Gera dist/floorwalk.html: a página inteira num único arquivo, sem servidor.
 // Útil para abrir direto no navegador, compartilhar ou publicar como página estática.
 //
 // Inclui o visual 3D: o código 3D (Three.js e personagens) é empacotado com o esbuild, e os modelos dos
@@ -24,7 +24,7 @@ for (const [tag, href] of [...html.matchAll(/<link rel="stylesheet" href="((?!ht
 }
 // JS local -> <script> inline (config.js vira a versão sem servidor)
 for (const [tag, src] of [...html.matchAll(/<script src="((?!https?:)[^"]+)"><\/script>/g)]) {
-  const code = src === 'config.js' ? `window.PIXELHQ_BRIDGE = false;\nwindow.PIXELHQ_3D = ${WITH3D};\n` : await read(src);
+  const code = src === 'config.js' ? `window.FLOORWALK_BRIDGE = false;\nwindow.FLOORWALK_3D = ${WITH3D};\n` : await read(src);
   html = html.replace(tag, `<script>\n${safeJS(code)}</script>`);
 }
 html = html.replace(/<!-- config\.js[^>]*-->\n/, '');
@@ -41,16 +41,16 @@ else {
     target: 'es2022', legalComments: 'none', logLevel: 'warning',
     alias: { three: path.join(three, 'build', 'three.module.js'), 'three/addons': path.join(three, 'examples', 'jsm') },
   });
-  let pre = '<script>window.PIXELHQ_MODELOS = false;</script>\n';
+  let pre = '<script>window.FLOORWALK_MODELOS = false;</script>\n';
   if (MODELS) {
     const dir = path.join(WEB, 'modelos'), files = (await fs.readdir(dir)).filter(f => f.endsWith('.glb')), map = {};
     for (const f of files) map[f] = 'data:model/gltf-binary;base64,' + (await fs.readFile(path.join(dir, f))).toString('base64');
-    pre = `<script>window.PIXELHQ_MODELOS = ${JSON.stringify(map)};</script>\n`;
+    pre = `<script>window.FLOORWALK_MODELOS = ${JSON.stringify(map)};</script>\n`;
   }
   html = html.replace(importmap, '').replace(module, () => `${pre}<script type="module">\n${safeJS(r.outputFiles[0].text)}</script>`);
 }
 
 await fs.mkdir(path.join(ROOT, 'dist'), { recursive: true });
-const out = path.join(ROOT, 'dist', 'pixel-hq.html');
+const out = path.join(ROOT, 'dist', 'floorwalk.html');
 await fs.writeFile(out, html);
 console.log(`Gerado ${path.relative(ROOT, out)} (${(Buffer.byteLength(html) / 1024 / 1024).toFixed(1)} MB${WITH3D ? MODELS ? ', com 3D e modelos' : ', com 3D, personagens low-poly' : ', só 2D'})`);

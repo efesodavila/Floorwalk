@@ -1,4 +1,4 @@
-# Protocolo Pixel HQ v1
+# Protocolo Floorwalk v1
 
 Como qualquer sistema de agentes conta ao escritório o que está acontecendo.
 Transporte: WebSocket em `/events`, mensagens JSON, uma por frame (um array também vale).
@@ -112,8 +112,8 @@ O servidor responde com mensagens `task` usando o mesmo `id`. Para cancelar:
 ## Claude Code → servidor
 
 Os hooks do Claude Code (`npm run hooks:install`) rodam `scripts/claude-hook.mjs`, que repassa cada evento em
-`POST /api/hooks/claude` com o cabeçalho `x-pixelhq-token` (senha de `~/.pixel-hq/hook.json`, gravada pelo
-servidor ao subir; `PIXELHQ_HOME` troca a pasta). Sem a senha: 403. `server/claude-code.mjs` traduz o evento em
+`POST /api/hooks/claude` com o cabeçalho `x-floorwalk-token` (senha de `~/.floorwalk/hook.json`, gravada pelo
+servidor ao subir; `FLOORWALK_HOME` troca a pasta). Sem a senha: 403. `server/claude-code.mjs` traduz o evento em
 `team` + `state` (tabela no README). Eventos: SessionStart, SessionEnd, UserPromptSubmit, PreToolUse,
 PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, SubagentStop.
 
@@ -123,7 +123,7 @@ PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, Subage
   por alguns segundos (a ponte usa `MIN_DWELL_MS`, 3,5 s por padrão), senão o personagem
   troca de destino antes de sair do lugar. Isso atrasa a imagem em relação à realidade; o
   resultado final não muda.
-- **Tarefas em paralelo.** A ponte de referência roda até 2 tarefas ao mesmo tempo (`PIXELHQ_PARALELO`;
+- **Tarefas em paralelo.** A ponte de referência roda até 2 tarefas ao mesmo tempo (`FLOORWALK_PARALELO`;
   1 volta ao comportamento antigo, uma por vez). Pedidos além disso entram na fila (máx. 5).
   Mensagens `state`, `log`, `result` e `task` de tarefas diferentes chegam intercaladas: use `run`
   para saber a que tarefa cada uma pertence. Cada agente faz uma coisa por vez — se duas tarefas
@@ -131,6 +131,6 @@ PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, Subage
 - **Internet.** Na pesquisa, a ponte pode buscar na web e ler páginas (só leitura). O agente aparece
   em `pesquisando` com `detail` "Buscando: …" e "Lendo <site>". O texto final cita as fontes como
   [1], [2] e termina com "Fontes:". Liga e desliga no menu (**Pesquisa na internet**) ou com
-  `PIXELHQ_WEB=0`.
+  `FLOORWALK_WEB=0`.
 - **Origem.** O WebSocket só aceita a página servida pelo próprio servidor. Sem isso,
   qualquer site aberto no seu navegador poderia mandar tarefas e gastar sua chave.

@@ -1,7 +1,7 @@
 'use strict';
 
 /* ---------- Configuração inicial: escolher a IA e testar a conexão ----------
-   Só aparece quando a página roda com o servidor (window.PIXELHQ_BRIDGE).
+   Só aparece quando a página roda com o servidor (window.FLOORWALK_BRIDGE).
    A chave vai uma única vez para o servidor local, que testa, guarda e nunca a devolve. */
 const setupEl = $('#setup');
 const SETUP_DESC = {
@@ -58,7 +58,7 @@ async function setupSave(e) {
     renderAIButton(); renderMenu();
     toast(`IA conectada: ${setupProv().name}`);
     if (setupState.office) closeSetup(); else openOfficeStep();
-  } catch { setupStatus('O servidor do Pixel HQ não respondeu. Ele ainda está rodando?', 'err'); }
+  } catch { setupStatus('O servidor do Floorwalk não respondeu. Ele ainda está rodando?', 'err'); }
   finally { btn.disabled = false; }
 }
 function openSetup(canCancel, notice) {
@@ -102,7 +102,7 @@ async function setupInit() {
   // só um escritório NOVO troca a sala: a sala que o dono montou nunca é refeita sozinha
   if (setupState.office && W.officeId !== setupState.office.createdAt) applyOffice(setupState.office);
   // primeira vez neste navegador com um negócio pronto (ex.: criado antes do tour existir): abre no Construir com o tour
-  else if (setupState.office) { let seen = false; try { seen = localStorage.getItem('pixelhq.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
+  else if (setupState.office) { let seen = false; try { seen = localStorage.getItem('floorwalk.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
   reviewCustomFurniture(setupState.office);
   document.body.classList.toggle('has-office', !!setupState.office || (claudeOnly() && !setupState.view.configured));
   renderMenu();
@@ -117,12 +117,12 @@ async function setupInit() {
 }
 
 /* ---------- Atalho: só ver o Claude Code (sem chave, sem negócio) ---------- */
-const CLAUDE_KEY = 'pixelhq.claude';
+const CLAUDE_KEY = 'floorwalk.claude';
 function claudeOnly() { try { return localStorage.getItem(CLAUDE_KEY) === '1'; } catch { return false; } }
 // sala de dev pronta (a da software house, sem a equipe): as sessões do Claude Code entram pela porta
 function tplClaude() { const w = tplSala(); w.name = 'Claude Code'; w.service = 'Sessões do Claude Code trabalhando.'; w.people = []; delete w.demo; return w; }
 $('#setup-claude').onclick = () => {
-  try { localStorage.setItem(CLAUDE_KEY, '1'); localStorage.setItem('pixelhq.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); } catch {}
+  try { localStorage.setItem(CLAUDE_KEY, '1'); localStorage.setItem('floorwalk.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); } catch {}
   location.reload();
 };
 // os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar
@@ -171,6 +171,6 @@ $('#office-form').onsubmit = async (e) => {
     clearInterval(tick);
     if (!r.ok) { officeStatus(r.error, 'err'); return; }
     setupState.office = r.office; document.body.classList.add('has-office'); renderMenu(); closeSetup(); applyOffice(r.office); reviewCustomFurniture(r.office);
-  } catch (err) { clearInterval(tick); officeStatus(err.message || 'O servidor do Pixel HQ não respondeu.', 'err'); }
+  } catch (err) { clearInterval(tick); officeStatus(err.message || 'O servidor do Floorwalk não respondeu.', 'err'); }
   finally { btn.disabled = false; $('#office-back').disabled = false; }
 };

@@ -1,4 +1,4 @@
-// Protocolo Pixel HQ v1 — ver PROTOCOLO.md
+// Protocolo Floorwalk v1 — ver PROTOCOLO.md
 import { PLACES } from './places.mjs';
 export const PROTOCOL = 1;
 export const STATES = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'reuniao', 'entregando', 'aguardando', 'bloqueado', 'concluido', 'ocioso', 'offline'];
@@ -11,7 +11,7 @@ export const TASK_STATUS = ['na_fila', 'em_andamento', 'concluida', 'erro', 'can
 const clip = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
 export const msg = {
-  hello: (demo = false) => ({ type: 'hello', protocol: PROTOCOL, server: 'pixel-hq', demo }),
+  hello: (demo = false) => ({ type: 'hello', protocol: PROTOCOL, server: 'floorwalk', demo }),
   team: (agents) => ({ type: 'team', agents: agents.map(a => {
     if (!KINDS.includes(a.kind)) throw new Error(`tipo de papel inválido: ${a.kind}`);
     const o = { name: a.name, role: a.role, roleName: a.roleName, kind: a.kind };

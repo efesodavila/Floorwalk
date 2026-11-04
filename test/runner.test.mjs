@@ -34,7 +34,7 @@ function fakeChat(script = {}) {
 const collect = () => { const ev = []; return { ev, say: (m, state, task, extra = {}) => ev.push({ agent: m.name, state, ...extra }), result: (it) => ev.push({ result: it.title }), log: () => {} }; };
 
 test('fluxo completo: planeja, executa na ordem, salva os arquivos', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pixelhq-ent-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'floorwalk-ent-'));
   const { chat, calls } = fakeChat(), c = collect();
   const r = await runTask({ text: 'Post de lançamento da coleção', spec, chat, ...c, outDir: dir });
   assert.equal(r.output, 'Post publicado: Texto', 'o resultado é a entrega final');

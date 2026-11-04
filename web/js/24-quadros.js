@@ -2,9 +2,9 @@
 
 /* ---------- Quadros que expandem e retraem ---------- */
 let UI = { panel: false, team: { c: false, b: false }, feed: { c: false, b: false } };
-try { UI = { ...UI, ...(JSON.parse(localStorage.getItem('pixelhq.ui') || 'null') || {}) }; } catch {}
-if (!localStorage.getItem?.('pixelhq.ui') && window.innerWidth <= 760) UI.team.c = true;
-function saveUI() { try { localStorage.setItem('pixelhq.ui', JSON.stringify(UI)); } catch {} }
+try { UI = { ...UI, ...(JSON.parse(localStorage.getItem('floorwalk.ui') || 'null') || {}) }; } catch {}
+if (!localStorage.getItem?.('floorwalk.ui') && window.innerWidth <= 760) UI.team.c = true;
+function saveUI() { try { localStorage.setItem('floorwalk.ui', JSON.stringify(UI)); } catch {} }
 function applyUI() {
   const panel = $('.panel'); panel.classList.toggle('collapsed', UI.panel && VW > 760);
   $('#panel-collapse').setAttribute('aria-expanded', String(!UI.panel)); $('#panel-collapse').title = UI.panel ? 'Abrir painel' : 'Recolher painel';

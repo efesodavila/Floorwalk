@@ -30,19 +30,19 @@ before(async () => {
   });
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${srv.address().port}`;
-  process.env.PIXELHQ_BUSCA_URL = base + '/busca';
+  process.env.FLOORWALK_BUSCA_URL = base + '/busca';
 });
-after(() => { srv.close(); delete process.env.PIXELHQ_BUSCA_URL; delete process.env.PIXELHQ_WEB_LOCAL; });
+after(() => { srv.close(); delete process.env.FLOORWALK_BUSCA_URL; delete process.env.FLOORWALK_WEB_LOCAL; });
 
 test('proteção: endereços da rede interna e protocolos estranhos são recusados', async () => {
-  delete process.env.PIXELHQ_WEB_LOCAL;
+  delete process.env.FLOORWALK_WEB_LOCAL;
   for (const u of ['http://127.0.0.1/', 'http://localhost:8787/', 'http://10.0.0.5/', 'http://192.168.1.1/', 'http://169.254.169.254/latest/meta-data/', 'http://[::1]/', 'file:///etc/passwd', 'ftp://exemplo.com/', 'http://user:senha@exemplo.com/'])
     await assert.rejects(web.checkURL(u), web.WebError, u);
   await assert.rejects(web.readPage(base + '/pagina1'), /interno/, 'o servidor de teste é local: bloqueado sem a liberação de teste');
 });
 
 test('busca no formato do DuckDuckGo: títulos, endereços reais e resumos', async () => {
-  process.env.PIXELHQ_WEB_LOCAL = '1';
+  process.env.FLOORWALK_WEB_LOCAL = '1';
   const r = await web.search('preço do café');
   assert.equal(r.length, 3);
   assert.deepEqual(r[0], { title: 'Página & Um', url: base + '/pagina1', snippet: 'Resumo de preço do café' });
@@ -50,7 +50,7 @@ test('busca no formato do DuckDuckGo: títulos, endereços reais e resumos', asy
 });
 
 test('leitura de página: só o texto principal, entidades decodificadas, redirecionamento seguido', async () => {
-  process.env.PIXELHQ_WEB_LOCAL = '1';
+  process.env.FLOORWALK_WEB_LOCAL = '1';
   const p = await web.readPage(base + '/redireciona');
   assert.equal(p.url, base + '/pagina1');
   assert.equal(p.title, 'Preço do café 2026');
@@ -68,7 +68,7 @@ const spec = {
 };
 
 test('pesquisa com internet: a IA propõe buscas, a equipe lê as páginas e cita as fontes', async () => {
-  process.env.PIXELHQ_WEB_LOCAL = '1';
+  process.env.FLOORWALK_WEB_LOCAL = '1';
   const prompts = [], ev = [];
   const chat = async ({ messages }) => {
     const u = messages.at(-1).content; prompts.push(u);
@@ -85,7 +85,7 @@ test('pesquisa com internet: a IA propõe buscas, a equipe lê as páginas e cit
 });
 
 test('pergunta direta que depende de dado atual: o coordenador pesquisa antes de responder', async () => {
-  process.env.PIXELHQ_WEB_LOCAL = '1';
+  process.env.FLOORWALK_WEB_LOCAL = '1';
   const chat = async ({ messages }) => {
     const u = messages.at(-1).content;
     if (u.includes('Decida como atender')) return '{"modo":"direto","web":true}';

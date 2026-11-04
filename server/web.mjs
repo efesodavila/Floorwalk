@@ -7,11 +7,11 @@
 //  - só http/https; endereços da rede interna (localhost, 10.x, 192.168.x, 169.254.x — metadados da nuvem — etc.)
 //    são recusados, inclusive depois de redirecionamentos (verificados um a um);
 //  - tempo máximo, tamanho máximo, só texto/HTML, no máximo 3 redirecionamentos.
-// PIXELHQ_BUSCA_URL troca o endereço da busca (testes); PIXELHQ_WEB_LOCAL=1 libera rede local (só para testes).
+// FLOORWALK_BUSCA_URL troca o endereço da busca (testes); FLOORWALK_WEB_LOCAL=1 libera rede local (só para testes).
 import dns from 'node:dns/promises';
 import net from 'node:net';
 
-const UA = 'PixelHQ/1.0 (agente de pesquisa; +https://github.com/)';
+const UA = 'Floorwalk/1.0 (agente de pesquisa; +https://github.com/)';
 export const LIMITS = { timeoutMs: 12000, maxBytes: 1_500_000, maxRedirects: 3, pageChars: 7000, results: 5 };
 
 export class WebError extends Error {}
@@ -31,7 +31,7 @@ export async function checkURL(raw) {
   let u; try { u = new URL(raw); } catch { throw new WebError(`endereço inválido: ${raw}`); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new WebError(`só http/https: ${u.protocol}`);
   if (u.username || u.password) throw new WebError('endereço com usuário/senha não é permitido');
-  if (process.env.PIXELHQ_WEB_LOCAL === '1') return u;
+  if (process.env.FLOORWALK_WEB_LOCAL === '1') return u;
   const host = u.hostname.replace(/^\[|\]$/g, '');
   if (/^(localhost|.*\.local|.*\.internal)$/i.test(host)) throw new WebError(`endereço interno bloqueado: ${host}`);
   let ips;
@@ -113,12 +113,12 @@ export function parseDuckDuckGo(html) {
 export async function search(query, { signal } = {}) {
   const q = String(query || '').trim().slice(0, 200);
   if (!q) return [];
-  if (process.env.BRAVE_API_KEY && !process.env.PIXELHQ_BUSCA_URL) {
+  if (process.env.BRAVE_API_KEY && !process.env.FLOORWALK_BUSCA_URL) {
     const r = await get(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=${LIMITS.results}&search_lang=pt`, { signal, accept: 'application/json', headers: { 'x-subscription-token': process.env.BRAVE_API_KEY } });
     const j = JSON.parse(r.body);
     return (j.web?.results || []).slice(0, LIMITS.results).map(x => ({ title: x.title, url: x.url, snippet: htmlToText(x.description || '').text }));
   }
-  const base = process.env.PIXELHQ_BUSCA_URL || 'https://html.duckduckgo.com/html/';
+  const base = process.env.FLOORWALK_BUSCA_URL || 'https://html.duckduckgo.com/html/';
   const r = await get(`${base}?q=${encodeURIComponent(q)}&kl=br-pt`, { signal });
   return parseDuckDuckGo(r.body);
 }

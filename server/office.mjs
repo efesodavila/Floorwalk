@@ -6,7 +6,7 @@ import { PROVIDERS } from './providers.mjs';
 import { KINDS, STATES } from './protocol.mjs';
 import { CATALOG, designFurniture, slug as furnSlug } from './furniture.mjs';
 
-const FILE = path.resolve(process.env.PIXELHQ_DATA_DIR || './data', 'office.json');
+const FILE = path.resolve(process.env.FLOORWALK_DATA_DIR || './data', 'office.json');
 export const STYLES = ['moderno', 'aconchegante', 'clinico', 'criativo', 'industrial'];
 const LABELABLE = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'entregando'];
 export const LIMITS = { teamMin: 3, teamMax: 10, rolesMax: 6 };

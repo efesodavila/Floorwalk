@@ -1,4 +1,4 @@
-# Pixel HQ
+# Floorwalk
 
 Um escritório em pixel art onde agentes de IA trabalham à vista.
 Você escreve uma tarefa, a equipe divide o trabalho e cada personagem anda até a mesa,
@@ -31,18 +31,18 @@ Abra http://127.0.0.1:8787 . Na primeira vez, a página:
 
 1. pergunta qual IA usar (OpenAI, Anthropic ou Ollama) e a chave; o servidor testa os modelos
    da conta e fica sozinho com o primeiro que responde (se um modelo passar a ser recusado,
-   ele troca por outro automaticamente). Quem quiser forçar um modelo usa `PIXELHQ_MODEL` no `.env`;
+   ele troca por outro automaticamente). Quem quiser forçar um modelo usa `FLOORWALK_MODEL` no `.env`;
 2. pede que você descreva o seu negócio; a IA monta a equipe (3 a 10 pessoas; acima de 6 a sala ganha uma ala), os papéis,
    o estilo e as áreas do escritório, que aparece pronto com o campo de tarefa embaixo.
 A chave fica em `data/settings.json`, só no seu computador, legível apenas pelo seu usuário.
 Quem preferir pode deixar a chave no `.env` (veja `.env.example`).
 
 Também dá para abrir `web/index.html` direto no navegador (sem servidor: sem agentes reais),
-ou gerar um arquivo único com `npm run build:single` (sai em `dist/pixel-hq.html`).
+ou gerar um arquivo único com `npm run build:single` (sai em `dist/floorwalk.html`).
 
 ## Com o Claude Code
 
-O Pixel HQ também mostra as sessões do [Claude Code](https://docs.anthropic.com/en/docs/claude-code) que você já
+O Floorwalk também mostra as sessões do [Claude Code](https://docs.anthropic.com/en/docs/claude-code) que você já
 usa no terminal: cada sessão vira um personagem com o nome da pasta do projeto e vai ao móvel certo conforme o que
 está fazendo. Não precisa de chave de IA para isso.
 
@@ -67,12 +67,12 @@ um negócio (dá para conectar uma IA depois, pelo menu). Abra uma sessão nova 
 | sessão encerrada | sai da sala |
 
 - `npm run hooks:install` registra os hooks no `~/.claude/settings.json`. Antes da primeira escrita guarda uma cópia
-  (`settings.json.pixel-hq.backup`); se o arquivo estiver ilegível ou num formato desconhecido, não mexe em nada. Só
-  as entradas do Pixel HQ são tocadas: seus hooks e permissões ficam como estão.
-- `npm run hooks:status` mostra se está ligado; `npm run hooks:uninstall` tira só as entradas do Pixel HQ.
+  (`settings.json.floorwalk.backup`); se o arquivo estiver ilegível ou num formato desconhecido, não mexe em nada. Só
+  as entradas do Floorwalk são tocadas: seus hooks e permissões ficam como estão.
+- `npm run hooks:status` mostra se está ligado; `npm run hooks:uninstall` tira só as entradas do Floorwalk.
 - O hook nunca atrapalha o Claude Code: não escreve nada, sempre sai com sucesso e desiste em menos de 1 s quando o
   servidor está desligado.
-- Os eventos só vão para o seu computador (`127.0.0.1`), com uma senha guardada em `~/.pixel-hq/hook.json`. O texto
+- Os eventos só vão para o seu computador (`127.0.0.1`), com uma senha guardada em `~/.floorwalk/hook.json`. O texto
   dos seus pedidos não é lido; comandos aparecem cortados e sem valores que pareçam senha ou chave.
 - As sessões não entram no escritório salvo: existem só enquanto a sessão está aberta.
 
@@ -126,15 +126,15 @@ navegador (web/)  ──tarefa──▶  servidor (server/)  ──▶  agentes 
   `workspace/entregas/<data>-<tarefa>/`, um arquivo `.md` por pessoa e um `resultado.md`.
 - Funciona igual com OpenAI, Anthropic ou Ollama. O menu no canto superior direito troca a IA,
   remonta o escritório, abre a edição da sala e liga as ferramentas de desenvolvimento.
-- O servidor traduz o que os agentes fazem em eventos do [protocolo Pixel HQ](docs/PROTOCOLO.md).
+- O servidor traduz o que os agentes fazem em eventos do [protocolo Floorwalk](docs/PROTOCOLO.md).
   Qualquer sistema de agentes pode falar esse protocolo.
 - Os arquivos que os agentes criam ficam em `workspace/projeto/`.
 - **Pesquisa na internet:** na etapa de pesquisa (ou numa pergunta que depende de dado atual), a IA
   propõe até 3 buscas, a equipe lê até 4 páginas e cita as fontes ([1], [2]… e "Fontes:" no fim).
   Só leitura: os agentes não executam código nem enviam dados. Endereços da rede interna são
   bloqueados. Busca pelo DuckDuckGo (sem chave) ou pela Brave Search API se houver `BRAVE_API_KEY`.
-  Menu → **Pesquisa na internet** liga e desliga; `PIXELHQ_WEB=0` desliga no servidor.
-- **Tarefas em paralelo:** até 2 ao mesmo tempo (`PIXELHQ_PARALELO`). Cada pessoa faz uma coisa por
+  Menu → **Pesquisa na internet** liga e desliga; `FLOORWALK_WEB=0` desliga no servidor.
+- **Tarefas em paralelo:** até 2 ao mesmo tempo (`FLOORWALK_PARALELO`). Cada pessoa faz uma coisa por
   vez; se duas tarefas precisam da mesma pessoa, uma espera a outra.
 
 ## Estrutura

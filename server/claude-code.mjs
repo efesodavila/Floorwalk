@@ -1,4 +1,4 @@
-// Ponte Claude Code → protocolo Pixel HQ.
+// Ponte Claude Code → protocolo Floorwalk.
 // Os hooks do Claude Code (instalados por scripts/claude-hooks.mjs) mandam cada evento da sessão para
 // POST /api/hooks/claude. Aqui cada evento vira um estado do protocolo: o personagem da sessão vai ao
 // lugar certo da sala (editar → computador, ler → estante, deploy → servidores, pedir permissão → bloqueado).
@@ -45,7 +45,7 @@ export function toolAction(tool, input = {}) {
   return { state: 'trabalhando', place: 'computador', detail: t ? `Usando ${clip(t, 40)}` : 'Trabalhando' };
 }
 
-// sessões ativas: session_id → { name, cwd, since }. Nome = pasta do projeto ("pixel-hq", "pixel-hq 2"…)
+// sessões ativas: session_id → { name, cwd, since }. Nome = pasta do projeto ("floorwalk", "floorwalk 2"…)
 // say(estado, hold): manda um estado; log(agente, texto); team(): a equipe mudou (alguém entrou)
 export function createClaudeBridge({ say, log, team }) {
   const sessions = new Map();

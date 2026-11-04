@@ -1,5 +1,5 @@
 // Testa os três provedores contra um servidor falso local: as requisições reais dos SDKs,
-// a autenticação e as mensagens de erro. Também testa a API de configuração do Pixel HQ.
+// a autenticação e as mensagens de erro. Também testa a API de configuração do Floorwalk.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -64,13 +64,13 @@ test('Ollama: lista modelos locais; avisa quando não há modelos ou não está 
   await assert.rejects(PROVIDERS.ollama.test({ baseUrl: 'http://127.0.0.1:9' }), (e) => { assert.match(explainError('ollama', e), /Ollama/); return true; });
 });
 
-/* ---------- API do Pixel HQ ---------- */
+/* ---------- API do Floorwalk ---------- */
 let srv, url, dataDir;
 const call = (p, opts = {}) => fetch(url + p, { ...opts, headers: { origin: url, 'content-type': 'application/json', ...(opts.headers || {}) } }).then(async r => ({ status: r.status, body: await r.json() }));
 before(async () => {
-  dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pixelhq-data-'));
+  dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'floorwalk-data-'));
   const port = 20000 + Math.floor(Math.random() * 20000);
-  srv = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(port), PIXELHQ_DATA_DIR: dataDir, PIXELHQ_HOME: dataDir, OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', WORKSPACE_DIR: dataDir }, stdio: 'pipe' });
+  srv = spawn(process.execPath, ['server/server.mjs'], { env: { ...process.env, PORT: String(port), FLOORWALK_DATA_DIR: dataDir, FLOORWALK_HOME: dataDir, OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', WORKSPACE_DIR: dataDir }, stdio: 'pipe' });
   url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 50; i++) { try { await fetch(url + '/health'); break; } catch { await new Promise(r => setTimeout(r, 100)); } }
 });

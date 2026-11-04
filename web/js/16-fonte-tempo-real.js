@@ -1,6 +1,6 @@
 'use strict';
 
-/* ---------- Fonte: tempo real (WebSocket, postMessage ou window.pixelHQ.emit) ---------- */
+/* ---------- Fonte: tempo real (WebSocket, postMessage ou window.floorwalk.emit) ---------- */
 let socket = null;
 function connectWS(url) {
   try { socket?.close(); } catch {}
@@ -9,7 +9,7 @@ function connectWS(url) {
     socket.onopen = () => { toast('Conectado. Aguardando eventos.'); sim.wsState = 'conectado'; renderSourceBox(); };
     socket.onmessage = (m) => { let d; try { d = JSON.parse(m.data); } catch { logFeed({ name: 'Conexão', st: null, text: 'Mensagem ignorada: não é um evento JSON válido.' }); return; } onBridgeMsg(d); };
     socket.onerror = () => { sim.wsState = 'erro'; renderSourceBox(); };
-    socket.onclose = () => { if (sim.wsState !== 'erro') sim.wsState = 'desconectado'; renderSourceBox(); if (window.PIXELHQ_BRIDGE && sim.source === 'tempo_real') setTimeout(() => { if (!socket || socket.readyState > 1) connectWS(url); }, 2500); };
+    socket.onclose = () => { if (sim.wsState !== 'erro') sim.wsState = 'desconectado'; renderSourceBox(); if (window.FLOORWALK_BRIDGE && sim.source === 'tempo_real') setTimeout(() => { if (!socket || socket.readyState > 1) connectWS(url); }, 2500); };
     sim.wsState = 'conectando'; renderSourceBox();
   } catch { sim.wsState = 'erro'; renderSourceBox(); }
 }
@@ -32,7 +32,7 @@ function flushExtWaiting() {
   extWaiting.team.clear(); extWaiting.state.clear();
   onBridgeMsg({ type: 'team', agents }); states.forEach(onBridgeMsg);
 }
-/* Protocolo Pixel HQ v1: mensagens com "type" (hello, team, state, log, task). Evento sem "type" = state (compatível com o formato antigo). */
+/* Protocolo Floorwalk v1: mensagens com "type" (hello, team, state, log, task). Evento sem "type" = state (compatível com o formato antigo). */
 function onBridgeMsg(m) {
   if (Array.isArray(m)) { m.forEach(onBridgeMsg); return; }
   if (!m || typeof m !== 'object') return;
@@ -60,8 +60,10 @@ function onBridgeMsg(m) {
   if (t === 'state' && mode !== 'live' && extWaiting.team.has(String(m.agent).toLowerCase())) { extWaiting.state.set(String(m.agent).toLowerCase(), m); return; }
   if (t === 'state') { applyEvent(m); if (m.run) missionAddStep(m); if (agentByRef(m.agent)?.ext && !sim.playing) { sim.playing = true; updatePlayer(); } }
 }
-window.addEventListener('message', (e) => { const d = e.data; if (d && typeof d === 'object' && d.pixelHQ) onBridgeMsg(d.pixelHQ); });
-window.pixelHQ = { emit: (ev) => onBridgeMsg(ev), states: Object.keys(RULES), agents: () => sim.agents.map(a => ({ name: nameOf(a), role: a.role, state: a.status, task: a.task, decision: a.decision })) };
+// d.pixelHQ / window.pixelHQ: nome antigo do projeto, continua aceito
+window.addEventListener('message', (e) => { const d = e.data; if (d && typeof d === 'object' && (d.floorwalk || d.pixelHQ)) onBridgeMsg(d.floorwalk || d.pixelHQ); });
+window.floorwalk = { emit: (ev) => onBridgeMsg(ev), states: Object.keys(RULES), agents: () => sim.agents.map(a => ({ name: nameOf(a), role: a.role, state: a.status, task: a.task, decision: a.decision })) };
+window.pixelHQ = window.floorwalk; // nome antigo
 
 function simStep(dtReal) {
   if (!NAV) buildNav();

@@ -66,7 +66,7 @@ const menuEl = $('#menu'), menuBtn = $('#menu-btn');
 // modo desenvolvedor: só pelo endereço (?dev); não aparece mais no menu
 let devMode = new URLSearchParams(location.search).has('dev');
 function renderMenu() {
-  document.body.classList.toggle('bridge', !!window.PIXELHQ_BRIDGE);
+  document.body.classList.toggle('bridge', !!window.FLOORWALK_BRIDGE);
   document.body.classList.toggle('dev', devMode);
   document.body.classList.toggle('clean', document.body.classList.contains('has-office') && !devMode);
   $('#m-dev').setAttribute('aria-pressed', String(devMode));
@@ -75,7 +75,7 @@ function renderMenu() {
   $('#m-edit').textContent = mode === 'build' ? 'Voltar ao trabalho (ao vivo)' : 'Editar a sala e as pessoas';
   const v = typeof setupState !== 'undefined' ? setupState.view : null;
   const name = W.officeId ? W.name : null;
-  $('#menu-head').innerHTML = name || v?.configured ? `<b>${escapeHTML(name || 'Pixel HQ')}</b><small>${v?.configured ? escapeHTML(`${aiLabel()} · ${v.model}`) : 'Sem IA conectada'}</small>` : '';
+  $('#menu-head').innerHTML = name || v?.configured ? `<b>${escapeHTML(name || 'Floorwalk')}</b><small>${v?.configured ? escapeHTML(`${aiLabel()} · ${v.model}`) : 'Sem IA conectada'}</small>` : '';
 }
 function openMenu() { renderMenu(); menuEl.hidden = false; menuBtn.setAttribute('aria-expanded', 'true'); menuEl.querySelector('button:not([hidden])')?.focus(); }
 function closeMenu(focusBtn) { menuEl.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); if (focusBtn) menuBtn.focus(); }
@@ -112,10 +112,10 @@ $('#m-web').onclick = async () => {
 };
 $('#m-3d').onclick = () => {
   const on = !window.R3D?.wanted;
-  try { localStorage.setItem('pixelhq.3d', on ? '1' : '0'); } catch {}
+  try { localStorage.setItem('floorwalk.3d', on ? '1' : '0'); } catch {}
   location.reload();
 };
-$('#m-dev').onclick = () => { devMode = !devMode; try { localStorage.setItem('pixelhq.dev', devMode ? '1' : '0'); } catch {} renderMenu(); if (devMode && mode === 'live') { sim.playing = true; updatePlayer(); } };
+$('#m-dev').onclick = () => { devMode = !devMode; try { localStorage.setItem('floorwalk.dev', devMode ? '1' : '0'); } catch {} renderMenu(); if (devMode && mode === 'live') { sim.playing = true; updatePlayer(); } };
 
 $('#done-edit').onclick = () => { setMode('live'); renderMenu(); setTimeout(() => $('#ask-in')?.focus(), 50); };
 
@@ -123,7 +123,7 @@ $('#done-edit').onclick = () => { setMode('live'); renderMenu(); setTimeout(() =
    Com o servidor, a equipe fica parada até chegar uma tarefa. Depois que a última tarefa termina,
    espera alguns segundos (comemoração, volta para o lugar) e pausa quando ninguém está andando. */
 let lastTaskEnd = 0;
-function quietOffice() { return !!window.PIXELHQ_BRIDGE && !devMode; }
+function quietOffice() { return !!window.FLOORWALK_BRIDGE && !devMode; }
 const WALKING = new Set(['walk', 'approach', 'leave']);
 
 /* Entrada e saída: quem participa da tarefa chega pela frente da sala e sai por ela no fim. */

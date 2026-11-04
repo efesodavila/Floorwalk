@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
-const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pixelhq-llm-'));
-process.env.PIXELHQ_DATA_DIR = dir;
+const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'floorwalk-llm-'));
+process.env.FLOORWALK_DATA_DIR = dir;
 const llm = await import('../server/llm.mjs');
 const settings = await import('../server/settings.mjs');
 
@@ -85,11 +85,11 @@ test('nenhum modelo responde: erro claro com o que foi testado', async () => {
 });
 
 test('crítica visual: na OpenAI usa sempre o gpt-6.1-sol; outros provedores seguem o modelo da conta', () => {
-  const old = process.env.PIXELHQ_CRITIC_MODEL; delete process.env.PIXELHQ_CRITIC_MODEL;
+  const old = process.env.FLOORWALK_CRITIC_MODEL; delete process.env.FLOORWALK_CRITIC_MODEL;
   try {
     assert.equal(llm.criticModel('openai'), 'gpt-6.1-sol');
     assert.equal(llm.criticModel('anthropic'), null);
-    process.env.PIXELHQ_CRITIC_MODEL = 'outro';
+    process.env.FLOORWALK_CRITIC_MODEL = 'outro';
     assert.equal(llm.criticModel('openai'), 'outro');
-  } finally { if (old === undefined) delete process.env.PIXELHQ_CRITIC_MODEL; else process.env.PIXELHQ_CRITIC_MODEL = old; }
+  } finally { if (old === undefined) delete process.env.FLOORWALK_CRITIC_MODEL; else process.env.FLOORWALK_CRITIC_MODEL = old; }
 });

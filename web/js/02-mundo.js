@@ -53,7 +53,7 @@ function normalize(w) {
   return w;
 }
 
-const STORE = 'pixelhq.prototipo.v4';
+const STORE = 'floorwalk.prototipo.v4';
 let W = null;
 try { W = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { W = null; }
 if (!W || !W.tiles || !Array.isArray(W.objects)) W = tplSala();

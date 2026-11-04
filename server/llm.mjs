@@ -22,8 +22,8 @@ export function isModelError(e) {
 
 export async function pickModel(provider, cfg, exclude = []) {
   const P = PROVIDERS[provider];
-  // PIXELHQ_MODEL força um modelo (para quem quiser), mas ele também precisa responder
-  const forced = process.env.PIXELHQ_MODEL;
+  // FLOORWALK_MODEL força um modelo (para quem quiser), mas ele também precisa responder
+  const forced = process.env.FLOORWALK_MODEL;
   const { models } = await P.test(cfg);
   const ranked = (forced ? [forced] : rankModels(provider, models)).filter(m => !exclude.includes(m)).slice(0, MAX_TRIES);
   const tried = [];
@@ -43,9 +43,9 @@ export async function pickModel(provider, cfg, exclude = []) {
 }
 
 // Modelo fixo da crítica visual dos móveis (decisão do dono): na OpenAI usa sempre este, com visão.
-// Outros provedores seguem com o modelo da conta. PIXELHQ_CRITIC_MODEL troca sem mexer no código.
+// Outros provedores seguem com o modelo da conta. FLOORWALK_CRITIC_MODEL troca sem mexer no código.
 export const CRITIC_MODEL = { openai: 'gpt-6.1-sol' };
-export const criticModel = (provider) => process.env.PIXELHQ_CRITIC_MODEL || CRITIC_MODEL[provider] || null;
+export const criticModel = (provider) => process.env.FLOORWALK_CRITIC_MODEL || CRITIC_MODEL[provider] || null;
 
 // chamada da crítica visual: com modelo fixo não há troca automática (ela salvaria o modelo da
 // crítica como modelo da equipe); se ele falhar, o erro sobe e a crítica fica "sem avaliação"

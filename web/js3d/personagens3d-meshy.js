@@ -94,8 +94,8 @@ export async function characterKit({ THREE }) {
 
   // prepara um modelo: ossos de repouso, escala, mapa de funções da textura
   async function prep(id) {
-    // no arquivo único os modelos vêm embutidos (PIXELHQ_MODELOS: arquivo → data: URL)
-    const def = MODELS[id], gltf = await loader.loadAsync(globalThis.PIXELHQ_MODELOS?.[def.file] || '/modelos/' + def.file), base = gltf.scene; base.updateMatrixWorld(true);
+    // no arquivo único os modelos vêm embutidos (FLOORWALK_MODELOS: arquivo → data: URL)
+    const def = MODELS[id], gltf = await loader.loadAsync(globalThis.FLOORWALK_MODELOS?.[def.file] || '/modelos/' + def.file), base = gltf.scene; base.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(base), SC = HEIGHT / (box.max.y - box.min.y);
     const B0 = bonesOf(base), bindW = {}, bindL = {};
     for (const [k, b] of Object.entries(B0)) { bindW[k] = b.getWorldQuaternion(new THREE.Quaternion()); bindL[k] = b.quaternion.clone(); }

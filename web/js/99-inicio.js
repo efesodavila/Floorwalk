@@ -7,7 +7,7 @@ loadStep(.15, 'Montando a sala…');
 
 /* ---------- Início ---------- */
 resize(); applyUI(); renderBrand(); setTab('planta'); renderFoot(); fit(); requestAnimationFrame(frame);
-if (window.PIXELHQ_BRIDGE && !VITRINE) {
+if (window.FLOORWALK_BRIDGE && !VITRINE) {
   document.body.classList.add('booting');
   const wsu = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/events';
   sim.source = 'tempo_real'; sim.wsUrl = wsu; $('#pl-source').value = 'tempo_real'; setMode('live'); connectWS(wsu);

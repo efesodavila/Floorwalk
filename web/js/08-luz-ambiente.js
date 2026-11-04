@@ -8,7 +8,7 @@ const AMB_KEYS = [
   [19.5, '#6E6FA8', 1.6], [21, '#4E5890', 1.8], [24, '#4E5890', 1.8]];
 const AMB_FIXED = { dia: 11, tarde: 17.5, noite: 22 };
 const AMB_ORDER = ['auto', 'dia', 'tarde', 'noite'];
-let ambMode = 'auto'; try { ambMode = AMB_ORDER.includes(localStorage.getItem('pixelhq.amb')) ? localStorage.getItem('pixelhq.amb') : 'auto'; } catch (e) {}
+let ambMode = 'auto'; try { ambMode = AMB_ORDER.includes(localStorage.getItem('floorwalk.amb')) ? localStorage.getItem('floorwalk.amb') : 'auto'; } catch (e) {}
 const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 function ambAt(h) {
   let i = 0; while (i < AMB_KEYS.length - 2 && AMB_KEYS[i + 1][0] <= h) i++;
@@ -28,7 +28,7 @@ function ambUpdate() {
 }
 document.getElementById('amb-btn').onclick = () => {
   ambMode = AMB_ORDER[(AMB_ORDER.indexOf(ambMode) + 1) % AMB_ORDER.length];
-  try { localStorage.setItem('pixelhq.amb', ambMode); } catch (e) {}
+  try { localStorage.setItem('floorwalk.amb', ambMode); } catch (e) {}
   ambUpdate(); toastAmb();
 };
 function toastAmb() { const t = document.getElementById('toast'); if (!t) return; t.textContent = ambMode === 'auto' ? 'Iluminação automática: segue o relógio do seu dispositivo' : `Iluminação fixa: ${ambPeriod(AMB_FIXED[ambMode])}`; t.classList.add('show'); clearTimeout(toastAmb.t); toastAmb.t = setTimeout(() => t.classList.remove('show'), 2200); }

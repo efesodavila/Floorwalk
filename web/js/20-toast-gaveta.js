@@ -46,7 +46,7 @@ function renderDrawer() {
 { "agent": "Ana", "state": "reuniao", "with": ["Bia", "Rafa"], "group": "daily" }</pre>
       <p><b>agent</b>: nome do agente (igual ao cadastrado). <b>state</b>: um dos estados acima, em português ou inglês. <b>task</b>, <b>with</b> e <b>group</b> são opcionais. Para reproduzir um histórico, use <b>t</b> (segundos) ou <b>ts</b> (data e hora).</p>
       <h2 style="font-size:15px">Como ligar aos seus agentes</h2>
-      <p>1) Tempo real por WebSocket, quando a página roda no seu servidor. 2) Dentro do seu painel, enviando <code>postMessage({ pixelHQ: evento })</code> para esta página. 3) No mesmo site, chamando <code>window.pixelHQ.emit(evento)</code>. 4) Um arquivo de log com um evento por linha, pela fonte "Arquivo de eventos".</p>`;
+      <p>1) Tempo real por WebSocket, quando a página roda no seu servidor. 2) Dentro do seu painel, enviando <code>postMessage({ floorwalk: evento })</code> para esta página. 3) No mesmo site, chamando <code>window.floorwalk.emit(evento)</code>. 4) Um arquivo de log com um evento por linha, pela fonte "Arquivo de eventos".</p>`;
   } else if (drawerMode === 'changes') {
     drawer.innerHTML = `<button type="button" class="close" id="d-close" aria-label="Fechar">✕</button><h2>O que mudou no editor</h2>
     <ul class="changes">

@@ -1,10 +1,11 @@
-// Servidor do Pixel HQ
+// Servidor do Floorwalk
 // - serve a página do escritório em http://HOST:PORT/
 // - WebSocket em /events: recebe tarefas da página e transmite o que os agentes fazem
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import './env.mjs'; // nomes antigos das variáveis (PIXELHQ_*): antes de tudo
 import { WebSocketServer } from 'ws';
 import { PROVIDERS, explainError } from './providers.mjs';
 import * as settings from './settings.mjs';
@@ -29,7 +30,7 @@ const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const MIN_DWELL = Number(process.env.MIN_DWELL_MS || 3500);
 // quantas tarefas rodam ao mesmo tempo (cada agente continua fazendo uma coisa por vez)
-const MAX_PARALLEL = Math.max(1, Math.min(4, Number(process.env.PIXELHQ_PARALELO || 2)));
+const MAX_PARALLEL = Math.max(1, Math.min(4, Number(process.env.FLOORWALK_PARALELO || 2)));
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 
@@ -62,17 +63,18 @@ const claude = createClaudeBridge({
 setInterval(() => claude.sweep(60 * 60 * 1000), 60 * 1000).unref();
 // lista completa das sessões abertas (source no topo: a página tira da sala quem não está mais nela)
 function claudeTeam() { return { ...msg.team(claude.members()), source: 'claude-code' }; }
-// senha dos hooks: o script do hook lê de ~/.pixel-hq/hook.json (só o usuário lê) e manda no cabeçalho
-const HOOK_FILE = path.join(process.env.PIXELHQ_HOME || path.join(os.homedir(), '.pixel-hq'), 'hook.json');
+// senha dos hooks: o script do hook lê de ~/.floorwalk/hook.json (só o usuário lê) e manda no cabeçalho
+const HOOK_FILE = path.join(process.env.FLOORWALK_HOME || path.join(os.homedir(), '.floorwalk'), 'hook.json');
 let HOOK_TOKEN = '';
 async function writeHookFile() {
-  try { HOOK_TOKEN = JSON.parse(await fs.readFile(HOOK_FILE, 'utf8')).token || ''; } catch {}
+  // mesma senha de antes (inclusive da pasta do nome antigo, ~/.pixel-hq): o hook já instalado continua valendo
+  for (const f of [HOOK_FILE, path.join(os.homedir(), '.pixel-hq', 'hook.json')]) { if (HOOK_TOKEN) break; try { HOOK_TOKEN = JSON.parse(await fs.readFile(f, 'utf8')).token || ''; } catch {} }
   if (!/^[a-f0-9]{48}$/.test(HOOK_TOKEN)) HOOK_TOKEN = crypto.randomBytes(24).toString('hex');
   await fs.mkdir(path.dirname(HOOK_FILE), { recursive: true });
   await fs.writeFile(HOOK_FILE, JSON.stringify({ port: PORT, token: HOOK_TOKEN }), { mode: 0o600 });
 }
 const hookAuth = (req) => {
-  const got = Buffer.from(String(req.headers['x-pixelhq-token'] || '')), want = Buffer.from(HOOK_TOKEN);
+  const got = Buffer.from(String(req.headers['x-floorwalk-token'] || '')), want = Buffer.from(HOOK_TOKEN);
   return HOOK_TOKEN && got.length === want.length && crypto.timingSafeEqual(got, want);
 };
 const sayFor = (t) => (member, state, task, extra = {}, hold) =>
@@ -119,8 +121,8 @@ async function runOne(task) {
   }
 }
 
-// internet ligada? (menu da página; PIXELHQ_WEB=0 desliga no servidor)
-const webOn = async () => process.env.PIXELHQ_WEB !== '0' && (await settings.load()).web !== false;
+// internet ligada? (menu da página; FLOORWALK_WEB=0 desliga no servidor)
+const webOn = async () => process.env.FLOORWALK_WEB !== '0' && (await settings.load()).web !== false;
 
 /* ---------- execução real: a equipe do escritório, com o provedor configurado ---------- */
 async function realRun(task) {
@@ -181,7 +183,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, demo: DEMO, tarefas: [...running.values()].map(t => t.text), fila: queue.length })); return; }
   // diz à página que ela está rodando com o servidor (liga o modo tempo real)
-  if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.PIXELHQ_BRIDGE = true;\n`); return; }
+  if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.FLOORWALK_BRIDGE = true;\n`); return; }
   // eventos do Claude Code (scripts/claude-hook.mjs): sem página, por isso a senha em vez da origem
   if (url.pathname === '/api/hooks/claude') {
     if (req.method !== 'POST' || !hookAuth(req)) { res.writeHead(403); res.end(); return; }
@@ -361,7 +363,7 @@ wss.on('connection', (ws) => {
 await fs.mkdir(path.join(WORKSPACE, 'projeto'), { recursive: true });
 await writeHookFile().catch(e => console.error('[claude code] não consegui gravar', HOOK_FILE, e.message));
 server.listen(PORT, HOST, () => {
-  console.log(`Pixel HQ ${DEMO ? '(demo: tarefas simuladas)' : ''} em http://${HOST}:${PORT}`);
+  console.log(`Floorwalk ${DEMO ? '(demo: tarefas simuladas)' : ''} em http://${HOST}:${PORT}`);
   settings.active().then(c => console.log(c ? `IA: ${PROVIDERS[c.provider].name} · ${c.model}` : 'IA ainda não configurada: abra a página para escolher.'));
   console.log(`Arquivos dos agentes: ${path.join(WORKSPACE, 'projeto')}`);
 });

@@ -45,7 +45,7 @@ moreBtn.onclick = () => {
     const f = e.target.files?.[0]; if (!f) return;
     const r = new FileReader(); r.onload = () => {
       try { const d = JSON.parse(r.result); if (!d.tiles || !Array.isArray(d.objects)) throw 0; loadWorld(normalize(d), 'Ambiente aberto'); }
-      catch { toast('Esse arquivo não é um ambiente do Pixel HQ'); }
+      catch { toast('Esse arquivo não é um ambiente do Floorwalk'); }
       closePop();
     }; r.readAsText(f);
   };

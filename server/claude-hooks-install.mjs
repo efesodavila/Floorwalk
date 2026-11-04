@@ -1,8 +1,8 @@
-// Instala e remove os hooks do Pixel HQ no settings.json do Claude Code (~/.claude/settings.json).
+// Instala e remove os hooks do Floorwalk no settings.json do Claude Code (~/.claude/settings.json).
 // Regras (o arquivo é do usuário, guarda as permissões dele):
 // - arquivo ilegível ou com formato inesperado: aborta sem tocar em nada;
-// - antes da primeira escrita, faz uma cópia (settings.json.pixel-hq.backup) que nunca é sobrescrita;
-// - só mexe nas entradas cujo comando é o nosso (script claude-hook.mjs com a marca --pixel-hq);
+// - antes da primeira escrita, faz uma cópia (settings.json.floorwalk.backup) que nunca é sobrescrita;
+// - só mexe nas entradas cujo comando é o nosso (script claude-hook.mjs com a marca --floorwalk);
 //   as do usuário e de outras ferramentas ficam como estão;
 // - grava num arquivo temporário e troca de uma vez (rename), mantendo a permissão do original; relê para conferir.
 import fs from 'node:fs/promises';
@@ -10,11 +10,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { HOOK_EVENTS, TOOL_EVENTS } from './claude-code.mjs';
 
-export const BACKUP_SUFFIX = '.pixel-hq.backup';
-export const MARK = '--pixel-hq';
+export const BACKUP_SUFFIX = '.floorwalk.backup';
+export const MARK = '--floorwalk';
+// nome antigo do projeto: entradas e cópia feitas antes da troca de nome ainda são nossas
+export const LEGACY_MARKS = ['--pixel-hq'];
+export const LEGACY_BACKUPS = ['.pixel-hq.backup'];
 export const defaultSettingsPath = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
 
-export const isOurs = (h) => typeof h?.command === 'string' && h.command.includes('claude-hook.mjs') && h.command.includes(MARK);
+export const isOurs = (h) => typeof h?.command === 'string' && h.command.includes('claude-hook.mjs') && [MARK, ...LEGACY_MARKS].some(m => h.command.includes(m));
 export const hookCommand = (script) => `node "${script.replace(/\\/g, '/')}" ${MARK}`;
 
 const fail = (m) => Object.assign(new Error(m), { code: 'unsafe' });
@@ -48,9 +51,11 @@ function strip(hooks) {
 
 async function writeSettings(file, data, mode, exists) {
   await fs.mkdir(path.dirname(file), { recursive: true });
-  const backup = file + BACKUP_SUFFIX;
-  if (exists) { try { await fs.copyFile(file, backup, fs.constants.COPYFILE_EXCL); } catch (e) { if (e.code !== 'EEXIST') throw e; } }
-  const tmp = `${file}.pixel-hq-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
+  // já existe a cópia feita com o nome antigo: ela é a original; não faz outra (esta já teria os nossos hooks)
+  const old = await Promise.any(LEGACY_BACKUPS.map(s => fs.access(file + s).then(() => file + s))).catch(() => null);
+  const backup = old || file + BACKUP_SUFFIX;
+  if (exists && !old) { try { await fs.copyFile(file, backup, fs.constants.COPYFILE_EXCL); } catch (e) { if (e.code !== 'EEXIST') throw e; } }
+  const tmp = `${file}.floorwalk-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
   await fs.writeFile(tmp, text, { mode });
   await fs.rename(tmp, file);
   if (await fs.readFile(file, 'utf8') !== text) throw new Error(`A gravação de ${file} não conferiu. Restaure a cópia ${backup} se precisar.`);

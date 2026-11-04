@@ -6,7 +6,7 @@ img { max-width: 100%; }
 [hidden]:not([hidden=until-found i]) { display: none !important; }
 
 /* Layout: cena em tela cheia; painel com 3 abas na ordem da tarefa (Planta → Elementos → Pessoas);
-   ações do item selecionado flutuam sobre a cena. Paleta herdada do Pixel HQ original (tema claro único, de propósito). */
+   ações do item selecionado flutuam sobre a cena. Paleta herdada do Floorwalk original (tema claro único, de propósito). */
 :root {
   --ground: #E9E8EB;
   --ground-2: #F3F2F5;

@@ -1,4 +1,4 @@
-// Personagens 3D em "low-poly" facetado com proporção de boneco, montados a partir da aparência que o Pixel HQ já guarda
+// Personagens 3D em "low-poly" facetado com proporção de boneco, montados a partir da aparência que o Floorwalk já guarda
 // (pele, cabelo, penteado, roupa, calça, sapato, crachá, óculos, fone, barba).
 //
 //  raiz > corpo > quadril > { pernas[coxa > joelho], tronco > { braços[ombro > cotovelo], cabeça } }

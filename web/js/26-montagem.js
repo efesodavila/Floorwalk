@@ -498,7 +498,7 @@ function registerCustom(c) {
 let reviewing = false;
 const postCritique = (body) => fetch('/api/office/critique', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(x => x.json());
 async function reviewCustomFurniture(spec) {
-  if (reviewing || !window.PIXELHQ_BRIDGE || !spec?.custom?.length) return;
+  if (reviewing || !window.FLOORWALK_BRIDGE || !spec?.custom?.length) return;
   const todo = spec.custom.filter(c => !c.reviewed && !c.base && Array.isArray(c.boxes));
   if (!todo.length) return;
   reviewing = true;

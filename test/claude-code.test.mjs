@@ -66,8 +66,8 @@ test('eventos estranhos são ignorados', () => {
   for (const e of [null, 'x', {}, { session_id: 's' }, { hook_event_name: 'Stop' }, { session_id: 's', hook_event_name: 'Inventado' }]) assert.equal(b.handle(e), null);
 });
 
-const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), 'pixelhq-hooks-'));
-const SCRIPT = 'C:\\Users\\ana\\pixel-hq\\scripts\\claude-hook.mjs';
+const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), 'floorwalk-hooks-'));
+const SCRIPT = 'C:\\Users\\ana\\floorwalk\\scripts\\claude-hook.mjs';
 
 test('instalar mantém os hooks e as configurações do usuário, faz cópia e não duplica', async () => {
   const dir = await tmp(), file = path.join(dir, 'settings.json');
@@ -116,7 +116,7 @@ test('de ponta a ponta: o script do hook chega ao servidor e vira estado na sala
   const { spawn } = await import('node:child_process');
   const { WebSocket } = await import('ws');
   const home = await tmp(), port = 20000 + Math.floor(Math.random() * 20000), url = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, PORT: String(port), PIXELHQ_DATA_DIR: home, PIXELHQ_HOME: home, WORKSPACE_DIR: home, MIN_DWELL_MS: '50' };
+  const env = { ...process.env, PORT: String(port), FLOORWALK_DATA_DIR: home, FLOORWALK_HOME: home, WORKSPACE_DIR: home, MIN_DWELL_MS: '50' };
   const srv = spawn(process.execPath, ['server/server.mjs'], { env, stdio: 'pipe' });
   try {
     for (let i = 0; i < 50; i++) { try { await fetch(url + '/health'); break; } catch { await new Promise(r => setTimeout(r, 100)); } }
@@ -127,7 +127,7 @@ test('de ponta a ponta: o script do hook chega ao servidor e vira estado na sala
     ws.on('message', (d) => got.push(JSON.parse(d)));
     await new Promise(r => ws.on('open', r));
     const hook = (ev) => new Promise((res) => {
-      const p = spawn(process.execPath, ['scripts/claude-hook.mjs', '--pixel-hq'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const p = spawn(process.execPath, ['scripts/claude-hook.mjs', '--floorwalk'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
       let out = ''; p.stdout.on('data', d => out += d);
       p.on('exit', (code) => res({ code, out }));
       p.stdin.end(JSON.stringify(ev));
@@ -161,4 +161,25 @@ test('sessão parada há muito tempo sai da sala e da lista', () => {
   assert.equal(teams.at(-1), 1, 'a página recebe a lista nova');
   b.handle({ session_id: 'y', hook_event_name: 'SessionEnd', cwd: '/p/novo' });
   assert.equal(teams.at(-1), 0, 'fim de sessão também manda a lista');
+});
+
+test('troca de nome: entradas antigas (--pixel-hq) são trocadas pelas novas e a cópia antiga vale', async () => {
+  const dir = await tmp(), file = path.join(dir, 'settings.json');
+  const old = { type: 'command', command: 'node "C:/x/pixel-hq/scripts/claude-hook.mjs" --pixel-hq', timeout: 5 };
+  await fs.writeFile(file, JSON.stringify({ hooks: { Stop: [{ hooks: [old] }, { hooks: [{ type: 'command', command: 'meu.sh' }] }] } }));
+  await fs.writeFile(file + '.pixel-hq.backup', 'original');
+  await install({ file, script: SCRIPT });
+  const s = JSON.parse(await fs.readFile(file, 'utf8'));
+  const cmds = s.hooks.Stop.flatMap(g => g.hooks.map(h => h.command));
+  assert.equal(cmds.filter(c => c.includes('claude-hook.mjs')).length, 1, 'não duplica');
+  assert.ok(cmds.some(c => c.endsWith('--floorwalk')) && !cmds.some(c => c.includes('--pixel-hq')));
+  assert.ok(cmds.includes('meu.sh'));
+  await assert.rejects(fs.access(file + BACKUP_SUFFIX), 'a cópia antiga já é a original');
+});
+
+test('variáveis com o nome antigo (PIXELHQ_*) continuam valendo', async () => {
+  process.env.PIXELHQ_TESTE_NOME = 'x'; delete process.env.FLOORWALK_TESTE_NOME;
+  await import('../server/env.mjs?' + Date.now());
+  assert.equal(process.env.FLOORWALK_TESTE_NOME, 'x');
+  delete process.env.PIXELHQ_TESTE_NOME; delete process.env.FLOORWALK_TESTE_NOME;
 });

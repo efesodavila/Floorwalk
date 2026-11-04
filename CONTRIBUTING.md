@@ -64,7 +64,7 @@ O teste `web-structure` avisa se esquecer.
 
 | arquivo | assunto |
 |---------|---------|
-| `server.mjs` | HTTP (página, `/api/settings`, `/api/settings/web`, `/health`), WebSocket (`/events`), fila e tarefas em paralelo (`PIXELHQ_PARALELO`) |
+| `server.mjs` | HTTP (página, `/api/settings`, `/api/settings/web`, `/health`), WebSocket (`/events`), fila e tarefas em paralelo (`FLOORWALK_PARALELO`) |
 | `web.mjs` | acesso à internet (só leitura): `search`, `readPage`, bloqueio da rede interna, limites de tempo e tamanho |
 | `locks.mjs` | travas por agente: cada pessoa faz uma coisa por vez mesmo com tarefas em paralelo |
 | `providers.mjs` | OpenAI, Anthropic e Ollama com a mesma interface: `test()` e `chat()` |

@@ -3,7 +3,7 @@
 /* ---------- Tour: mostra o que o dono pode fazer e como ----------
    Abre sozinho na primeira vez que um negócio é criado (applyOffice) e fica no menu ☰ ("Como usar").
    Cada passo destaca uma parte da tela e explica em uma ou duas frases. Esc ou "Pular" fecha; setas navegam. */
-const TOUR_KEY = 'pixelhq.tour.v1';
+const TOUR_KEY = 'floorwalk.tour.v1';
 const TOUR = [
   { t: 'Bem-vindo ao seu escritório', x: 'A IA montou a equipe do seu negócio. Agora é a sua vez de montar o lugar onde ela trabalha. Este tour leva um minuto.' },
   { sel: '#modes', mode: 'build', t: 'Construir e Ao vivo', x: '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: a equipe trabalha e você acompanha. Você pode trocar a qualquer hora.' },

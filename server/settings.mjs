@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PROVIDERS } from './providers.mjs';
 
-const FILE = path.resolve(process.env.PIXELHQ_DATA_DIR || './data', 'settings.json');
+const FILE = path.resolve(process.env.FLOORWALK_DATA_DIR || './data', 'settings.json');
 let cache = null;
 
 export async function load() {

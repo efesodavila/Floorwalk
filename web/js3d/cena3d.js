@@ -1,4 +1,4 @@
-// Cena 3D do Pixel HQ — mesma técnica do Pixel Moda:
+// Cena 3D do Floorwalk — mesma técnica do Pixel Moda:
 // sombreamento em 3 faixas, luz de céu + sol com sombras, contorno por pós-processamento
 // (profundidade + normais), bloom nos brilhos, texturas 16×16 e câmera presa à grade de pixels.
 //
@@ -10,9 +10,9 @@
 // Mouse: esquerdo arrasta = gira · direito ou meio arrasta = move · roda aproxima (na direção do cursor).
 
 const qs = new URLSearchParams(location.search);
-// com o servidor, ou no arquivo único (que traz o 3D embutido: PIXELHQ_3D)
-// sempre 3D (a escolha antiga "pixelhq.3d = 0" não vale mais); ?2d força o 2D para testes
-const WANT = qs.has('3d') || (!qs.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D));
+// com o servidor, ou no arquivo único (que traz o 3D embutido: FLOORWALK_3D)
+// sempre 3D (a escolha antiga "floorwalk.3d = 0" não vale mais); ?2d força o 2D para testes
+const WANT = qs.has('3d') || (!qs.has('2d') && (!!window.FLOORWALK_BRIDGE || !!window.FLOORWALK_3D));
 window.R3D = { active: () => false, wanted: WANT, stats: { fps: 0 } };
 // sem WebGL (ou a placa de vídeo perdeu o 3D): volta para o desenho 2D, com aviso (o dono aprovou esse plano B)
 function fail3d(e) {
@@ -43,8 +43,8 @@ async function start() {
   const ESTILOS = { lowpoly: () => import('./personagens3d-lowpoly.js'), meshy: () => import('./personagens3d-meshy.js') };
   // se os modelos do padrão não carregarem (arquivo ausente, rede), cai para o low-poly feito em código
   let characterKit, kitArgs;
-  // arquivo único sem os modelos embutidos (PIXELHQ_MODELOS === false): direto o low-poly
-  const PADRAO = window.PIXELHQ_MODELOS === false ? 'lowpoly' : 'meshy';
+  // arquivo único sem os modelos embutidos (FLOORWALK_MODELOS === false): direto o low-poly
+  const PADRAO = window.FLOORWALK_MODELOS === false ? 'lowpoly' : 'meshy';
   try { ({ characterKit } = await (ESTILOS[qs.get('estilo')] || ESTILOS[PADRAO])()); }
   catch (e) { console.warn('[3D] estilo de personagem indisponível, usando low-poly:', e); ({ characterKit } = await ESTILOS.lowpoly()); }
   const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
@@ -404,7 +404,7 @@ sun.shadow.bias = .0015; sun.shadow.normalBias = .05; // evita "acne" (listras) 
     }
   }
 
-  /* ---------- personagens 3D (aparência do Pixel HQ, estilo do Pixel Moda) ---------- */
+  /* ---------- personagens 3D (aparência do Floorwalk, estilo do Pixel Moda) ---------- */
   let kit;
   try { kit = await characterKit({ THREE, RoundedBoxGeometry, mergeGeometries, mergeVertices, gradientMap }); }
   catch (e) { console.warn('[3D] modelos de personagem não carregaram, usando low-poly:', e); kit = await (await ESTILOS.lowpoly()).characterKit({ THREE, RoundedBoxGeometry, mergeGeometries, mergeVertices, gradientMap }); }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { CATALOG, validateDesign, designFurniture } from '../server/furniture.mjs';
+import { CATALOG, validateDesign, designFurniture, critiqueFurniture, scoreFurniture, toBlocks } from '../server/furniture.mjs';
 import { PLACES, placesFor, guessPlace } from '../server/places.mjs';
 
 const catalog = await fs.readFile(new URL('../web/js/01-catalogo.js', import.meta.url), 'utf8');
@@ -84,4 +84,31 @@ test('os exemplos do pedido à IA passam nas próprias regras', async () => {
   const ex = [...p.matchAll(/EXEMPLO[^\n]*\n(\{[\s\S]*?\]\})/g)].map(x => JSON.parse(x[1]));
   assert.equal(ex.length, 2);
   for (const e of ex) assert.deepEqual(validateDesign(e).problems, undefined);
+});
+
+test('crítica visual: manda a imagem e o desenho atual; nota boa não muda nada', async () => {
+  const c = { id: 'c_mesa', name: 'Mesa de som', purpose: 'mixar áudio', w: 2, boxes: validateDesign(good).boxes };
+  let sent;
+  const r = await critiqueFurniture(async ({ messages }) => { sent = messages[0]; return '{"nota":5,"problemas":[]}'; }, c, 'QUJD');
+  assert.equal(r.changed, false); assert.equal(r.score, 5);
+  assert.deepEqual(sent.images, [{ mime: 'image/png', data: 'QUJD' }]);
+  assert.match(sent.content, /Mesa de som/); assert.match(sent.content, /"cor":"metal"/, 'o desenho atual vai com nomes de cor da paleta');
+  assert.deepEqual(toBlocks(c.boxes)[3], { ...good.blocos[3], brilho: true });
+});
+
+test('crítica visual: nota baixa troca o desenho só se o novo passar nas regras', async () => {
+  const c = { id: 'c_mesa', name: 'Mesa de som', purpose: 'mixar áudio', w: 2, boxes: validateDesign(good).boxes };
+  const better = { ...structuredClone(good), nota: 2, problemas: ['não parece mesa de som'] };
+  better.blocos.push({ x: 1.2, z: .5, l: .4, p: .3, y: .86, a: .08, cor: 'preto' });
+  const r = await critiqueFurniture(async () => JSON.stringify(better), c, 'QUJD');
+  assert.equal(r.changed, true); assert.equal(r.boxes.length, 5); assert.equal(r.score, 2);
+  const broken = await critiqueFurniture(async () => '{"nota":1,"w":2,"blocos":[{"x":0,"z":0,"l":1,"p":1,"y":1.5,"a":0.2,"cor":"roxo"}]}', c, 'QUJD');
+  assert.equal(broken.changed, false); assert.ok(broken.rejected.length);
+});
+
+test('crítica visual: só a nota do desenho proposto, sem pedir blocos', async () => {
+  const c = { id: 'c_mesa', name: 'Mesa de som', purpose: 'mixar áudio', w: 2, boxes: validateDesign(good).boxes };
+  let sent;
+  const s = await scoreFurniture(async ({ messages }) => { sent = messages[0]; return '{"nota":4,"problemas":["ok"]}'; }, c, 'QUJD');
+  assert.equal(s.score, 4); assert.match(sent.content, /NÃO refaça/); assert.equal(sent.images.length, 1);
 });

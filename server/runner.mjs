@@ -19,11 +19,11 @@ export const ACTIONS = {
   pesquisar: { state: 'pesquisando', kinds: ['pesquisa'], verb: 'Pesquisa', maxTokens: 1800,
     how: 'Traga os pontos relevantes em tópicos curtos. Você não tem acesso à internet: use o que sabe e marque o que precisa ser confirmado.',
     howWeb: 'Traga os pontos relevantes em tópicos curtos, usando as FONTES DA INTERNET acima. Cite a fonte de cada informação com o número entre colchetes, ex.: [2]. Não invente: o que as fontes não confirmam, marque como "a confirmar". Termine com a lista "Fontes:" (número, título e endereço).' },
-  produzir: { state: 'trabalhando', kinds: ['produz'], verb: 'Produção', maxTokens: 3500,
+  produzir: { state: 'trabalhando', kinds: ['produz', 'opera', 'atende'], verb: 'Produção', maxTokens: 3500,
     how: 'Entregue o trabalho pronto para uso, em Markdown. Não explique o que vai fazer: faça.' },
   revisar: { state: 'revisando', kinds: ['revisa'], verb: 'Revisão', maxTokens: 1200,
     how: 'Revise o material da equipe. Liste problemas concretos e como corrigir. Na última linha escreva só APROVADO ou REPROVADO.' },
-  entregar: { state: 'entregando', kinds: ['entrega'], verb: 'Entrega', maxTokens: 2000,
+  entregar: { state: 'entregando', kinds: ['entrega', 'atende'], verb: 'Entrega', maxTokens: 2000,
     how: 'Prepare a versão final para o cliente (mensagem, publicação ou documento), pronta para copiar e enviar.' },
 };
 export const MAX_STEPS = 6;
@@ -89,7 +89,9 @@ export function normalizePlan(raw, T, lead, available = placesFor({}), text = ''
     const action = String(p?.acao || '').toLowerCase().trim();
     if (!ACTIONS[action]) continue;
     let who = byName.get(String(p?.agente || '').toLowerCase().trim());
-    if (!who) who = T.find(m => ACTIONS[action].kinds.includes(m.kind) && m !== lead) || null;
+    // tipos em ordem de preferência (ex.: produzir: primeiro quem produz, depois quem opera ou atende)
+    if (!who) for (const k of ACTIONS[action].kinds) { who = T.find(m => m.kind === k && m !== lead); if (who) break; }
+    who ||= null;
     if (!who) continue;
     const request = clip(p?.pedido, 600) || ACTIONS[action].verb;
     steps.push({ agent: who, action, request, place: validPlace(String(p?.local || '').toLowerCase().trim(), available) || guessPlace(request, action, available) }); // só o pedido do passo: a tarefa toda confundiria (ex.: pesquisa numa tarefa de vídeo)
@@ -104,7 +106,7 @@ export function normalizePlan(raw, T, lead, available = placesFor({}), text = ''
 // plano padrão, montado pelos tipos, quando a IA não devolve um plano usável
 export function defaultPlan(text, T, lead, available = placesFor({})) {
   const pick = (k) => T.find(m => m.kind === k && m !== lead);
-  const maker = pick('produz') || lead, rev = pick('revisa');
+  const maker = pick('produz') || pick('opera') || pick('atende') || lead, rev = pick('revisa');
   const steps = [{ agent: maker, action: 'produzir', request: text, place: guessPlace(text, 'produzir', available) }];
   if (rev) steps.push({ agent: rev, action: 'revisar', request: 'Confira se o material atende à tarefa.', place: 'computador' });
   return { summary: 'Plano padrão: produzir' + (rev ? ' e revisar.' : '.'), steps };

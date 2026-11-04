@@ -6,6 +6,17 @@
   const q = new URLSearchParams(location.search);
   if (q.has('3d') || (!q.has('2d') && (!!window.PIXELHQ_BRIDGE || !!window.PIXELHQ_3D))) document.documentElement.classList.add('espera3d');
 })();
+// barra da tela de carregamento: cada etapa (scripts, 3D, modelos, servidor) avança até a fração dada; nunca volta
+let loadP = 0;
+function loadStep(p, text) {
+  loadP = Math.max(loadP, Math.min(1, p));
+  const f = document.getElementById('loader-fill'), l = document.getElementById('loader'), t = document.getElementById('loader-text');
+  if (f) f.style.width = Math.round(5 + loadP * 95) + '%';
+  if (l) l.setAttribute('aria-valuenow', String(Math.round(loadP * 100)));
+  if (t && text) t.textContent = text;
+}
+window.loadStep = loadStep;
+loadStep(.05, 'Abrindo a página…');
 
 const $ = (s, r = document) => r.querySelector(s);
 const cv = $('#scene'), ctx = cv.getContext('2d');

@@ -17,7 +17,9 @@ function demoReset() {
   const ids = sim.agents.map(a => a.id);
   for (const id of ids) demoEmit(id, 'reuniao', 12, { task: 'Início do projeto', with: ids.filter(x => x !== id), group: 'kickoff' }, true);
 }
-const idsOfKind = (k) => sim.agents.filter(a => kindOf(a.role) === k).map(a => a.id);
+// na demo, quem atende ou opera trabalha como quem produz (pega tarefa, faz, passa para revisão)
+const demoKind = (k) => (k === 'atende' || k === 'opera' ? 'produz' : k);
+const idsOfKind = (k) => sim.agents.filter(a => demoKind(kindOf(a.role)) === k).map(a => a.id);
 const hasKind = (k) => idsOfKind(k).length > 0;
 function demoEmit(id, state, dur, extra = {}, noResume) {
   const s = demo.a[id]; if (!s) return;
@@ -33,7 +35,7 @@ function demoTick(dt) {
     const ids = sim.agents.map(a => a.id).filter(id => demo.a[id].phase !== 'delivering');
     for (const id of ids) { const s = demo.a[id]; s.resume = s.last ? { ...s.last, dur: s.waiting ? Infinity : Math.max(3, s.until - demo.t) } : null; demoEmit(id, 'reuniao', 11, { task: `Alinhamento ${demo.syncN}`, with: ids.filter(x => x !== id), group: 'sync' + demo.syncN }, true); }
   }
-  for (const a of sim.agents) { const s = demo.a[a.id]; if (s && demo.t >= s.until) demoBrain(a.id, s, kindOf(a.role)); }
+  for (const a of sim.agents) { const s = demo.a[a.id]; if (s && demo.t >= s.until) demoBrain(a.id, s, demoKind(kindOf(a.role))); }
   const total = demoTasks().length;
   if (demo.idx >= total && demo.done >= total && !demo.finishedAt) {
     demo.finishedAt = demo.t; toast('Projeto entregue! Recomeçando em alguns segundos.');

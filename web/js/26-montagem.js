@@ -11,7 +11,7 @@ const STYLE_PRESETS = {
   criativo:     { floor: 'lilas', wall: '#EBCBB7', extra: true },
   industrial:   { floor: 'cimento', wall: '#3A3C44' },
 };
-const KIND_ORDER = ['coordena', 'produz', 'revisa', 'pesquisa', 'entrega'];
+const KIND_ORDER = ['coordena', 'produz', 'atende', 'opera', 'revisa', 'pesquisa', 'entrega'];
 // Vagas para móveis extras (catálogo ou criados pela IA): junto às paredes, 1 quadrado de fundo,
 // com o lado de uso virado para dentro da sala. Testadas por npm run check:layouts.
 const SLOTS = [
@@ -27,6 +27,14 @@ const BIG = { width: 22, dx: 6 };
 const slotsFor = (big) => SLOTS.map(s => big && s.x === 15 ? { ...s, x: 15 + BIG.dx } : s).concat(big ? [{ x: 17, z: 10, len: 3, rot: 2 }] : []);
 // lugares de partida das pessoas 7 a 10 (na ala nova)
 const BIG_STARTS = [[16.5, 6.25], [20.5, 6.25], [20.75, 8.75], [17.25, 9.25]];
+// planta em L: uma ala na frente, à esquerda (x 0..6, z 11..15), com a porta de entrada e uma sala de espera.
+// A frente e a direita da ala ficam abertas para a câmera (como o resto da sala), então o L aparece inteiro.
+const WING = { x0: 0, x1: 7, z0: 11, z1: 16 };
+const WING_OBJECTS = [
+  { id: 'ala-tapete', item: 'rug', x: 2, z: 12, rot: 0 }, { id: 'ala-mesa', item: 'ctable', x: 2, z: 12, rot: 0 },
+  { id: 'ala-sofa', item: 'sofa', x: 2, z: 14, rot: 2 }, { id: 'ala-poltrona', item: 'armchair', x: 5, z: 12, rot: 3 },
+  { id: 'ala-palmeira', item: 'palm', x: 6, z: 15, rot: 0 }, { id: 'ala-luz', item: 'floorlamp', x: 6, z: 14, rot: 0 },
+];
 // põe cada móvel na primeira vaga livre em que ele cabe; o que não couber fica de fora
 function placeExtras(ids, objects, big = false) {
   const free = slotsFor(big).filter(s => !s.needs || s.needs(objects)).map(s => ({ ...s, used: false })), out = [];
@@ -40,9 +48,10 @@ function placeExtras(ids, objects, big = false) {
   return out;
 }
 
+function wingTiles(m) { const t = {}; for (let x = WING.x0; x < WING.x1; x++) for (let z = WING.z0; z < WING.z1; z++) t[key(x, z)] = m; return t; }
 function officeWorld(spec) {
   const base = tplSala(), st = STYLE_PRESETS[spec.style] || STYLE_PRESETS.moderno;
-  const big = (spec.team?.length || 0) > base.people.length;
+  const big = (spec.team?.length || 0) > base.people.length, L = spec.layout === 'L';
   const starts = base.people.map(p => p.pos).concat(big ? BIG_STARTS : []);
   let objects = base.objects.map(o => ({ ...o }));
   if (big) {
@@ -59,8 +68,10 @@ function officeWorld(spec) {
     objects.push({ id: 'chroma', item: 'chroma', x: 10, z: 10, rot: 0 }, { id: 'camera', item: 'tripod', x: 11, z: 7, rot: 2 }, { id: 'refletor', item: 'softbox', x: 10, z: 7, rot: 2 }, { id: 'pufe', item: 'pouf', x: 12, z: 9, rot: 0 });
   }
   if (st.extra) objects.push({ id: 'luz-cor', item: 'colorlight', x: 14, z: 9, rot: 0, color: '#A855F7' });
-  // entrada: capacho encostado na parede da esquerda; o 3D abre ali a porta por onde a equipe entra e sai
-  objects.push({ id: 'entrada', item: 'capacho', x: 0, z: 8, rot: 1 });
+  // em L: a floreira do canto vai para o fundo da ala (o canto vira passagem) e a ala ganha a sala de espera
+  if (L) { objects = objects.map(o => o.id === 'floreira' ? { ...o, x: 0, z: WING.z1 - 1 } : o); objects.push(...WING_OBJECTS.map(o => ({ ...o }))); }
+  // entrada: porta na parede da esquerda (na ala, quando em L); o 3D abre ali a porta por onde a equipe entra e sai
+  objects.push(L ? { id: 'entrada', item: 'capacho', x: 0, z: 12, rot: 3 } : { id: 'entrada', item: 'capacho', x: 0, z: 8, rot: 1 });
   // móveis do catálogo escolhidos pela IA + móveis criados por ela (registrados antes, em registerCustom)
   for (const c of spec.custom || []) registerCustom(c);
   objects.push(...placeExtras([...(spec.custom || []).map(c => c.id), ...(spec.extras || [])], objects, big));
@@ -73,11 +84,11 @@ function officeWorld(spec) {
   }
   const people = spec.team.slice(0, starts.length).map((m, i) => ({
     id: 'p-' + i + '-' + m.name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''),
-    name: m.name, ...randomLook(), role: m.role, bio: m.bio || '', pos: starts[i],
+    name: m.name, ...randomLook(genderOfName(m.name)), role: m.role, bio: m.bio || '', pos: starts[i],
   }));
   return normalize({
     name: spec.name, service: spec.service || '', officeId: spec.createdAt || null,
-    tiles: rectTiles(big ? BIG.width : 16, 11, st.floor), wall: st.wall, floorMat: st.floor,
+    tiles: { ...rectTiles(big ? BIG.width : 16, 11, st.floor), ...(L ? wingTiles(st.floor) : {}) }, wall: st.wall, floorMat: st.floor,
     objects, walls: base.walls.map(w => ({ ...w })), people, roles, labels: { ...(spec.labels || {}) },
     demo: { tasks: spec.tasks || [], research: spec.research || [] },
     custom: spec.custom || [],
@@ -146,4 +157,39 @@ function registerCustom(c) {
   ACTS[c.act] = { label: String(c.purpose || c.name).slice(0, 30), go: 'Indo usar ' + String(c.name).slice(0, 30), icon: null, w: 0, dur: [8, 12], lunch: 0 };
   PLACES[c.place] = { acts: [c.act, 'work'], why: String(c.purpose || c.name).slice(0, 60) };
   return true;
+}
+
+/* ---------- Crítica visual dos móveis criados pela IA ----------
+   A IA que desenha o móvel não vê o resultado. Aqui a página tira uma foto 3D de cada móvel desenhado (não os de
+   plano B, que já são do catálogo) e manda ao servidor. Se a nota for baixa, a IA propõe outro desenho; a página tira
+   a foto do desenho proposto e manda de novo: ele só fica se a nota subir. No máximo 2 chamadas por móvel, uma vez. */
+let reviewing = false;
+const postCritique = (body) => fetch('/api/office/critique', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(x => x.json());
+async function reviewCustomFurniture(spec) {
+  if (reviewing || !window.PIXELHQ_BRIDGE || !spec?.custom?.length) return;
+  const todo = spec.custom.filter(c => !c.reviewed && !c.base && Array.isArray(c.boxes));
+  if (!todo.length) return;
+  reviewing = true;
+  try {
+    // o 3D carrega depois dos scripts: espera até 20 s pela câmera de fotos
+    for (let i = 0; i < 40 && !window.R3D?.itemShot; i++) await new Promise(r => setTimeout(r, 500));
+    if (!window.R3D?.itemShot) return;
+    for (const c of todo) {
+      if (!ITEMS[c.id] && !registerCustom(c)) continue;
+      let r;
+      try {
+        r = c.pending ? { ok: true, pending: true, custom: c } : await postCritique({ id: c.id, image: R3D.itemShot(c.id) });
+        if (r?.ok && r.pending && r.custom?.pending) {
+          // foto do desenho proposto num item temporário, só para a avaliação
+          const cand = { ...c, ...r.custom, id: c.id + '__cand', w: r.custom.pending.w, boxes: r.custom.pending.boxes };
+          registerCustom(cand); const image = R3D.itemShot(cand.id); delete ITEMS[cand.id];
+          r = await postCritique({ id: c.id, image, candidate: true });
+        }
+      } catch { continue; }
+      if (!r?.ok || !r.custom) continue;
+      Object.assign(c, r.custom); delete c.pending;
+      const mine = (W.custom || []).find(x => x.id === c.id); if (mine) { Object.assign(mine, r.custom); delete mine.pending; }
+      if (r.changed) { registerCustom(c); save(); window.R3D?.rebuild?.(); renderPanel(); toast(`A IA olhou o desenho de "${c.name}" e melhorou (nota ${r.score} de 5).`); }
+    }
+  } finally { reviewing = false; }
 }

@@ -35,7 +35,15 @@ body { background: var(--ground); color: var(--ink); font-family: var(--font-ui)
 #scene { position: fixed; inset: 0; display: block; touch-action: none; cursor: grab; }
 /* enquanto o 3D carrega: nada de sala 2D; só um aviso discreto */
 html.espera3d #scene { visibility: hidden !important; }
-html.espera3d body::after { content: 'Carregando o escritório…'; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 500 14px 'IBM Plex Sans', system-ui, sans-serif; color: #5C5866; opacity: .8; pointer-events: none; }
+/* tela de carregamento: página inteira, barra de progresso; nada da interface aparece por baixo (nem o campo de tarefa) */
+#loader { display: none; position: fixed; inset: 0; z-index: 1000; place-items: center; background: var(--ground, #E9E8EB); }
+html.espera3d #loader, body.booting #loader { display: grid; }
+body:has(#setup:not([hidden])) #loader { display: none; }
+.loader-box { display: grid; justify-items: center; gap: 14px; width: min(340px, calc(100vw - 48px)); font: 500 14px 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink-soft, #5C5866); }
+.loader-box b { font: 700 18px 'Pixelify Sans', system-ui, sans-serif; color: var(--ink, #24252B); }
+.loader-bar { width: 100%; height: 8px; border-radius: 99px; background: rgba(140, 79, 224, .16); overflow: hidden; }
+.loader-bar i { display: block; height: 100%; width: 5%; border-radius: inherit; background: var(--accent, #8C4FE0); transition: width .35s ease; }
+@media (prefers-reduced-motion: reduce) { .loader-bar i { transition: none; } }
 svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 button { font: 500 13px/1.2 var(--font-ui); color: var(--ink); background: var(--chip); border: 1.5px solid var(--line-strong); border-radius: 8px; cursor: pointer; padding: 6px 10px; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color .12s, border-color .12s, box-shadow .12s; }
@@ -465,7 +473,7 @@ body.clean:not(.is-live) .zoom { right: auto; left: calc(var(--panel-w) + 32px);
 /* configuração: nada aparece por trás */
 .setup { background: var(--ground); backdrop-filter: none; -webkit-backdrop-filter: none; }
 /* enquanto a página descobre se já existe escritório, não mostra nada (evita piscar a sala de exemplo) */
-body.booting > :not(.setup):not(script) { visibility: hidden; }
+body.booting > :not(.setup):not(script):not(#loader) { visibility: hidden; }
 
 /* ---------- Texto formatado (respostas da equipe) ---------- */
 .md { font-size: 14px; line-height: 1.6; color: var(--ink); overflow-wrap: anywhere; }

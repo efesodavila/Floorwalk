@@ -3,7 +3,9 @@ import { PLACES } from './places.mjs';
 export const PROTOCOL = 1;
 export const STATES = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'reuniao', 'entregando', 'aguardando', 'bloqueado', 'concluido', 'ocioso', 'offline'];
 // tipos de papel: o escritório decide o comportamento por eles; nome e id do papel são livres
-export const KINDS = ['coordena', 'produz', 'revisa', 'pesquisa', 'entrega'];
+// atende (cliente: venda, caixa, recepção, suporte) e opera (estoque, limpeza, manutenção, logística) cobrem
+// negócios que não são escritório, ex.: o caixa de uma loja de roupa é "atende"
+export const KINDS = ['coordena', 'produz', 'atende', 'opera', 'revisa', 'pesquisa', 'entrega'];
 export const TASK_STATUS = ['na_fila', 'em_andamento', 'concluida', 'erro', 'cancelada'];
 
 const clip = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };

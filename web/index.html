@@ -11,6 +11,15 @@
 <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
 </head>
 <body>
+<!-- tela de carregamento: cobre a página inteira até o 3D desenhar e o servidor responder (00-base.js: loadStep) -->
+<div id="loader" role="progressbar" aria-label="Carregando o escritório" aria-valuemin="0" aria-valuemax="100" aria-valuenow="5">
+  <div class="loader-box">
+    <svg width="44" height="44" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2 16 6 9 10 2 6Z" fill="#8C4FE0"/><path d="M2 6v6l7 4v-6Z" fill="#D3CBD3"/><path d="M16 6v6l-7 4v-6Z" fill="#FFFFFF"/></svg>
+    <b>Carregando o escritório</b>
+    <div class="loader-bar"><i id="loader-fill"></i></div>
+    <small id="loader-text">Preparando…</small>
+  </div>
+</div>
 <div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title" hidden>
   <div class="setup-card">
     <ol class="setup-steps" aria-label="Etapas da configuração">
@@ -49,7 +58,7 @@
 </div>
 
 <div class="top-right">
-  <button type="button" id="menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="menu"><svg class="i" viewBox="0 0 20 20"><path d="M4 6h12M4 10h12M4 14h12"/></svg><span id="menu-label">Menu</span></button>
+  <button type="button" id="menu-btn" aria-label="Menu" title="Menu" aria-haspopup="menu" aria-expanded="false" aria-controls="menu"><svg class="i" viewBox="0 0 20 20"><path d="M4 6h12M4 10h12M4 14h12"/></svg></button>
   <div class="menu" id="menu" role="menu" aria-label="Configurações" hidden>
     <div class="menu-head" id="menu-head"></div>
     <button type="button" role="menuitem" id="m-team">Equipe</button>
@@ -57,12 +66,13 @@
     <button type="button" role="menuitem" id="m-office" data-bridge>Descrever o negócio de novo</button>
     <button type="button" role="menuitem" id="ai-btn" data-bridge>Trocar a IA</button>
     <button type="button" role="menuitem" id="amb-btn" title="Iluminação por horário"></button>
-    <button type="button" role="menuitem" id="open-rules">Como os personagens se comportam</button>
+    <!-- regras e ferramentas de desenvolvimento ficam fora do menu (dono); ?dev no endereço liga o modo desenvolvedor -->
+    <button type="button" role="menuitem" id="open-rules" hidden>Como os personagens se comportam</button>
     <hr>
     <button type="button" role="menuitem" id="m-web" aria-pressed="true" data-bridge title="Os agentes podem buscar na web e ler páginas (só leitura)">Pesquisa na internet</button>
     <!-- o visual é sempre 3D; o 2D só entra sozinho quando o navegador não tem WebGL (ou com ?2d, para testes) -->
     <button type="button" role="menuitem" id="m-3d" aria-pressed="true" hidden>Visual 3D</button>
-    <button type="button" role="menuitem" id="m-dev" aria-pressed="false">Ferramentas de desenvolvimento</button>
+    <button type="button" role="menuitem" id="m-dev" aria-pressed="false" hidden>Ferramentas de desenvolvimento</button>
     <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
     <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>
   </div>

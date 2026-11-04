@@ -24,6 +24,8 @@ REGRAS
 - Papéis próprios deste negócio (ex.: "Redação", "Atendimento", "Nutrição"). Cada papel tem um "tipo", que define o comportamento:
   coordena = organiza o trabalho (exatamente UM papel com este tipo, com uma pessoa)
   produz   = faz o trabalho principal (pelo menos um)
+  atende   = lida direto com o cliente: venda, caixa, recepção, suporte, agendamento
+  opera    = mantém o lugar funcionando: estoque, reposição, limpeza, manutenção, logística
   revisa   = confere o que foi produzido
   pesquisa = busca informação
   entrega  = publica, envia ou entrega ao cliente
@@ -32,6 +34,8 @@ REGRAS
 - "estilo": um destes: ${STYLES.join(', ')}.
 - "entrega": "servidor" se o resultado é digital (site, app, sistema); "impressora" se é documento, relatório ou material físico.
 - "areas": "estudio" true se o negócio grava vídeo ou fotos; "recepcao" true se atende clientes presencialmente.
+- "planta": "retangular" (sala única) ou "em_l" (sala em L: uma ala na frente, junto da entrada, com sala de espera
+  e área de descanso). Use "em_l" quando o negócio recebe clientes ou precisa de um canto separado do trabalho.
 - O escritório já tem: mesas com computador, quadro kanban, sala de reunião com TV, copa, estante, poltrona e sofá.
   "elementos": até 3 móveis EXTRAS deste catálogo que o negócio realmente usa no dia a dia (ids):
 ${Object.entries(CATALOG).map(([id, c]) => `    ${id}: ${c.name} (${c.for})`).join('\n')}
@@ -42,7 +46,7 @@ ${Object.entries(CATALOG).map(([id, c]) => `    ${id}: ${c.name} (${c.for})`).jo
 - Tudo em português do Brasil.
 
 Responda SOMENTE com o JSON, sem texto antes ou depois, neste formato:
-{"nome":"Nome do escritório","servico":"uma frase","estilo":"moderno","entrega":"servidor","areas":{"estudio":false,"recepcao":false},
+{"nome":"Nome do escritório","servico":"uma frase","estilo":"moderno","entrega":"servidor","areas":{"estudio":false,"recepcao":false},"planta":"retangular",
 "papeis":[{"id":"coordenacao","nome":"Coordenação","tipo":"coordena"},{"id":"redacao","nome":"Redação","tipo":"produz"}],
 "equipe":[{"nome":"Ana","papel":"coordenacao","funcao":"Organiza as entregas da semana"},{"nome":"Bia","papel":"redacao","funcao":"Escreve os posts"}],
 "rotulos":{"trabalhando":"Escrevendo"},"elementos":[],"moveis_novos":[],
@@ -113,6 +117,7 @@ export function normalizeSpec(raw) {
     style: STYLES.includes(raw.estilo) ? raw.estilo : 'moderno',
     delivery: raw.entrega === 'impressora' ? 'impressora' : 'servidor',
     areas: { studio: !!raw.areas?.estudio, reception: !!raw.areas?.recepcao },
+    layout: /^em[_ ]?l$/i.test(String(raw.planta || '').trim()) ? 'L' : 'rect',
     roles: finalRoles, team, labels,
     extras: [...new Set((Array.isArray(raw.elementos) ? raw.elementos : []).map(x => String(x).toLowerCase().trim()).filter(id => CATALOG[id]))].slice(0, 3),
     customRequests: (Array.isArray(raw.moveis_novos) ? raw.moveis_novos : []).map(m => ({ name: clip(m?.nome, 40), purpose: clip(m?.finalidade, 120), like: String(m?.parecido_com || '').toLowerCase().trim() }))
@@ -152,5 +157,12 @@ export async function load() { try { return JSON.parse(await fs.readFile(FILE, '
 export async function save(spec) {
   await fs.mkdir(path.dirname(FILE), { recursive: true });
   await fs.writeFile(FILE, JSON.stringify({ ...spec, createdAt: new Date().toISOString() }, null, 2), { mode: 0o600 });
+}
+// muda o escritório salvo sem trocar a data de criação (a página usa a data para saber se é outro escritório)
+export async function update(fn) {
+  const cur = await load(); if (!cur) return null;
+  const next = fn(structuredClone(cur)) || cur;
+  await fs.writeFile(FILE, JSON.stringify({ ...next, createdAt: cur.createdAt }, null, 2), { mode: 0o600 });
+  return next;
 }
 export { STATES };

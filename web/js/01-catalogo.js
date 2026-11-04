@@ -22,11 +22,21 @@ const PANTS = ['#24252B', '#3C4A66', '#6B5A4A', '#9AA0A8'];
 const NAMES = ['Joana', 'Caio', 'Lia', 'Theo', 'Nina', 'Igor', 'Duda', 'Leo', 'Malu', 'Enzo'];
 const SHOES = ['#2C2E34', '#FFFFFF', '#8E5B3A', '#E0473B', '#2F5FD0'];
 const HAIRSTYLES = [['curto', 'Curto'], ['franja', 'Franja'], ['longo', 'Longo'], ['coque', 'Coque'], ['rabo', 'Rabo de cavalo'], ['cacheado', 'Cacheado'], ['raspado', 'Raspado']];
-const TOPS = [['camiseta', 'Camiseta'], ['camisa', 'Camisa'], ['jaqueta', 'Jaqueta'], ['moletom', 'Moletom']];
+const TOPS = [['camiseta', 'Camiseta'], ['camisa', 'Camisa'], ['jaqueta', 'Jaqueta'], ['moletom', 'Moletom'], ['terno', 'Terno']];
 const EXTRAS = [['cracha', 'Crachá'], ['oculos', 'Óculos'], ['fone', 'Fone'], ['barba', 'Barba']];
-function randomLook() {
+// gênero: escolhido no editor; decide quais penteados aparecem (cada penteado tem um modelo 3D próprio,
+// feminino ou masculino) e se a barba existe (só os modelos masculinos têm barba)
+const GENDERS = [['f', 'Feminino'], ['m', 'Masculino']];
+const HAIR_G = { f: ['longo', 'coque', 'rabo'], m: ['curto', 'franja', 'cacheado', 'raspado'] };
+const NAME_G = { Joana: 'f', Caio: 'm', Lia: 'f', Theo: 'm', Nina: 'f', Igor: 'm', Duda: 'f', Leo: 'm', Malu: 'f', Enzo: 'm' };
+// palpite pelo primeiro nome (quem cria pela IA ou pelo chat); a pessoa pode trocar no editor
+function genderOfName(n) { const s = String(n || '').trim().split(/\s+/)[0]; return NAME_G[s] || (/a$/i.test(s) && !/^(luca|joshua|noa)$/i.test(s) ? 'f' : 'm'); }
+// pessoas salvas antes do campo "gender": o penteado diz qual modelo ela já usa
+function genderOf(p) { return p.gender === 'f' || p.gender === 'm' ? p.gender : (HAIR_G.f.includes(p.hairStyle) ? 'f' : 'm'); }
+function randomLook(g) {
   const r = a => a[Math.floor(Math.random() * a.length)];
-  return { skin: r(SKIN), hair: r(HAIR.slice(0, 5)), hairStyle: r(HAIRSTYLES)[0], top: r(TOPS)[0], shirt: r(SHIRT), pants: r(PANTS), shoes: r(SHOES), extras: { cracha: Math.random() < .6, oculos: Math.random() < .3, fone: Math.random() < .2, barba: Math.random() < .2 } };
+  if (g !== 'f' && g !== 'm') g = Math.random() < .5 ? 'f' : 'm';
+  return { gender: g, skin: r(SKIN), hair: r(HAIR.slice(0, 5)), hairStyle: r(HAIR_G[g]), top: r(TOPS)[0], shirt: r(SHIRT), pants: r(PANTS), shoes: r(SHOES), extras: { cracha: Math.random() < .6, oculos: Math.random() < .3, fone: Math.random() < .2, barba: g === 'm' && Math.random() < .25 } };
 }
 
 const MET = '#2C2E34', CHR = '#3B3E46', FRAME = '#4A4F5A';
@@ -138,7 +148,7 @@ const ITEMS = {
   mesa_embalagem: { n: 'Mesa de embalagem', cat: 'comércio', w: 2, d: 1, boxes: [
     B(.08, .2, .08, .08, 0, .8, MET), B(1.84, .2, .08, .08, 0, .8, MET), B(.08, .72, .08, .08, 0, .8, MET), B(1.84, .72, .08, .08, 0, .8, MET),
     B(0, .1, 2, .85, .8, .06, '#EFE9E0'), B(.2, .25, .55, .45, .86, .35, '#C98F57'), B(.2, .45, .55, .04, 1.21, .01, '#F2B630'), B(.95, .3, .45, .4, .86, .25, '#C98F57'), B(1.55, .35, .22, .22, .86, .1, '#9AA0A8')] },
-  capacho: { n: 'Capacho de entrada', cat: 'decoração', w: 2, d: 1, flat: true, boxes: [B(.1, .1, 1.8, .8, 0, .02, '#5C5866'), B(.2, .2, 1.6, .6, .02, .005, '#8C4FE0')] },
+  capacho: { n: 'Porta de entrada', cat: 'decoração', w: 2, d: 1, flat: true, door: true, boxes: [B(.1, .1, 1.8, .8, 0, .02, '#5C5866'), B(.2, .2, 1.6, .6, .02, .005, '#8C4FE0')] },
 };
 
 /* Paredes e divisórias: desenhadas arrastando ao longo da grade */
@@ -208,6 +218,8 @@ const PLACES = {
 const KINDS = {
   coordena: { n: 'Coordena', does: 'Organiza o trabalho e ajuda quem está bloqueado.' },
   produz:   { n: 'Produz', does: 'Faz o trabalho principal.' },
+  atende:   { n: 'Atende', does: 'Lida direto com o cliente: venda, caixa, recepção, suporte.' },
+  opera:    { n: 'Opera', does: 'Mantém o lugar funcionando: estoque, reposição, limpeza, manutenção.' },
   revisa:   { n: 'Revisa', does: 'Confere o que os outros produziram.' },
   pesquisa: { n: 'Pesquisa', does: 'Busca informação e referências.' },
   entrega:  { n: 'Entrega', does: 'Publica, envia ou entrega o resultado.' },
@@ -217,6 +229,8 @@ const ROLE_COLORS = ['#8C4FE0', '#2F5FD0', '#2FA5A0', '#3AA655', '#E07A3B', '#E0
 const ROLES_GENERIC = {
   coordenacao: { n: 'Coordenação', c: '#8C4FE0', kind: 'coordena' },
   producao:    { n: 'Produção', c: '#2F5FD0', kind: 'produz' },
+  atendimento: { n: 'Atendimento', c: '#C9921A', kind: 'atende' },
+  operacao:    { n: 'Operação', c: '#4C6FB8', kind: 'opera' },
   revisao:     { n: 'Revisão', c: '#2FA5A0', kind: 'revisa' },
   pesquisa:    { n: 'Pesquisa', c: '#3AA655', kind: 'pesquisa' },
   entrega:     { n: 'Entrega', c: '#E07A3B', kind: 'entrega' },

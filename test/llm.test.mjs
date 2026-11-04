@@ -83,3 +83,13 @@ test('nenhum modelo responde: erro claro com o que foi testado', async () => {
   OK.clear();
   await assert.rejects(llm.pickModel('openai', { apiKey: 'sk-teste', baseUrl: base }), (e) => { assert.equal(e.code, 'no_model'); assert.match(e.message, /gpt-9-mini/); return true; });
 });
+
+test('crítica visual: na OpenAI usa sempre o gpt-6.1-sol; outros provedores seguem o modelo da conta', () => {
+  const old = process.env.PIXELHQ_CRITIC_MODEL; delete process.env.PIXELHQ_CRITIC_MODEL;
+  try {
+    assert.equal(llm.criticModel('openai'), 'gpt-6.1-sol');
+    assert.equal(llm.criticModel('anthropic'), null);
+    process.env.PIXELHQ_CRITIC_MODEL = 'outro';
+    assert.equal(llm.criticModel('openai'), 'outro');
+  } finally { if (old === undefined) delete process.env.PIXELHQ_CRITIC_MODEL; else process.env.PIXELHQ_CRITIC_MODEL = old; }
+});

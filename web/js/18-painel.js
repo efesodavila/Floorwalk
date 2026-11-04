@@ -110,10 +110,11 @@ function pessoasHTML() {
       <p class="hint" style="margin:-6px 0 0">Os eventos encontram o agente por esse nome.</p>
       <div><span class="field-label">Papel</span><div class="looks">${Object.entries(ROLES).map(([k, r]) => `<button type="button" data-role="${k}" aria-pressed="${p.role === k}">${r.n}</button>`).join('')}</div></div>
       ${sw('skin', SKIN, 'Pele')}
-      ${chips('hairStyle', HAIRSTYLES, 'Cabelo')}${sw('hair', HAIR, 'Cor do cabelo')}
+      ${chips('gender', GENDERS, 'Gênero')}
+      ${chips('hairStyle', HAIRSTYLES.filter(([k]) => HAIR_G[genderOf(p)].includes(k)), 'Cabelo')}${sw('hair', HAIR, 'Cor do cabelo')}
       ${chips('top', TOPS, 'Roupa')}${sw('shirt', SHIRT, 'Cor da roupa')}
       ${sw('pants', PANTS, 'Calça')}${sw('shoes', SHOES, 'Sapato')}
-      <div><span class="field-label">Acessórios</span><div class="looks">${EXTRAS.map(([k, n]) => `<button type="button" data-extra="${k}" aria-pressed="${!!ex[k]}">${n}</button>`).join('')}</div></div>
+      <div><span class="field-label">Acessórios</span><div class="looks">${EXTRAS.filter(([k]) => k !== 'barba' || genderOf(p) === 'm').map(([k, n]) => `<button type="button" data-extra="${k}" aria-pressed="${!!ex[k]}">${n}</button>`).join('')}</div></div>
       <p class="hint" style="margin:0">Para mudar ${p.name} de lugar, arraste na sala e solte onde quiser.</p>
       <div class="row"><button type="button" class="danger" id="rm">${IC.trash}Remover ${p.name}</button></div>
     </div>`;
@@ -136,7 +137,7 @@ function bindPessoas() {
     add.onclick = () => {
       const used = new Set(W.people.map(p => p.name)), name = NAMES.find(n => !used.has(n)) || 'Pessoa ' + (W.people.length + 1);
       const b = bounds(), id = nid('p'), pos = freeSpotNear((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
-      change(() => W.people.push({ id, name, ...randomLook(), role: defaultRole(), pos }), `${name} entrou na equipe. Arraste para onde quiser.`);
+      change(() => W.people.push({ id, name, ...randomLook(genderOfName(name)), role: defaultRole(), pos }), `${name} entrou na equipe. Arraste para onde quiser.`);
       editing = id; renderPanel(); dirty();
     };
     body.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = b.dataset.edit; renderPanel(); dirty(); });
@@ -151,9 +152,16 @@ function bindPessoas() {
   nameEl.onblur = () => { if (before) pushBefore(before); before = null; };
   body.querySelectorAll('[data-f]').forEach(b => b.onclick = () => change(() => { W.people.find(q => q.id === editing)[b.dataset.f] = b.dataset.c; }));
   body.querySelectorAll('[data-role]').forEach(b => b.onclick = () => change(() => { W.people.find(q => q.id === editing).role = b.dataset.role; }, `Papel: ${ROLES[b.dataset.role].n}`));
-  body.querySelectorAll('[data-style]').forEach(b => b.onclick = () => change(() => { W.people.find(q => q.id === editing)[b.dataset.style] = b.dataset.v; }));
+  body.querySelectorAll('[data-style]').forEach(b => b.onclick = () => change(() => {
+    const q = W.people.find(r => r.id === editing); q[b.dataset.style] = b.dataset.v;
+    // trocou o gênero: penteado e barba acompanham
+    if (b.dataset.style === 'gender') {
+      if (!HAIR_G[q.gender].includes(q.hairStyle)) q.hairStyle = HAIR_G[q.gender][0];
+      if (q.gender === 'f') q.extras = { ...(q.extras || {}), barba: false };
+    }
+  }));
   body.querySelectorAll('[data-extra]').forEach(b => b.onclick = () => change(() => { const q = W.people.find(r => r.id === editing); q.extras = { ...(q.extras || {}), [b.dataset.extra]: !q.extras?.[b.dataset.extra] }; }));
-  body.querySelector('#rand').onclick = () => change(() => { Object.assign(W.people.find(q => q.id === editing), randomLook()); }, 'Visual sorteado');
+  body.querySelector('#rand').onclick = () => change(() => { const q = W.people.find(r => r.id === editing); Object.assign(q, randomLook(genderOf(q))); }, 'Visual sorteado');
   body.querySelector('#locate').onclick = () => {
     const A = sceneArea(), [sx, sy] = iso(p.pos[0], p.pos[1], 1); view.cx += (A.x0 + A.x1) / 2 - sx; view.cy += (A.y0 + A.y1) / 2 - sy; dirty();
   };

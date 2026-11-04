@@ -29,6 +29,12 @@ export function rankModels(provider, models) {
 }
 export const recommendModel = (provider, models) => rankModels(provider, models)[0] || null;
 const isOpenAIChat = (id) => /^(gpt-|o\d|chatgpt-)/i.test(id) && !OPENAI_NON_CHAT.test(id);
+// mensagens com imagens ({ role, content, images: [{ mime, data(base64) }] }) no formato de cada API
+const dataURL = (im) => `data:${im.mime};base64,${im.data}`;
+const asResponses = (m) => m.images?.length ? { role: m.role, content: [{ type: 'input_text', text: m.content }, ...m.images.map(im => ({ type: 'input_image', image_url: dataURL(im) }))] } : { role: m.role, content: m.content };
+const asChatCompletions = (m) => m.images?.length ? { role: m.role, content: [{ type: 'text', text: m.content }, ...m.images.map(im => ({ type: 'image_url', image_url: { url: dataURL(im) } }))] } : { role: m.role, content: m.content };
+const asAnthropic = (m) => m.images?.length ? { role: m.role, content: [...m.images.map(im => ({ type: 'image', source: { type: 'base64', media_type: im.mime, data: im.data } })), { type: 'text', text: m.content }] } : { role: m.role, content: m.content };
+const asOllama = (m) => m.images?.length ? { role: m.role, content: m.content, images: m.images.map(im => im.data) } : { role: m.role, content: m.content };
 
 export const PROVIDERS = {
   openai: {
@@ -52,7 +58,7 @@ export const PROVIDERS = {
           // sem max_output_tokens: em modelos com raciocínio, um limite baixo consome a resposta inteira
           const r = await this.client(cfg, CHAT_TIMEOUT).responses.create({
             model: cfg.model, instructions: cfg.system || undefined,
-            input: cfg.messages.map(m => ({ role: m.role, content: m.content })),
+            input: cfg.messages.map(asResponses),
             ...(cfg.json ? { text: { format: { type: 'json_object' } } } : {}),
           }, { signal: cfg.signal });
           return r.output_text ?? '';
@@ -65,7 +71,7 @@ export const PROVIDERS = {
       }
       const r = await this.client(cfg, CHAT_TIMEOUT).chat.completions.create({
         model: cfg.model,
-        messages: [...(cfg.system ? [{ role: 'system', content: cfg.system }] : []), ...cfg.messages.map(m => ({ role: m.role, content: m.content }))],
+        messages: [...(cfg.system ? [{ role: 'system', content: cfg.system }] : []), ...cfg.messages.map(asChatCompletions)],
         ...(cfg.json ? { response_format: { type: 'json_object' } } : {}),
       }, { signal: cfg.signal });
       return r.choices?.[0]?.message?.content ?? '';
@@ -86,7 +92,7 @@ export const PROVIDERS = {
     async chat(cfg) {
       const r = await this.client(cfg, CHAT_TIMEOUT).messages.create({
         model: cfg.model, max_tokens: cfg.maxTokens || 4096, system: cfg.system || undefined,
-        messages: cfg.messages.map(m => ({ role: m.role, content: m.content })),
+        messages: cfg.messages.map(asAnthropic),
       }, { signal: cfg.signal });
       return r.content.filter(b => b.type === 'text').map(b => b.text).join('');
     },
@@ -117,7 +123,7 @@ export const PROVIDERS = {
       return { models, recommended: models[0] };
     },
     async chat(cfg) {
-      const messages = [...(cfg.system ? [{ role: 'system', content: cfg.system }] : []), ...cfg.messages];
+      const messages = [...(cfg.system ? [{ role: 'system', content: cfg.system }] : []), ...cfg.messages.map(asOllama)];
       const r = await this.req(cfg, '/api/chat', { model: cfg.model, messages, stream: false, ...(cfg.json ? { format: 'json' } : {}) }, cfg.signal);
       return r.message?.content ?? '';
     },

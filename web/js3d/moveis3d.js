@@ -1,10 +1,10 @@
-// Móveis em 3D no estilo dos personagens: low-poly facetado (poucas faces, sombreado chapado), cantos chanfrados,
+// Móveis em 3D no estilo dos personagens: low-poly facetado (poucas faces, sombreado chapado), quinas retas,
 // formas redondas onde a peça é redonda (vasos, troncos, assentos, luminárias) e folhas/roupas recortadas.
 //
 // O catálogo (web/js/01-catalogo.js) continua sendo a verdade para tamanho, colisão, pontos de uso e o desenho 2D.
 // Aqui cada item pode ter um MODELO: uma função que monta peças no espaço do item (x de 0 a w, z de 0 a d,
 // fundo em z = 0, frente — onde a pessoa usa — em z = d; y para cima) sem girar. Quem chama aplica giro e posição.
-// Sem modelo, o item é desenhado com as caixas do catálogo (chanfradas) e cadeiras de verdade no lugar das caixas.
+// Sem modelo, o item é desenhado com as caixas do catálogo e cadeiras de verdade no lugar das caixas.
 // Partes animadas (telas, LEDs, vapor, papel, notas do quadro) continuam vindo das caixas do catálogo.
 
 export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
@@ -17,8 +17,8 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
   const memo = (k, f) => { if (!G.has(k)) G.set(k, f()); return G.get(k); };
   const n3 = (v) => Math.round(v * 1000) / 1000;
   const rbox = (w, h, d, r) => memo(`b${n3(w)},${n3(h)},${n3(d)},${n3(r)}`, () => {
-    const rr = Math.min(r, w / 2 - .002, h / 2 - .002, d / 2 - .002);
-    return rr > .006 ? new RoundedBoxGeometry(w, h, d, 1, rr) : new THREE.BoxGeometry(w, h, d);
+    // quinas retas (decisão do dono: móvel reto sem chanfro); o contorno preto marca cada aresta
+    return new THREE.BoxGeometry(w, h, d);
   });
   const cylG = (rt, rb, h, seg) => memo(`c${n3(rt)},${n3(rb)},${n3(h)},${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg, 1));
   const icoG = (r, det) => memo(`i${n3(r)},${det}`, () => new THREE.IcosahedronGeometry(r, det));
@@ -100,9 +100,10 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     P.box(bx - .23, bz - .045, .46, .09, .48, .4, CHR, { r: .04, ry: yaw });
   }
   // vaso com terra
-  function pot(P, cx, cz, r, h, c = POT) {
-    P.lathe(cx, cz, 0, [[0, 0], [r * .78, 0], [r, h * .85], [r * 1.06, h * .88], [r * 1.06, h], [r * .92, h], [0, h * .9]], c, { seg: 8 });
-    P.cyl(cx, cz, r * .9, r * .9, h * .9, .02, SOIL, { seg: 8 });
+  // y = altura do apoio (chão, prateleira ou tampo): o vaso fica sobre ele, junto com a planta
+  function pot(P, cx, cz, r, h, c = POT, y = 0) {
+    P.lathe(cx, cz, y, [[0, 0], [r * .78, 0], [r, h * .85], [r * 1.06, h * .88], [r * 1.06, h], [r * .92, h], [0, h * .9]], c, { seg: 8 });
+    P.cyl(cx, cz, r * .9, r * .9, y + h * .9, .02, SOIL, { seg: 8 });
   }
   // moita de folhas: bolas facetadas de verdes diferentes
   function bush(P, cx, y, cz, r, n = 5, seed = 0) {
@@ -146,10 +147,10 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
     },
     plantshelf(P) {
       P.base([5, 6, 7, 8]);
-      pot(P, .45, .5, .13, .2, '#C98F57'); bush(P, .45, .7, .5, .14, 4, 1);
-      pot(P, 1.37, .5, .12, .18, POT); spikes(P, 1.37, 1.19, .5, 6, .36, 1);
-      pot(P, .5, .5, .12, .18, '#C98F57'); crown(P, .5, 1.64, .5, 7, .32, .1, .45, .2);
-      pot(P, 1.5, .5, .13, .2, POT); bush(P, 1.5, 1.66, .5, .16, 5, 2);
+      pot(P, .45, .5, .13, .2, '#C98F57', .51); bush(P, .45, .7, .5, .14, 4, 1);
+      pot(P, 1.37, .5, .12, .18, POT, 1.01); spikes(P, 1.37, 1.19, .5, 6, .36, 1);
+      pot(P, .5, .5, .12, .18, '#C98F57', 1.46); crown(P, .5, 1.64, .5, 7, .32, .1, .45, .2);
+      pot(P, 1.5, .5, .13, .2, POT, 1.46); bush(P, 1.5, 1.66, .5, .16, 5, 2);
     },
     vase(P, o, colorOf) {
       P.lathe(.5, .5, 0, [[0, 0], [.13, 0], [.19, .2], [.2, .5], [.14, .78], [.1, .88], [.12, .92], [0, .9]], 'C', { seg: 8 });
@@ -201,7 +202,7 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.box(.1, .15, 1.8, .7, .35, .07, '#C98F57', { r: .035 });
       P.box(.35, .33, .36, .26, .42, .05, '#2F5FD0', { r: .01 }); P.box(.38, .35, .32, .24, .47, .05, '#F2B630', { r: .01, ry: .15 });
       P.cyl(1.35, .48, .06, .05, .42, .11, '#FFFFFF', { seg: 8 });
-      pot(P, 1.68, .5, .08, .12); bush(P, 1.68, .54, .5, .08, 3, 1);
+      pot(P, 1.68, .5, .08, .12, POT, .42); bush(P, 1.68, .54, .5, .08, 3, 1);
     },
     floorlamp(P) {
       P.cyl(.5, .5, .17, .19, 0, .05, MET, { seg: 8 });
@@ -249,7 +250,7 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.cyl(.55, .7, .05, .05, 1.28, .08, MET, { seg: 8 });
       P.box(.38, .68, .34, .02, 1.25, .2, '#24252B', { r: 0 });
       P.cyl(1.47, .48, .065, .055, 1.03, .13, '#FFFFFF', { seg: 8 }); P.cyl(1.77, .48, .065, .055, 1.03, .13, '#FFFFFF', { seg: 8 });
-      pot(P, 2.52, .48, .17, .3); bush(P, 2.52, 1.35, .48, .18, 5, 2);
+      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.35, .48, .18, 5, 2);
     },
     fogao(P) {
       P.base([4, 5, 6, 7, 8, 9, 10]);
@@ -340,7 +341,7 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.box(-.04, .82, 3.08, .74, 1.05, .06, '#C98F57', { r: .03 });
       P.box(.15, .55, 2.7, .38, .72, .04, '#EFE9E0', { r: .02 });
       monitor(P, 1.2, .72, .6, .07, 1.11, .38, -1);
-      pot(P, 2.6, 1.15, .1, .16); bush(P, 2.6, 1.27, 1.15, .11, 4, 1);
+      pot(P, 2.6, 1.15, .1, .16, POT, 1.11); bush(P, 2.6, 1.27, 1.15, .11, 4, 1);
       P.cyl(.45, 1.15, .06, .07, 1.11, .03, '#C9CDD4', { seg: 8 }); P.ball(.45, 1.15, 1.15, .045, '#C9CDD4', { sy: .7 });
       P.chairs();
     },
@@ -506,7 +507,7 @@ export function furnitureKit({ THREE, RoundedBoxGeometry, isAnim }) {
       P.cyl(.55, .7, .05, .05, 1.28, .08, MET, { seg: 8 });
       P.box(.38, .68, .34, .02, 1.25, .2, '#24252B', { r: 0 });
       mug(P, 1.47, .48, 1.03); mug(P, 1.77, .48, 1.03, '#E0473B');
-      pot(P, 2.52, .48, .17, .3); bush(P, 2.52, 1.35, .48, .18, 5, 2);
+      pot(P, 2.52, .48, .17, .3, POT, 1.03); bush(P, 2.52, 1.35, .48, .18, 5, 2);
     },
     // cadeira de barbeiro virada para o espelho: base cromada, assento e encosto altos estofados, apoio de cabeça e de pés
     cadeira_salao(P, o, colorOf) {

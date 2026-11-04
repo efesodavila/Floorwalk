@@ -2,6 +2,8 @@
 
 // móveis criados pela IA neste escritório precisam existir no catálogo antes do primeiro desenho
 for (const c of W.custom || []) registerCustom(c);
+fixDoor(W);
+loadStep(.15, 'Montando a sala…');
 
 /* ---------- Início ---------- */
 resize(); applyUI(); renderBrand(); setTab('planta'); renderFoot(); fit(); requestAnimationFrame(frame);

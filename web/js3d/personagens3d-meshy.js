@@ -32,14 +32,50 @@ const MODELS = {
   menino_franja: { file: 'menino_franja_acessorios.glb', a: { hair: '#F3790D', skin: '#F6B382', shirt: '#620E80', dark: '#111016', sole: '#DCD6DA' },
     roles: { torso: [[.001, .409, .014]], face: [[.001, .743, .018]], head: [[.001, .747, 0]] }, chinOnHead: true,
     acc: { oculos: [[-.075, .705, .177], [.076, .705, .177], [0, .717, .179], [-.156, .711, .066], [.157, .711, .066]], fone: [[.001, .865, .005], [-.181, .688, .005], [.181, .688, .005], [-.217, .685, .007], [.218, .685, .007], [-.155, .68, .014], [.16, .68, .014]], cracha: [[.001, .464, .033], [.001, .417, .119], [.001, .382, .114]], barba: [[.001, .649, .063]] } },
-    menina_rabo2: { file: 'menina_rabo_acessorios.glb', a: { hair: '#ED7E0C', skin: '#F4B788', shirt: '#70089E', dark: '#17151B', sole: '#DBC3B4' },
-    roles: { torso: [[-.001, .389, .053]], face: [[0, .712, .044]], head: [[-.008, .557, 0], [-.138, .365, -.153]] },
-    acc: { oculos: [[-.081, .675, .226], [.078, .675, .226], [-.002, .694, .227], [-.158, .689, .14], [.158, .689, .14]], fone: [[-.001, .844, .061], [-.182, .659, .055], [.182, .658, .055], [-.213, .656, .057], [.213, .656, .056]], cracha: [[-.001, .444, .07], [.001, .385, .156], [-.002, .352, .146]] } },
 };
-const POR_PENTEADO = { curto: 'menino_curto', franja: 'menino_franja', longo: 'menina_longo', rabo: 'menina_rabo2', coque: 'menina_rabo', cacheado: 'menino_cacheado', raspado: 'menino_raspado' };
+// rabo de cavalo refeito (2026-11-03) como o raspado: armação sem lentes, olhos em peças à parte (sempre visíveis)
+// (tronco e pernas são uma ilha só: o peito, onde o crachá foi pintado, fica acima da cintura → chest)
+MODELS.menina_rabo3 = { file: 'menina_rabo3_acessorios.glb', a: { hair: '#F6800A', skin: '#FBBB95', shirt: '#6A098D', dark: '#0A090A', sole: '#CFBAAE' }, chest: .6,
+  roles: { torso: [[-.001, .253, .03]], face: [[-.001, .704, .014]], head: [[-.003, .751, .006], [-.09, .393, -.151]] },
+  acc: { oculos: [[0, .669, .106]], fone: [[-.002, .814, .007], [-.186, .664, .009], [.186, .664, .008]], cracha: [[-.002, .449, .022], [-.004, .36, .089], [-.004, .389, .092]] } };
+const POR_PENTEADO = { curto: 'menino_curto', franja: 'menino_franja', longo: 'menina_longo', rabo: 'menina_rabo3', coque: 'menina_rabo', cacheado: 'menino_cacheado', raspado: 'menino_raspado' };
 
 // exportados para os testes (conferem que cada peça listada existe no .glb)
-export { MODELS, POR_PENTEADO };
+// roupa terno (gerados em 2026-11-03, a partir de retratos dos modelos acima): um modelo por penteado.
+// O terno mantém a cor do modelo (cinza nos meninos, marinho nas meninas): papel 'suit' = só a pele é repintada.
+// 'keep' = peça com a cor original (olhos e boca em peças à parte). Âncoras 'keep*' ajudam a separar terno de pele.
+// Crachá: o Meshy também o pintou no paletó e apagar a marca deixou manchas; por isso, no terno, o crachá fica
+// sempre (fora de 'acc'), exceto no cacheado, que veio sem crachá. No longo, cabelo, rosto e corpo são uma peça só.
+const T = { keep: '#F2EEEC' };
+Object.assign(MODELS, {
+  terno_curto: { file: 'terno_curto.glb', a: { hair: '#CC630B', skin: '#F8C5A6', dark: '#0B0A0B', keep: '#26252E', keep2: T.keep, keep3: '#333244' },
+    roles: { suit: [[-.002, .388, .004], [0, .149, .02]], face: [[-.001, .675, .031]], head: [[0, .768, 0]], keep: [[.064, .675, .158], [-.062, .675, .158], [0, .6, .16]] },
+    acc: { oculos: [[.1, .671, .083], [-.099, .67, .083], [0, .689, .169]], fone: [[-.197, .665, -.005], [.197, .665, -.005], [-.002, .849, -.017]], barba: [[.001, .616, .072]] } },
+  terno_franja: { file: 'terno_franja.glb', a: { hair: '#CE630E', skin: '#F4BEA1', dark: '#080809', keep: '#2E2D33', keep2: T.keep },
+    roles: { suit: [[0, .287, .014]], face: [[-.002, .745, -.003]], head: [[0, .77, 0]], keep: [[-.061, .709, .164], [.063, .709, .165]] },
+    acc: { oculos: [[-.07, .709, .179], [.07, .709, .178], [0, .722, .185], [-.145, .733, .096], [.145, .733, .095]], fone: [[.191, .704, -.002], [-.191, .704, 0], [0, .869, -.002]], barba: [[0, .632, .091]] } },
+  terno_cacheado: { file: 'terno_cacheado.glb', a: { hair: '#94541A', skin: '#F2D0BC', dark: '#080809', keep: '#252833', keep2: T.keep },
+    roles: { suit: [[0, .44, .034]], head: [[0, .755, 0]], keep: [[-.063, .64, .178], [.063, .64, .178], [0, .571, .17]] },
+    acc: { oculos: [[0, .643, .136]], fone: [[.225, .656, .06], [-.225, .645, .06], [-.187, .648, .055], [.188, .648, .055], [.001, .823, .068], [-.223, .722, .058]],
+      barba: [[.001, .559, .08], [.1, .597, .152], [-.1, .597, .153]] } },
+  terno_raspado: { file: 'terno_raspado.glb', a: { hair: '#A2703F', skin: '#FDC6A5', dark: '#080808', keep: '#35363C', keep2: T.keep },
+    roles: { suit: [[-.003, .306, .009], [0, .404, .014], [0, .187, .009], [.092, .038, .027], [-.092, .038, .026], [.095, .008, .025], [-.095, .008, .026], [.346, .355, .026]],
+      face: [[0, .762, -.001]], keep: [[-.069, .744, .146], [.07, .744, .146]] },
+    acc: { oculos: [[-.079, .737, .193], [.079, .737, .193], [0, .764, .2], [.164, .744, .071], [-.166, .744, .071]], fone: [[-.172, .715, -.003], [.174, .715, -.004], [-.201, .707, -.011], [.201, .707, -.011], [0, .865, -.02]], barba: [[0, .624, .109]] } },
+  terno_longo: { file: 'terno_longo.glb', a: { hair: '#C55C09', skin: '#FCCCA9', keep: '#0A2038', keep2: '#141A21', keep3: T.keep },
+    roles: { keep: [[.065, .702, .18], [-.065, .702, .18]] },
+    acc: { oculos: [[0, .699, .127]], fone: [[-.224, .699, .022], [.224, .699, .022], [-.002, .866, .019]] } },
+  terno_coque: { file: 'terno_coque.glb', a: { hair: '#C26217', skin: '#FDCEB4', dark: '#09090A', keep: '#111D2E', keep2: '#6B5C7F', keep3: T.keep },
+    roles: { suit: [[0, .442, .025]], head: [[-.001, .741, .03], [-.001, .914, -.119]] },
+    acc: { oculos: [[-.064, .68, .178], [.062, .68, .178], [0, .685, .18], [-.137, .687, .056], [.137, .687, .056]],
+      fone: [[.158, .673, .035], [-.158, .673, .035], [.001, .822, .027], [.185, .671, .034], [-.187, .671, .034], [.186, .67, .034], [-.188, .671, .035]] } },
+  terno_rabo: { file: 'terno_rabo.glb', a: { hair: '#C66619', skin: '#FCC7AC', dark: '#06080C', keep: '#091931', keep2: '#413D3F', keep3: T.keep },
+    roles: { suit: [[0, .318, .043]], face: [[0, .771, .037]], head: [[-.004, .805, .042], [-.059, .49, -.126]], keep: [[-.05, .734, .165], [.05, .734, .165], [0, .672, .166]] },
+    acc: { oculos: [[0, .731, .111]], fone: [[-.151, .727, .052], [.169, .717, .055], [.141, .727, .052], [0, .861, .054]] } },
+});
+const POR_TERNO = { curto: 'terno_curto', franja: 'terno_franja', longo: 'terno_longo', rabo: 'terno_rabo', coque: 'terno_coque', cacheado: 'terno_cacheado', raspado: 'terno_raspado' };
+
+export { MODELS, POR_PENTEADO, POR_TERNO };
 
 export async function characterKit({ THREE }) {
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -111,8 +147,9 @@ export async function characterKit({ THREE }) {
         // rosto: 180 queixo · 220 faixa dos olhos (olhos são peças à parte) · 140 frente do rosto com olhos pintados · 120 trás/laterais
         // tronco: só o peito (frente, no meio, acima da cintura) recebe a correção do crachá; braço e cintura fundidos ficam como estão
         const tb = M.torsoBox, trel = tb && !tb.isEmpty() ? (my - tb.min.y) / Math.max(1e-6, tb.max.y - tb.min.y) : 0;
-        const chest = front && Math.abs(mx - cx) < H * .1 && trel > .2;
-        const gcode = role === 'acc' ? 250 : role === 'torso' ? (chest ? 60 : 0) : role === 'head' ? (def.chinOnHead && fb && front && rel < .33 && Math.abs(mx - (fb.min.x + fb.max.x) / 2) < (fb.max.x - fb.min.x) * .4 ? 180 : 120) : role === 'face' ? (front && rel < .33 ? 180 : front && rel < .63 ? (def.eyeband !== false ? 220 : 140) : front ? 140 : 120) : 0;
+        // chest: a partir de que altura da ilha do tronco começa o peito (modelos em que pernas e tronco são uma ilha só)
+        const chest = front && Math.abs(mx - cx) < H * .1 && trel > (def.chest ?? .2);
+        const gcode = role === 'acc' || role === 'keep' ? 250 : role === 'suit' ? (my > head ? (front ? 180 : 120) : 30) : role === 'torso' ? (chest ? 60 : 0) : role === 'head' ? (def.chinOnHead && fb && front && rel < .33 && Math.abs(mx - (fb.min.x + fb.max.x) / 2) < (fb.max.x - fb.min.x) * .4 ? 180 : 120) : role === 'face' ? (front && rel < .33 ? 180 : front && rel < .63 ? (def.eyeband !== false ? 220 : 140) : front ? 140 : 120) : 0;
         reg.fillStyle = `rgb(${r},${gcode},0)`;
         reg.beginPath(); reg.moveTo(U.getX(a) * TS, U.getY(a) * TS); reg.lineTo(U.getX(b) * TS, U.getY(b) * TS); reg.lineTo(U.getX(c) * TS, U.getY(c) * TS); reg.closePath(); reg.fill();
       }
@@ -165,6 +202,7 @@ export async function characterKit({ THREE }) {
       let z = AN[best][0];
       const role = REG[i * 4 + 1];
       if (role >= 245) { M.ZONE[i] = ZK.indexOf('keep'); continue; }   // acessório: cor original do modelo
+      if (role > 20 && role < 40) { M.ZONE[i] = ZK.indexOf(z === 'skin' ? 'skin' : 'keep'); continue; }   // terno: só a pele é repintada
       if (z === 'shirt' && REG[i * 4] > 120) z = 'eye';   // tom arroxeado na cabeça (olhos em peças à parte) é olho
       if (z === 'dark') { const rg = REG[i * 4]; z = rg > 200 ? 'eye' : rg > 120 ? (def.darkHair ? 'hair' : 'eye') : rg > 40 ? 'shoe' : 'pants'; }
       // pixels corrigidos recebem a cor chapada (sem herdar a luz da marca pintada)
@@ -192,7 +230,7 @@ export async function characterKit({ THREE }) {
   // carregamento sob demanda: só baixa o modelo de um penteado quando alguém o usa (ready() dispara o carregamento)
   const PREP = {}, LOADING = {};
   const load = (id) => (LOADING[id] ??= prep(id).then(M => (PREP[id] = M)).catch(e => { console.warn('[3D] modelo não carregou:', id, e); delete LOADING[id]; throw e; }));
-  const idOf = (p) => POR_PENTEADO[(p && p.hairStyle) || 'curto'] || 'menino_curto';
+  const idOf = (p) => (p && p.top === 'terno' && POR_TERNO[p.hairStyle || 'curto']) || POR_PENTEADO[(p && p.hairStyle) || 'curto'] || 'menino_curto';
   function ready(p) { const id = idOf(p); if (PREP[id]) return true; load(id).catch(() => {}); return false; }
   // antes de devolver o kit: o modelo de referência e os modelos das pessoas que já existem
   const initial = new Set(['menino_curto', ...((globalThis.W && W.people) || []).map(idOf)]);
@@ -231,7 +269,7 @@ export async function characterKit({ THREE }) {
   function build(p) {
     const o = look(p);
     if (o.top === 'jaqueta') o.shirt = '#3A3C44';
-    const M = PREP[POR_PENTEADO[o.style] || 'menino_curto'] || PREP.menino_curto;   // se ainda não carregou, usa o de referência
+    const M = PREP[idOf(p)] || PREP[POR_PENTEADO[o.style] || 'menino_curto'] || PREP.menino_curto;   // se ainda não carregou, usa o de referência
     const root = new THREE.Group();
     const model = SkeletonUtils.clone(M.base); model.scale.setScalar(M.SC); root.add(model);
     const region = seq++, tex = paint(M, o), texKey = [o.hair, o.skin, o.shirt, o.pants, o.shoes].join();
@@ -286,6 +324,18 @@ export async function characterKit({ THREE }) {
       case 'wave': T.sl = -2.6; T.slz = -.3 + Math.sin(t * 12) * .3; T.el = -.15; break;
       case 'stuck': T.sl = T.sr = -2.4; T.el = T.er = -1.9; T.slz = -.2; T.srz = .2; T.hx = .15; break;
       case 'held': T.sl = T.sr = -2.9; T.el = T.er = -.1; T.thl = .15; T.thr = -.15; break;
+      // um gesto por uso de móvel (cena3d.js, ACT_POSE)
+      case 'drink': { const p = (Math.sin(t * 1.4 + seed) + 1) / 2; T.sr = -.5 - p * .9; T.er = -1.5 - p * .7; T.srz = .3 - p * .26; T.sl = .02; T.hx = -.04 - p * .12; break; }       // café, geladeira: leva o copo à boca
+      case 'stir': { T.sr = -.6 + Math.sin(t * 5 + seed) * .1; T.srz = .3 + Math.cos(t * 5 + seed) * .15; T.er = -1.15; T.sl = -.5; T.el = -1.05; T.slz = -.3; T.hx = .3; break; }  // cozinha: mexe a panela
+      case 'lift': { const p = (Math.sin(t * 1.6 + seed) + 1) / 2; T.sl = T.sr = -.7 - p * 1.1; T.el = T.er = -.9 + p * .55; T.slz = -.28; T.srz = .28; T.hx = .15 - p * .35; break; } // estoque: pega e guarda na prateleira
+      case 'counter': T.sl = -.5; T.el = -1.05; T.slz = -.3; T.sr = -.55 + Math.sin(t * 2.6 + seed) * .25; T.er = -1.0; T.srz = .4; T.hy = Math.sin(t * 1.1 + seed) * .25; break; // balcão: mão no balcão, conversa com o cliente
+      case 'care': { const f = Math.sin(t * 2.2 + seed) * .08; T.sl = -.7 + f; T.sr = -.7 - f; T.el = T.er = -.85; T.slz = -.22; T.srz = .22; T.hx = .38 + Math.sin(t * .9) * .05; T.tx = .12; break; } // atendimento: examina com as duas mãos
+      case 'hammer': { const p = Math.max(0, Math.sin(t * 6 + seed)); T.sr = -.9 - p * .9; T.er = -1.3 + p * .6; T.srz = .55; T.sl = -.55; T.el = -1.1; T.slz = -.3; T.hx = .35; T.tx = .06; break; } // bancada: martela
+      case 'press': { const p = Math.max(0, Math.sin(t * 2.4 + seed)); T.sr = -.85; T.er = -.55 + p * .35; T.srz = .2; T.sl = -.35; T.el = -1.0; T.hx = .28; break; }  // impressora: aperta o botão e pega a folha
+      case 'present': T.sl = -.55 + Math.sin(t * 2 + seed) * .15; T.sr = -.55 + Math.sin(t * 2 + seed + 1.6) * .15; T.slz = -.65; T.srz = .65; T.el = T.er = -.75; T.hy = Math.sin(t * .9 + seed) * .25; break; // gravação: fala para a câmera
+      case 'water': T.sr = -.95; T.er = -.3; T.srz = .12 + Math.sin(t * 2 + seed) * .06; T.sl = -.25; T.el = -.6; T.hx = .38; T.tx = .08; break; // plantas: rega
+      case 'relax': T.sl = T.sr = -2.55; T.el = T.er = -2.2; T.slz = -.55; T.srz = .55; T.hx = -.18; T.bodyZ = -.24; break;  // sofá: mãos atrás da cabeça
+      case 'watch': T.sl = T.sr = -.55; T.el = T.er = -1.9; T.slz = .25; T.srz = -.25; T.hx = -.14; T.hy = Math.sin(t * .5 + seed) * .08; break; // TV: braços cruzados olhando os números
     }
     if (st.moving && !st.sit) T.hy = 0;
     let P = v.pose; if (!P) P = v.pose = Object.assign({}, T);

@@ -7,7 +7,7 @@
 // sem eles, personagens low-poly feitos em código (personagens3d-lowpoly.js).
 // É o padrão quando a página roda com o servidor; sem WebGL, volta sozinho para o 2D.
 // Vale para o modo ao vivo e para a edição da sala (Construir).
-// Mouse: arrastar move · roda aproxima (na direção do cursor) · botão direito ou Shift + arrastar gira.
+// Mouse: esquerdo arrasta = gira · direito ou meio arrasta = move · roda aproxima (na direção do cursor).
 
 const qs = new URLSearchParams(location.search);
 // com o servidor, ou no arquivo único (que traz o 3D embutido: PIXELHQ_3D)
@@ -23,7 +23,9 @@ if (WANT) start().catch((e) => {
 });
 
 async function start() {
+  window.loadStep?.(.2, 'Carregando o 3D…');
   const THREE = await import('three');
+  window.loadStep?.(.35, 'Carregando o 3D…');
   const { EffectComposer } = await import('three/addons/postprocessing/EffectComposer.js');
   const { Pass, FullScreenQuad } = await import('three/addons/postprocessing/Pass.js');
   const { UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js');
@@ -32,6 +34,7 @@ async function start() {
   const { RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js');
   const { mergeGeometries, mergeVertices } = await import('three/addons/utils/BufferGeometryUtils.js');
   const { furnitureKit } = await import('./moveis3d.js');
+  window.loadStep?.(.5, 'Carregando os móveis…');
   // linha visual dos personagens: meshy (padrão: modelos gerados com acessórios) | lowpoly (?estilo=lowpoly)
   // caminhos fixos (não variáveis): o empacotador do arquivo único (scripts/build-single.mjs) consegue segui-los
   const ESTILOS = { lowpoly: () => import('./personagens3d-lowpoly.js'), meshy: () => import('./personagens3d-meshy.js') };
@@ -42,6 +45,7 @@ async function start() {
   try { ({ characterKit } = await (ESTILOS[qs.get('estilo')] || ESTILOS[PADRAO])()); }
   catch (e) { console.warn('[3D] estilo de personagem indisponível, usando low-poly:', e); ({ characterKit } = await ESTILOS.lowpoly()); }
   const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+  window.loadStep?.(.65, 'Carregando os personagens…');
 
   /* ---------- tamanho do pixel ----------
      1 (padrão) = modo nítido: desenha na resolução real da tela (até 2×), com bordas suavizadas (SMAA),
@@ -95,13 +99,15 @@ async function start() {
   const geos = new Map();
   function rbox(w, h, d) {
     const k = `${w.toFixed(3)},${h.toFixed(3)},${d.toFixed(3)}`;
-    if (!geos.has(k)) { const r = Math.min(.03, w / 2 - .002, h / 2 - .002, d / 2 - .002); geos.set(k, r > .006 ? new RoundedBoxGeometry(w, h, d, 2, r) : new THREE.BoxGeometry(w, h, d)); }
+    if (!geos.has(k)) geos.set(k, new THREE.BoxGeometry(w, h, d)); // quinas retas, sem chanfro
     return geos.get(k);
   }
   // paredes: caixa reta (cantos arredondados deixariam emendas visíveis entre os trechos)
   const box = (w, h, d) => { const k = `b${w},${h},${d}`; if (!geos.has(k)) geos.set(k, new THREE.BoxGeometry(w, h, d)); return geos.get(k); };
-  // móveis com o mesmo contorno preto dos personagens; ?contornoMoveis=0 desliga
-  const FURN_OUTLINE = qs.get('contornoMoveis') !== '0', OUTLINE_LAYER = 3;
+  // contorno preto (traço de nanquim) em tudo que não é personagem: sai da profundidade e das normais no
+  // pós-processamento, igual para todo móvel, parede e piso. ?contornoMoveis=0 desliga.
+  // Os móveis NÃO entram mais na máscara dos personagens (era isso que deixava o contorno só em parte deles).
+  const INK = qs.get('contornoMoveis') !== '0', FURN_OUTLINE = false, OUTLINE_LAYER = 3;
   const unit = new THREE.BoxGeometry(1, 1, 1), unitBall = new THREE.IcosahedronGeometry(.5, 0);
   const FK = furnitureKit({ THREE, RoundedBoxGeometry, isAnim: (b) => ANIM(b) });
   // um móvel inteiro (modelo 3D ou caixas do catálogo), girado e posicionado
@@ -196,17 +202,12 @@ async function start() {
     }
     B.flush(world, { shadows: false });
     // paredes do fundo (as que ficam entre a câmera e a sala baixam ao girar a vista)
-    const wc = W.wall, cap = shade(wc, 1.12), sides = { z: new THREE.Group(), x: new THREE.Group() }, T = .14, WB = batcher(), XB = batcher();
+    // as 4 faces da sala têm parede (girar a vista dá a mesma sala de qualquer lado); as que ficam entre a
+    // câmera e a sala baixam até virar rodapé (updateCamera)
+    const wc = W.wall, cap = shade(wc, 1.12), sides = { z: new THREE.Group(), x: new THREE.Group(), z2: new THREE.Group(), x2: new THREE.Group() }, T = .14, WB = batcher(), XB = batcher(), ZB2 = batcher(), XB2 = batcher();
     // porta de entrada: na parede do fundo/esquerda encostada no capacho (os personagens entram e saem por ela)
-    entryDoor = null;
-    const mat = W.objects.find(o => o.item === 'capacho');
-    if (mat) {
-      const [mw, md] = dims(mat), cells = [];
-      for (let i = 0; i < mw; i++) for (let j = 0; j < md; j++) cells.push([mat.x + i, mat.z + j]);
-      const left = cells.filter(([x, z]) => has(x, z) && !has(x - 1, z)), back = cells.filter(([x, z]) => has(x, z) && !has(x, z - 1));
-      const side = left.length >= back.length ? (left.length ? 'x' : null) : 'z', list = side === 'x' ? left : back;
-      if (side) entryDoor = { side, cells: new Set(list.map(c => c.join())), u0: Math.min(...list.map(c => side === 'x' ? c[1] : c[0])), u1: Math.max(...list.map(c => side === 'x' ? c[1] : c[0])) + 1, c: side === 'x' ? list[0][0] : list[0][1] };
-    }
+    // (enquanto a porta é arrastada no editor, o fantasma mostra o lugar novo e a parede fica fechada)
+    entryDoor = movingId() && movingId() === W.objects.find(isDoor)?.id ? null : doorInfo();
     const DH = 2.1, inDoor = (x, z, side) => entryDoor && entryDoor.side === side && entryDoor.cells.has(x + ',' + z);
     for (const k in W.tiles) {
       const [x, z] = k.split(',').map(Number);
@@ -214,6 +215,9 @@ async function start() {
       else if (!has(x - 1, z) && inDoor(x, z, 'x')) { XB.add(box(T, WH - DH, 1), toon(shade(wc, .94)), x - T / 2, DH + (WH - DH) / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
       if (!has(x, z - 1) && !inDoor(x, z, 'z')) { WB.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z - T / 2); WB.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z - T / 2); }
       if (!has(x - 1, z) && !inDoor(x, z, 'x')) { XB.add(box(T, WH, 1), toon(shade(wc, .94)), x - T / 2, WH / 2, z + .5); XB.add(box(T + .02, .06, 1), toon(cap), x - T / 2, WH, z + .5); }
+      // lados da frente: presas no rodapé (y = 0) para baixar escalando sem sair do chão
+      if (!has(x, z + 1)) { ZB2.add(box(1, WH, T), toon(wc), x + .5, WH / 2, z + 1 + T / 2); ZB2.add(box(1, .06, T + .02), toon(cap), x + .5, WH, z + 1 + T / 2); }
+      if (!has(x + 1, z)) { XB2.add(box(T, WH, 1), toon(shade(wc, .94)), x + 1 + T / 2, WH / 2, z + .5); XB2.add(box(T + .02, .06, 1), toon(cap), x + 1 + T / 2, WH, z + .5); }
     }
     // batente e as duas folhas (abrem para dentro quando alguém chega perto)
     if (entryDoor) {
@@ -239,7 +243,8 @@ async function start() {
       }
       D.open = 0;
     }
-    WB.flush(sides.z); XB.flush(sides.x); world.add(sides.z, sides.x); wallGroups = [sides.z, sides.x];
+    WB.flush(sides.z); XB.flush(sides.x); ZB2.flush(sides.z2); XB2.flush(sides.x2);
+    world.add(sides.z, sides.x, sides.z2, sides.x2); wallGroups = [sides.z, sides.x, sides.z2, sides.x2];
     // móveis e divisórias (paredes de vidro/divisórias também entram no contorno)
     const rest = batcher(), glassOnly = batcher();
     const addStatic = (bx) => {
@@ -283,7 +288,7 @@ async function start() {
     ACTIVE = computeActive();
     for (const { b, m } of animated) {
       const a = animBox(b, T);
-      const on = b.screen ? ACTIVE.has(b.obj) : true;
+      const on = b.screen ? ACTIVE.has(screenKey(b)) : true;
       m.material = matFor(a, on);
       m.scale.set(Math.max(a.w, .001), Math.max(a.h, .001), Math.max(a.d, .001));
       m.position.set(a.x + a.w / 2, a.y + a.h / 2, a.z + a.d / 2);
@@ -328,12 +333,14 @@ async function start() {
     ps.add(new THREE.HemisphereLight(0xFFFFFF, 0xCFC2EC, 1.5));
     const pl = new THREE.DirectionalLight(0xFFE3C2, 1.7); pl.position.set(1.5, 3, 4); ps.add(pl);
     const pc = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 20);
-    const cache = new Map(), avatar2d = window.avatar, full2d = window.fullAvatar;
+    const cache = new Map(), last = new Map();
+    // nada em 2D (decisão do dono): enquanto o modelo baixa, fica o último retrato 3D da pessoa (ou vazio)
+    const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     const shot = (p, w, h, full) => {
-      const key = kit.lookKey(p) + (full ? 'F' : 'H') + w;
-      if (cache.has(key)) return cache.get(key);
-      // modelo ainda baixando: retrato 2D por enquanto e redesenha as listas quando chegar
-      if (kit.ready && !kit.ready(p)) { kit.load(p).then(refresh, () => {}); return (full ? full2d : avatar2d)(p, full ? w / 36 : w / 24); }
+      const key = kit.lookKey(p) + (full ? 'F' : 'H') + w, lk = (p.id || '') + (full ? 'F' : 'H') + w;
+      if (cache.has(key)) { last.set(lk, cache.get(key)); return cache.get(key); }
+      // modelo ainda baixando: redesenha as listas quando chegar
+      if (kit.ready && !kit.ready(p)) { kit.load(p).then(refresh, () => {}); return last.get(lk) || BLANK; }
       const v = kit.build(p); kit.pose(v, { sit: false, moving: false, act: null }, 0, 0); kit.pose(v, { sit: false, moving: false, act: null }, 1, 0);
       v.root.rotation.y = .35; ps.add(v.root); v.root.updateMatrixWorld(true);
       const b = new THREE.Box3().setFromObject(v.root), top = b.max.y, H = top - b.min.y;
@@ -343,10 +350,10 @@ async function start() {
       pc.position.set(0, cy + .25, 6); pc.lookAt(0, cy, 0);
       pr.setSize(w, h, false); pr.setClearColor(0x000000, 0); pr.render(ps, pc);
       const url = pr.domElement.toDataURL('image/png');
-      ps.remove(v.root); kit.dispose(v); cache.set(key, url); return url;
+      ps.remove(v.root); kit.dispose(v); cache.set(key, url); last.set(lk, url); return url;
     };
-    window.avatar = (p, s = 3) => { try { return shot(p, 24 * s, 28 * s, false); } catch (e) { return avatar2d(p, s); } };
-    window.fullAvatar = (p, s = 4) => { try { return shot(p, 36 * s, 60 * s, true); } catch (e) { return full2d(p, s); } };
+    window.avatar = (p, s = 3) => { try { return shot(p, 24 * s, 28 * s, false); } catch (e) { console.warn('[3D] retrato', e); return BLANK; } };
+    window.fullAvatar = (p, s = 4) => { try { return shot(p, 36 * s, 60 * s, true); } catch (e) { console.warn('[3D] retrato', e); return BLANK; } };
     document.body.classList.add('r3d-avatars');
     // listas já desenhadas com o retrato 2D: redesenha
     function refresh() { try { if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards(); } catch {} }
@@ -362,7 +369,7 @@ async function start() {
     const tc = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
     const TP = Math.PI / 6, dir = new THREE.Vector3(Math.sin(Math.PI / 4) * Math.cos(TP), Math.sin(TP), Math.cos(Math.PI / 4) * Math.cos(TP));
     const S = typeof TS === 'number' ? TS : 2;
-    function shoot(fill, w, h) {
+    function shoot(fill, w, h, bg = null) {
       const g = new THREE.Group(), op = batcher(), gl = batcher(); fill(op, gl); op.flush(g, { shadows: false }); gl.flush(g, { shadows: false });
       ts.add(g); g.updateMatrixWorld(true);
       const bb = new THREE.Box3().setFromObject(g), c = bb.getCenter(new THREE.Vector3());
@@ -372,12 +379,13 @@ async function start() {
       for (let i = 0; i < 8; i++) { const v = new THREE.Vector3(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).applyMatrix4(inv); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
       const pad = 1.12, hw = Math.max((x1 - x0) / 2, (y1 - y0) / 2 * w / h) * pad, hh = hw * h / w, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
       Object.assign(tc, { left: mx - hw, right: mx + hw, top: my + hh, bottom: my - hh }); tc.updateProjectionMatrix();
-      tr.setSize(w * S, h * S, false); tr.setClearColor(0x000000, 0); tr.render(ts, tc);
+      tr.setSize(w * S, h * S, false); if (bg) tr.setClearColor(bg, 1); else tr.setClearColor(0x000000, 0); tr.render(ts, tc);
       const url = tr.domElement.toDataURL('image/png');
       ts.remove(g); g.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
       return url;
     }
-    const item = (k) => shoot((op, gl) => { const o = { item: k, rot: 0, color: ITEMS[k].color }; addObject(o, { x: 0, z: 0 }, op, gl); addAnimStatic(o, { x: 0, z: 0 }, op, gl); }, 120, 90);
+    // bg: fundo opaco (a imagem que vai para a crítica visual da IA; transparente vira preto em alguns modelos)
+    const item = (k, w = 120, h = 90, bg = null) => shoot((op, gl) => { const o = { item: k, rot: 0, color: ITEMS[k].color }; addObject(o, { x: 0, z: 0 }, op, gl); addAnimStatic(o, { x: 0, z: 0 }, op, gl); }, w, h, bg);
     const wall = (k) => shoot((op, gl) => { for (const bx of segBoxes({ id: 't', kind: k, a: [0, 0], b: [3, 0] })) { if (bx.w <= 0 || bx.h <= 0 || bx.d <= 0) continue; const [x, y, z] = center(bx); (bx.glass ? gl : op).add(rbox(bx.w, Math.max(bx.h, .004), bx.d), matFor(bx, true), x, y, z); } }, 120, 90);
     const floor = (m) => shoot((op) => { const tile = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2); for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) { op.add(tile, toon('#FFFFFF', floorTexture(m)), x + .5, .001, z + .5); op.add(box(1, .12, 1), toon('#D3C9CE'), x + .5, -.06, z + .5); } }, 96, 72);
     return { item, wall, floor };
@@ -396,18 +404,22 @@ async function start() {
   const CHAR_OUTLINE = qs.get('contorno') !== '0';
   const people = new Map(); // id → { v (modelo), visible, headY }
   const WALK = new Set(['walk', 'approach', 'leave']);
-  const HANDS = new Set(['cook', 'stock', 'sell', 'craft', 'care', 'attend', 'print', 'infra', 'record', 'coffee', 'fridge']);
   // o que a pessoa está fazendo → pose
+  // cada uso de móvel tem o próprio gesto (poses nos kits de personagem); móvel criado pela IA (x_*) usa as mãos
+  const ACT_POSE = { work: 'typing', meeting: 'talk', plan: 'board', tv: 'watch', read: 'read', coffee: 'drink', fridge: 'drink', cook: 'stir', stock: 'lift', sell: 'counter', attend: 'counter', care: 'care', craft: 'hammer', print: 'press', infra: 'hands', record: 'present', plants: 'water', relax: 'relax' };
   function actOf(a, o) {
     if (a.held) return 'held';
-    if (o.sit) return a.status === 'trabalhando' || a.status === 'revisando' || o.act != null && a.mv === 'act' && WORKING.has(a.status) ? 'typing' : a.status === 'reuniao' ? 'talk' : null;
-    if (a.mv !== 'act') return null;
+    const act = a.spot?.act, here = a.mv === 'act';
+    if (o.sit) {
+      if (here && (act === 'relax' || act === 'read')) return ACT_POSE[act];
+      return a.status === 'trabalhando' || a.status === 'revisando' || o.act != null && here && WORKING.has(a.status) ? 'typing' : a.status === 'reuniao' ? 'talk' : null;
+    }
+    if (!here) return null;
     if (a.status === 'concluido') return 'wave';
     if (a.status === 'bloqueado') return 'stuck';
-    const act = a.spot?.act;
-    if (act === 'plan' || act === 'tv') return 'board';
-    if (act === 'read' || a.status === 'pesquisando') return 'read';
-    if (HANDS.has(act) || (act || '').startsWith('x_')) return 'hands';
+    if (ACT_POSE[act]) return ACT_POSE[act];
+    if ((act || '').startsWith('x_')) return 'hands';
+    if (a.status === 'pesquisando') return 'read';
     if (a.status === 'reuniao' || a.status === 'revisando') return 'talk';
     return null;
   }
@@ -499,7 +511,11 @@ async function start() {
     camera.position.addScaledVector(_r, Math.round(r / upp) * upp - r).addScaledVector(_u, Math.round(u / upp) * upp - u);
     camera.updateMatrixWorld();
     // paredes que ficam entre a câmera e a sala baixam
-    if (wallGroups.length) { wallGroups[0].scale.y = Math.cos(cam.yaw) < -.05 ? .18 : 1; wallGroups[1].scale.y = Math.sin(cam.yaw) < -.05 ? .18 : 1; }
+    if (wallGroups.length) {
+      const c = Math.cos(cam.yaw), sn = Math.sin(cam.yaw), low = .06;
+      wallGroups[0].scale.y = c < -.05 ? low : 1; wallGroups[1].scale.y = sn < -.05 ? low : 1;
+      wallGroups[2].scale.y = c > .05 ? low : 1; wallGroups[3].scale.y = sn > .05 ? low : 1;
+    }
   }
 
   /* ---------- pós-processamento: contorno por profundidade e normais (como no Pixel Moda) ---------- */
@@ -512,10 +528,10 @@ async function start() {
       // personagens sozinhos, cada região com uma cor de id e com a própria profundidade
       this.mask = new THREE.WebGLRenderTarget(2, 2, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthTexture: new THREE.DepthTexture(2, 2) });
       this.quad = new FullScreenQuad(new THREE.ShaderMaterial({
-        uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tMask: { value: null }, tMaskC: { value: null }, res: { value: new THREE.Vector4() }, px: { value: Math.max(1, Math.round(DPR)) }, cNear: { value: .5 }, cFar: { value: 400 }, dK: { value: .38 }, nK: { value: .72 }, cK: { value: CHAR_OUTLINE ? 1 : 0 } },
+        uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tMask: { value: null }, tMaskC: { value: null }, res: { value: new THREE.Vector4() }, px: { value: Math.max(1, Math.round(DPR)) }, cNear: { value: .5 }, cFar: { value: 400 }, dK: { value: .38 }, nK: { value: .72 }, cK: { value: CHAR_OUTLINE ? 1 : 0 }, iK: { value: INK ? 1 : 0 } },
         vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
         fragmentShader: `
-          uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform sampler2D tNormal; uniform sampler2D tMask; uniform sampler2D tMaskC; uniform vec4 res; uniform float px; uniform float cNear; uniform float cFar; uniform float dK; uniform float nK; uniform float cK;
+          uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform sampler2D tNormal; uniform sampler2D tMask; uniform sampler2D tMaskC; uniform vec4 res; uniform float px; uniform float cNear; uniform float cFar; uniform float dK; uniform float nK; uniform float cK; uniform float iK;
           varying vec2 vUv;
           float D(vec2 uv){ return cNear + texture2D(tDepth, uv).x * (cFar - cNear); }
           vec3 N(vec2 uv){ return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
@@ -531,7 +547,10 @@ async function start() {
             vec2 o[4]; o[0]=vec2(1.,0.); o[1]=vec2(-1.,0.); o[2]=vec2(0.,1.); o[3]=vec2(0.,-1.);
             for (int i=0;i<4;i++){
               vec2 uv2 = vUv + o[i]*res.zw*px; float nd = D(uv2);
-              if (nd - d > 0.3) dE = 1.0;
+              // degrau de profundidade: o vizinho está mais longe do que a inclinação da própria face explica
+              // (2ª derivada; numa face plana dá zero). Marca só o lado da frente: traço de 1 px.
+              float od = D(vUv - o[i]*res.zw*px);
+              if ((nd - d) - (d - od) > 0.03 && nd - d > 0.03) dE = 1.0;
               bool nC = CH(uv2, nd);
               // personagem: silhueta escura contra o que não é personagem (inclusive o piso)
               if (isC && !nC && nd - d > -0.05) cE = 1.0;
@@ -546,8 +565,11 @@ async function start() {
             }
             // silhueta dos personagens com 2 px (as linhas internas ficam com 1 px)
             if (isC && cE < 0.5) for (int i=0;i<4;i++){ vec2 uv3 = vUv + o[i]*res.zw*px*2.0; float nd3 = D(uv3); if (!CH(uv3, nd3) && nd3 - d > -0.05) cE = 1.0; }
-            if (cE > 0.5 && cK > 0.5) col.rgb = col.rgb * 0.05 + vec3(0.02, 0.018, 0.024);
-            else if (isC && cK < 0.5) {}
+            vec3 inkC = col.rgb * 0.05 + vec3(0.02, 0.018, 0.024);
+            if (cE > 0.5 && cK > 0.5) col.rgb = inkC;
+            else if (isC) {}
+            // resto da cena: mesmo traço preto dos personagens na silhueta (degrau) e nas quinas (dobra da face)
+            else if (iK > 0.5 && (dE > 0.5 || nE > 0.35)) col.rgb = inkC;
             else if (dE > 0.5) col.rgb *= dK; else if (nE > 0.35) col.rgb *= nK;
             gl_FragColor = col;
           }`,
@@ -606,14 +628,19 @@ async function start() {
   const groundAt = (x, y) => { ray.setFromCamera(ndc(x, y), camera); return ray.ray.intersectPlane(ground, _g) ? _g.clone() : null; };
   let vdrag = null, rot = null;
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  // mouse (como nos visualizadores 3D): esquerdo arrasta = gira · direito ou meio arrasta = move · clique = abre a ficha
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
-    if (e.button === 2 || e.shiftKey) { rot = { x: e.clientX, yaw: cam.yaw }; canvas.classList.add('rotating'); return; }
+    if (e.button === 0 && !e.shiftKey) { rot = { x: e.clientX, y: e.clientY, yaw: cam.yaw, moved: false }; return; }
     vdrag = { x: e.clientX, y: e.clientY, start: groundAt(e.clientX, e.clientY), px: cam.panX, pz: cam.panZ, moved: false };
     canvas.classList.add('dragging');
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (rot) { cam.yaw = rot.yaw - (e.clientX - rot.x) * .008; cam.yawGoal = cam.yaw; return; }
+    if (rot) {
+      if (!rot.moved && Math.hypot(e.clientX - rot.x, e.clientY - rot.y) > 4) { rot.moved = true; canvas.classList.add('rotating'); }
+      if (rot.moved) { cam.yaw = rot.yaw - (e.clientX - rot.x) * .008; cam.yawGoal = cam.yaw; }
+      return;
+    }
     if (!vdrag) return;
     if (Math.hypot(e.clientX - vdrag.x, e.clientY - vdrag.y) > 4) vdrag.moved = true;
     if (!vdrag.moved || !vdrag.start) return;
@@ -624,8 +651,10 @@ async function start() {
   });
   const endPointer = (e) => {
     canvas.classList.remove('dragging', 'rotating');
-    if (rot) { rot = null; cam.yawGoal = snapYaw(cam.yaw); return; } // encaixa no ângulo isométrico mais próximo
-    const was = vdrag; vdrag = null; if (!was || was.moved || e.type !== 'pointerup') return;
+    // girou: encaixa no ângulo isométrico mais próximo; só clicou (sem arrastar): vale como clique numa pessoa
+    if (rot) { const r0 = rot; rot = null; if (r0.moved) { cam.yawGoal = snapYaw(cam.yaw); return; } }
+    else { const was = vdrag; vdrag = null; if (!was || was.moved) return; }
+    if (e.type !== 'pointerup') return;
     ray.setFromCamera(ndc(e.clientX, e.clientY), camera);
     const hit = ray.intersectObjects([...people.values()].filter(p => p.visible).map(p => p.v.root), true)[0];
     let o = hit?.object; while (o && !o.userData.id) o = o.parent;
@@ -665,6 +694,9 @@ async function start() {
     const r = rayFrom(sx, sy); let best = null, bd = Infinity;
     const test = (bx, sel, flat) => { _box.set(_a.set(bx.x, bx.y, bx.z), _b.set(bx.x + bx.w, bx.y + Math.max(bx.h, .02), bx.z + bx.d)); if (!r.intersectBox(_box, _hit)) return; const d = _hit.distanceTo(r.origin) + (flat ? 1000 : 0); if (d < bd) { bd = d; best = sel; } };
     if (only !== 'wall') for (const o of W.objects) for (const bx of worldBoxes(o)) test(bx, { type: 'obj', id: o.id }, ITEMS[o.item]?.flat);
+    // a porta de entrada (desenhada na parede) também se pega pelo vão, não só pelo capacho
+    const D = only !== 'wall' && doorInfo();
+    if (D) { const t = .3, len = D.u1 - D.u0; test(D.side === 'x' ? { x: D.c - t / 2, z: D.u0, w: t, d: len, y: 0, h: 2.1 } : { x: D.u0, z: D.c - t / 2, w: len, d: t, y: 0, h: 2.1 }, { type: 'obj', id: D.o.id }, false); }
     if (only !== 'obj') for (const s of W.walls) for (const bx of segBoxes(s)) test(bx, { type: 'wall', id: s.id }, false);
     return best;
   };
@@ -703,12 +735,12 @@ async function start() {
   function ghostState() {
     if (mode !== 'build') return null;
     if (drag?.kind === 'move' && drag.moved) {
-      if (drag.sel.type === 'obj') { const o = objById(drag.sel.id); return o && { obj: { item: o.item, rot: o.rot, color: o.color }, at: drag.at }; }
+      if (drag.sel.type === 'obj') { const o = objById(drag.sel.id); return o && { obj: { item: o.item, rot: drag.rot ?? o.rot, color: o.color }, at: drag.at }; }
       const s = wallById(drag.sel.id); return s && { wall: { ...s, a: [s.a[0] + drag.off[0], s.a[1] + drag.off[1]], b: [s.b[0] + drag.off[0], s.b[1] + drag.off[1]] } };
     }
     if (placing && hover) {
-      const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, [w, d] = dims(o);
-      return { obj: o, at: { x: Math.floor(hover.x - w / 2 + .5), z: Math.floor(hover.z - d / 2 + .5) } };
+      const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color };
+      return { obj: o, at: placeAt(o, hover) };
     }
     const gw = wallGhost(); if (gw && segInfo(gw).len > 0) return { wall: gw };
     return null;
@@ -724,10 +756,70 @@ async function start() {
     op.flush(ghost, { outline: true }); gl.flush(ghost, { shadows: false, layer: 1 });
   }
 
+  /* ---------- marcas do editor no piso (seleção, área verde/vermelha, pincel, grade, alças "+") ----------
+     Vêm de editorMarks() (09-cena.js). São malhas na camada 1 (sem contorno, desenhadas depois da cena com o
+     mesmo teste de profundidade): o que está na frente esconde a marca, como num objeto de verdade. */
+  const marks = new THREE.Group(); scene.add(marks);
+  let marksSig = '';
+  const markMats = new Map();
+  // top = por cima de tudo (alças "+" atrás das paredes do fundo precisam aparecer)
+  const mmat = (c, a, top = false) => { const k = c + '|' + a + '|' + top; if (!markMats.has(k)) markMats.set(k, new THREE.MeshBasicMaterial({ color: new THREE.Color(c), transparent: true, opacity: a, depthWrite: false, depthTest: !top, toneMapped: false, side: THREE.DoubleSide })); return markMats.get(k); };
+  const plane = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), disc = new THREE.CircleGeometry(.5, 28).rotateX(-Math.PI / 2);
+  // traços do "+" a 45° da grade: na vista isométrica (giros de 90°) aparecem na vertical e na horizontal
+  const plusA = new THREE.PlaneGeometry(.5, .09).rotateX(-Math.PI / 2).rotateY(Math.PI / 4), plusB = plusA.clone().rotateY(Math.PI / 2);
+  const ringG = new THREE.RingGeometry(.4, .5, 28).rotateX(-Math.PI / 2);
+  const addMark = (geo, mat, x, y, z, sx = 1, sz = 1, order = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, 1, sz); m.layers.set(1); m.renderOrder = order; m.matrixAutoUpdate = false; m.updateMatrix(); marks.add(m); };
+  // borda de uma área: tiras finas (linha de 1 px some de longe); tracejada = tiras curtas com intervalo
+  function border(q, mat, y) {
+    const t = .045, dash = q.dash ? [.2, .13] : null;
+    const run = (x0, z0, x1, z1) => {
+      const len = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / len, uz = (z1 - z0) / len, alongX = Math.abs(ux) > .5;
+      const seg = (a, b) => { const cx = x0 + ux * (a + b) / 2, cz = z0 + uz * (a + b) / 2; addMark(plane, mat, cx, y, cz, alongX ? b - a : t, alongX ? t : b - a, 2); };
+      if (!dash) seg(0, len); else for (let a = 0; a < len; a += dash[0] + dash[1]) seg(a, Math.min(len, a + dash[0]));
+    };
+    const i = t / 2;
+    run(q.x, q.z + i, q.x + q.w, q.z + i); run(q.x, q.z + q.d - i, q.x + q.w, q.z + q.d - i);
+    run(q.x + i, q.z, q.x + i, q.z + q.d); run(q.x + q.w - i, q.z, q.x + q.w - i, q.z + q.d);
+  }
+  function updateMarks() {
+    const list = mode === 'build' ? editorMarks().filter(m => m.k !== 'label') : [], sig = list.length ? JSON.stringify(list) : '';
+    if (sig === marksSig) return; marksSig = sig;
+    marks.clear();
+    // grade de pontos: uma malha instanciada
+    const dots = list.filter(m => m.k === 'dot' && !m.ring);
+    if (dots.length) {
+      const im = new THREE.InstancedMesh(plane, mmat(dots[0].c, dots[0].a), dots.length), M = new THREE.Matrix4();
+      dots.forEach((d, i) => im.setMatrixAt(i, M.makeScale(d.r * 2, 1, d.r * 2).setPosition(d.x, .012, d.z)));
+      im.layers.set(1); marks.add(im);
+    }
+    for (const m of list) {
+      if (m.k === 'quad') {
+        const y = (m.y ?? .02) - .005;
+        addMark(plane, mmat(m.fill, m.a), m.x + m.w / 2, y, m.z + m.d / 2, m.w, m.d, 1);
+        if (m.line) border(m, mmat(m.line, .95), y + .002);
+      } else if (m.k === 'dot' && m.ring) {
+        addMark(disc, mmat('#FFFFFF', 1), m.x, .03, m.z, m.r * 2 + .1, m.r * 2 + .1, 3); addMark(disc, mmat(m.c, 1), m.x, .032, m.z, m.r * 2, m.r * 2, 4);
+      } else if (m.k === 'handle') {
+        // botão redondo "+" deitado no piso, do lado de fora da sala
+        const R = 1, fg = m.hot ? '#FFFFFF' : '#8C4FE0';
+        addMark(disc, mmat('#24252B', .14, true), m.x + .06, .01, m.z + .06, R, R, 5);
+        addMark(disc, mmat(m.hot ? '#8C4FE0' : '#FFFFFF', 1, true), m.x, .03, m.z, R, R, 6);
+        addMark(ringG, mmat('#8C4FE0', 1, true), m.x, .034, m.z, R, R, 7);
+        addMark(plusA, mmat(fg, 1, true), m.x, .036, m.z, 1, 1, 8); addMark(plusB, mmat(fg, 1, true), m.x, .036, m.z, 1, 1, 8);
+      }
+    }
+  }
+
   /* ---------- laço ---------- */
   // 3D nos dois modos: ao vivo e no editor (Construir)
   const active = () => mode === 'live' || mode === 'build';
-  window.R3D = { active, editing, wanted: true, stats: { fps: 0 }, fit: fit3d, ...camAPI };
+  window.R3D = {
+    active, editing, wanted: true, stats: { fps: 0 }, fit: fit3d, ...camAPI,
+    // imagem de um móvel para a crítica visual (PNG, fundo claro, ~384×288)
+    itemShot: (k) => thumbs3d.item(k, 192, 144, 0xF2F1F4),
+    // refaz a sala na próxima volta do laço (ex.: o desenho de um móvel mudou no catálogo)
+    rebuild: () => { sig = ''; },
+  };
   let sig = '', frames = 0, fpsT = performance.now(), n = 0, lastHid = null;
   function loop(now) {
     requestAnimationFrame(loop);
@@ -741,8 +833,9 @@ async function start() {
     const T = now / 1000;
     const hid = movingId();
     if (hid !== lastHid || n++ % 20 === 0) { const s = JSON.stringify([W.objects, W.walls, W.wall, W.tiles, hid]); lastHid = hid; if (s !== sig) { sig = s; rebuild(); } }
-    updateGhost();
+    updateGhost(); updateMarks();
     updateLights(); updateAnimations(T); updatePeople(T); updateCamera(); composer.render(); drawTags(T);
+    if (document.documentElement.classList.contains('espera3d')) window.loadStep?.(.9, 'Quase pronto…');
     document.documentElement.classList.remove('espera3d'); // primeiro quadro 3D pronto: pode mostrar
     frames++; if (now - fpsT > 1000) { window.R3D.stats.fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; }
   }

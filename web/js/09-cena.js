@@ -90,103 +90,120 @@ function draw(T = performance.now() / 1000) {
   drawEditing(T, V);
 }
 
-// ---------- marcas do editor (usadas pelo desenho 2D e por cima do 3D) ----------
-function drawGrid(V = view, bd = bounds()) {
+// ---------- marcas do editor ----------
+/* Uma lista só, em coordenadas da sala, que dois desenhistas usam: o 3D (web/js3d/cena3d.js, malhas no piso, com
+   profundidade: móvel na frente esconde a marca) e o 2D de reserva (sem WebGL). Itens:
+   {k:'quad', x, z, w, d, fill, a, line, dash, y}  área no piso (cor de preenchimento, opacidade, borda opcional)
+   {k:'dot', x, z, c, r}                            ponto no piso (grade de expansão, ponta da parede)
+   {k:'handle', x, z, hot, side, label}             alça "+" para aumentar a sala
+   {k:'label', x, z, y, text, bad}                  etiqueta de texto (fica numa camada de texto por cima, como os nomes) */
+const MK = { sel: '#8C4FE0', bad: '#E0473B', ok: '#2F7A3E', add: '#2F5FD0', ink: '#24252B' };
+function wallQuad(s, fill, a, line) { const I = segInfo(s); return I.alongX ? { k: 'quad', x: I.u0, z: I.c - .25, w: I.len, d: .5, fill, a, line } : { k: 'quad', x: I.c - .25, z: I.u0, w: .5, d: I.len, fill, a, line }; }
+function editorMarks() {
+  const out = [];
+  if (mode !== 'build') return out;
+  const bd = bounds();
   // grade de expansão (mostra até onde dá para crescer)
-  if (mode === 'build' && (tab === 'planta' || walling)) {
-    const span = 5, gx0 = bd.x0 - span, gx1 = bd.x1 + span, gz0 = bd.z0 - span, gz1 = bd.z1 + span;
-    ctx.fillStyle = 'rgba(140,79,224,0.28)';
-    const ds = Math.max(1, Math.round(V.z));
-    for (let x = gx0; x <= gx1; x++) for (let z = gz0; z <= gz1; z++) { const q = iso(x, z); ctx.fillRect(q[0] - ds / 2, q[1] - ds / 2, ds + 1, ds); }
+  if (tab === 'planta' || walling) {
+    const span = 5;
+    for (let x = bd.x0 - span; x <= bd.x1 + span; x++) for (let z = bd.z0 - span; z <= bd.z1 + span; z++) out.push({ k: 'dot', x, z, c: MK.sel, r: .05, a: .45 });
   }
-}
-function drawMarks() {
-  // marcação no piso: seleção, mesas livres (escolha de mesa), avisos
-  const warnIds = new Set(mode === 'build' ? cachedWarnings().filter(w => w.sel).map(w => w.sel.id) : []);
+  // seleção e avisos
+  const warnIds = new Set(cachedWarnings().filter(w => w.sel).map(w => w.sel.id));
   for (const o of W.objects) {
-    const [w, d] = dims(o); let col = null;
-    if (warnIds.has(o.id)) col = 'rgba(224,71,59,';
-    if (selected?.type === 'obj' && selected.id === o.id) col = 'rgba(140,79,224,';
-    if (col) { poly(ctx, footPoly(o.x, o.z, w, d), col + '0.28)'); ctx.setLineDash([4, 3]); poly(ctx, footPoly(o.x, o.z, w, d), null, col + '0.95)', 2); ctx.setLineDash([]); }
+    if (drag?.kind === 'move' && drag.moved && drag.sel.id === o.id) continue;
+    const sel = selected?.type === 'obj' && selected.id === o.id; if (!sel && !warnIds.has(o.id)) continue;
+    const [w, d] = dims(o), c = sel ? MK.sel : MK.bad;
+    out.push({ k: 'quad', x: o.x, z: o.z, w, d, fill: c, a: .28, line: c, dash: true });
   }
   for (const s of W.walls) {
     const sel = selected?.type === 'wall' && selected.id === s.id; if (!sel && !warnIds.has(s.id)) continue;
-    const I = segInfo(s), col = sel ? '#8C4FE0' : '#E0473B';
-    const fp = I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len);
-    poly(ctx, fp, rgba(col, .25), col, 2);
+    const c = sel ? MK.sel : MK.bad; out.push(wallQuad(s, c, .25, c));
   }
-
-}
-function drawEditing(T, V = view) {
-  // com o 3D, o móvel/parede fantasma é desenhado na própria cena 3D; aqui ficam só as marcas no piso
-  const in3d = !!window.R3D?.editing?.();
-  // item sendo arrastado
+  // item sendo arrastado: verde cabe, vermelho não
   if (drag?.kind === 'move' && drag.moved) {
     if (drag.sel.type === 'obj') {
-      const o = objById(drag.sel.id), ok = footprintOk(o, drag.at, o.id) === 'ok', [w, d] = dims(o);
-      poly(ctx, footPoly(drag.at.x, drag.at.z, w, d), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)', ok ? '#2F7A3E' : '#E0473B', 2);
-      if (!in3d) for (const b of depthSort(worldBoxes(o, drag.at), V)) drawBox(ctx, b, V, .85);
+      const o0 = objById(drag.sel.id), o = { ...o0, rot: drag.rot ?? o0.rot }, ok = footprintOk(o, drag.at, o.id) === 'ok', [w, d] = dims(o);
+      out.push({ k: 'quad', x: drag.at.x, z: drag.at.z, w, d, fill: ok ? MK.ok : MK.bad, a: .32, line: ok ? MK.ok : MK.bad });
     } else {
       const s = wallById(drag.sel.id), m = { ...s, a: [s.a[0] + drag.off[0], s.a[1] + drag.off[1]], b: [s.b[0] + drag.off[0], s.b[1] + drag.off[1]] }, ok = !wallProblem(m, s.id);
-      const I = segInfo(m); poly(ctx, I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)');
-      if (!in3d) for (const b of depthSort(segBoxes(m), V)) drawBox(ctx, b, V, .85);
+      out.push(wallQuad(m, ok ? MK.ok : MK.bad, .32));
     }
-  } else if (drag?.kind === 'move' && !in3d) {
-    const target = drag.sel.type === 'obj' ? depthSort(worldBoxes(objById(drag.sel.id)), V) : depthSort(segBoxes(wallById(drag.sel.id)), V);
-    for (const b of target) drawBox(ctx, b, V);
   }
-  // fantasma do móvel sendo colocado
+  // móvel sendo colocado
   if (placing && hover) {
-    const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, [w, d] = dims(o);
-    const at = { x: Math.floor(hover.x - w / 2 + .5), z: Math.floor(hover.z - d / 2 + .5) };
-    const ok = footprintOk(o, at) === 'ok';
-    poly(ctx, footPoly(at.x, at.z, w, d), ok ? 'rgba(47,122,62,0.3)' : 'rgba(224,71,59,0.35)', ok ? '#2F7A3E' : '#E0473B', 2);
-    if (!in3d) for (const b of depthSort(worldBoxes(o, at), V)) drawBox(ctx, b, V, .75);
+    const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, at = placeAt(o, hover), [w, d] = dims(o), ok = footprintOk(o, at) === 'ok';
+    out.push({ k: 'quad', x: at.x, z: at.z, w, d, fill: ok ? MK.ok : MK.bad, a: .32, line: ok ? MK.ok : MK.bad });
   }
-  // parede sendo desenhada
+  // parede sendo desenhada, com o tamanho
   const gw = wallGhost();
   if (gw) {
     const prob = wallProblem(gw), I = segInfo(gw);
     if (I.len > 0) {
-      poly(ctx, I.alongX ? footPoly(I.u0, I.c - .25, I.len, .5) : footPoly(I.c - .25, I.u0, .5, I.len), prob ? 'rgba(224,71,59,0.3)' : 'rgba(47,122,62,0.3)');
-      if (!in3d) for (const b of depthSort(segBoxes(gw), V)) drawBox(ctx, b, V, .85);
-      const mid = iso(I.alongX ? (I.u0 + I.u1) / 2 : I.c, I.alongX ? I.c : (I.u0 + I.u1) / 2, WH + .5);
-      const label = `${I.len} ${I.len === 1 ? 'quadrado' : 'quadrados'}`;
-      ctx.font = '600 12px "IBM Plex Sans", system-ui, sans-serif'; const tw = ctx.measureText(label).width;
-      ctx.fillStyle = prob ? '#B3261E' : '#24252B'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(mid[0] - tw / 2 - 7, mid[1] - 11, tw + 14, 21, 6) : ctx.rect(mid[0] - tw / 2 - 7, mid[1] - 11, tw + 14, 21); ctx.fill();
-      ctx.fillStyle = '#FFFFFF'; ctx.textBaseline = 'middle'; ctx.fillText(label, mid[0] - tw / 2, mid[1]);
+      out.push(wallQuad(gw, prob ? MK.bad : MK.ok, .3));
+      out.push({ k: 'label', x: I.alongX ? (I.u0 + I.u1) / 2 : I.c, z: I.alongX ? I.c : (I.u0 + I.u1) / 2, y: WH + .5, text: `${I.len} ${I.len === 1 ? 'quadrado' : 'quadrados'}`, bad: !!prob });
     }
   }
-  if (walling && hover && !drag) {
-    const q = iso(Math.round(hover.x), Math.round(hover.z));
-    ctx.fillStyle = '#8C4FE0'; ctx.beginPath(); ctx.arc(q[0], q[1], 4 + V.z, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
-  }
+  if (walling && hover && !drag) out.push({ k: 'dot', x: Math.round(hover.x), z: Math.round(hover.z), c: MK.sel, r: .16, a: 1, ring: true });
   // pincel de piso
   if (tab === 'planta' && hover && ['add', 'remove', 'mat'].includes(tool)) {
-    const x = Math.floor(hover.x), z = Math.floor(hover.z), col = tool === 'remove' ? 'rgba(224,71,59,0.4)' : tool === 'mat' ? 'rgba(140,79,224,0.4)' : 'rgba(47,95,208,0.35)';
-    poly(ctx, footPoly(x, z, 1, 1, .03), col, '#24252B', 1.5);
+    out.push({ k: 'quad', x: Math.floor(hover.x), z: Math.floor(hover.z), w: 1, d: 1, fill: tool === 'remove' ? MK.bad : tool === 'mat' ? MK.sel : MK.add, a: .4, line: MK.ink, y: .03 });
   }
   // alças "+" nas bordas
-  if (mode === 'build' && tab === 'planta' && !drag) {
-    for (const h of handles()) {
-      const r = 14, hot = hoverHandle === h.side;
-      ctx.fillStyle = 'rgba(36,37,43,0.14)'; ctx.beginPath(); ctx.arc(h.s[0], h.s[1] + 2, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = hot ? '#8C4FE0' : '#FFFFFF'; ctx.strokeStyle = '#8C4FE0'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(h.s[0], h.s[1], r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = hot ? '#FFFFFF' : '#8C4FE0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(h.s[0] - 6, h.s[1]); ctx.lineTo(h.s[0] + 6, h.s[1]); ctx.moveTo(h.s[0], h.s[1] - 6); ctx.lineTo(h.s[0], h.s[1] + 6); ctx.stroke(); ctx.lineCap = 'butt';
-      if (hot) {
-        ctx.font = '600 12px "IBM Plex Sans", system-ui, sans-serif'; const tw = ctx.measureText(h.label).width;
-        ctx.fillStyle = '#24252B'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(h.s[0] - tw / 2 - 7, h.s[1] - r - 28, tw + 14, 21, 6) : ctx.rect(h.s[0] - tw / 2 - 7, h.s[1] - r - 28, tw + 14, 21); ctx.fill();
-        ctx.fillStyle = '#FFFFFF'; ctx.textBaseline = 'middle'; ctx.fillText(h.label, h.s[0] - tw / 2, h.s[1] - r - 17);
-      }
-      ctx.lineWidth = 1;
-    }
+  if (tab === 'planta' && !drag) for (const h of handles()) out.push({ k: 'handle', x: h.x, z: h.z, side: h.side, hot: hoverHandle === h.side, label: h.label });
+  return out;
+}
+function pillLabel(text, sx, sy, bg) {
+  ctx.font = '600 12px "IBM Plex Sans", system-ui, sans-serif'; const tw = ctx.measureText(text).width;
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx - tw / 2 - 7, sy - 11, tw + 14, 21, 6) : ctx.rect(sx - tw / 2 - 7, sy - 11, tw + 14, 21); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.textBaseline = 'middle'; ctx.fillText(text, sx - tw / 2, sy);
+}
+// textos das marcas (no 3D só eles ficam neste canvas; o resto é malha na cena)
+function drawMarkLabels(list) {
+  for (const m of list) {
+    if (m.k === 'label') { const q = iso(m.x, m.z, m.y); pillLabel(m.text, q[0], q[1], m.bad ? '#B3261E' : MK.ink); }
+    if (m.k === 'handle' && m.hot) { const q = iso(m.x, m.z, 0); pillLabel(m.label, q[0], q[1] - 31, MK.ink); }
   }
 }
-// modo Construir com o 3D: canvas transparente com só as marcas do editor
+// desenho 2D de reserva (sem WebGL)
+function drawMarks2D(list, V = view) {
+  for (const m of list) {
+    if (m.k === 'quad') {
+      const fp = footPoly(m.x, m.z, m.w, m.d, m.y ?? .02);
+      if (m.dash) { poly(ctx, fp, rgba(m.fill, m.a)); ctx.setLineDash([4, 3]); poly(ctx, fp, null, rgba(m.line, .95), 2); ctx.setLineDash([]); }
+      else poly(ctx, fp, rgba(m.fill, m.a), m.line || null, m.line ? 2 : 1);
+    } else if (m.k === 'dot') {
+      const q = iso(m.x, m.z);
+      if (m.ring) { ctx.fillStyle = m.c; ctx.beginPath(); ctx.arc(q[0], q[1], 4 + V.z, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1; }
+      else { const ds = Math.max(1, Math.round(V.z)); ctx.fillStyle = rgba(m.c, .28); ctx.fillRect(q[0] - ds / 2, q[1] - ds / 2, ds + 1, ds); }
+    } else if (m.k === 'handle') {
+      const [x, y] = iso(m.x, m.z, 0), r = 14;
+      ctx.fillStyle = 'rgba(36,37,43,0.14)'; ctx.beginPath(); ctx.arc(x, y + 2, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = m.hot ? MK.sel : '#FFFFFF'; ctx.strokeStyle = MK.sel; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = m.hot ? '#FFFFFF' : MK.sel; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke(); ctx.lineCap = 'butt'; ctx.lineWidth = 1;
+    }
+  }
+  drawMarkLabels(list);
+}
+function drawGrid() {} // a grade agora faz parte de editorMarks()
+function drawMarks() {}
+function drawEditing(T, V = view) {
+  // 2D de reserva: o móvel/parede fantasma em caixas, depois as marcas
+  if (drag?.kind === 'move' && drag.moved) {
+    if (drag.sel.type === 'obj') { const o0 = objById(drag.sel.id), o = { ...o0, rot: drag.rot ?? o0.rot }; for (const b of depthSort(worldBoxes(o, drag.at), V)) drawBox(ctx, b, V, .85); }
+    else { const s = wallById(drag.sel.id), m = { ...s, a: [s.a[0] + drag.off[0], s.a[1] + drag.off[1]], b: [s.b[0] + drag.off[0], s.b[1] + drag.off[1]] }; for (const b of depthSort(segBoxes(m), V)) drawBox(ctx, b, V, .85); }
+  } else if (drag?.kind === 'move') {
+    const target = drag.sel.type === 'obj' ? depthSort(worldBoxes(objById(drag.sel.id)), V) : depthSort(segBoxes(wallById(drag.sel.id)), V);
+    for (const b of target) drawBox(ctx, b, V);
+  }
+  if (placing && hover) { const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, at = placeAt(o, hover); for (const b of depthSort(worldBoxes(o, at), V)) drawBox(ctx, b, V, .75); }
+  const gw = wallGhost(); if (gw && segInfo(gw).len > 0) for (const b of depthSort(segBoxes(gw), V)) drawBox(ctx, b, V, .85);
+  drawMarks2D(editorMarks(), V);
+}
+// modo Construir com o 3D: as marcas são malhas na cena 3D; este canvas transparente fica só com os textos
 function drawOverlay3D(T) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, VW, VH); ctx.imageSmoothingEnabled = false;
-  drawGrid(view, bounds()); drawMarks(); drawEditing(T, view);
+  drawMarkLabels(editorMarks());
 }

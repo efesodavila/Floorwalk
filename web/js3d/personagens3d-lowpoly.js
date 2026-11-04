@@ -173,7 +173,7 @@ export function characterKit({ THREE, mergeGeometries, mergeVertices }) {
     const body = new THREE.Group(); body.scale.setScalar(CS); root.add(body);
     const hips = new THREE.Group(); hips.position.y = HIPY; body.add(hips);
     const SK = o.skin, SKd = shade(SK, .84), HAIR = o.hair, HAIRd = shade(HAIR, .78), HAIRl = mix(HAIR, '#FFFFFF', .07), PANTS = o.pants;
-    const coat = o.top === 'jaqueta' ? '#3A3C44' : null;
+    const coat = o.top === 'jaqueta' ? '#3A3C44' : o.top === 'terno' ? '#2B2E38' : null;
     const SHIRT = o.shirt, longSleeve = o.top !== 'camiseta', sleeveC = coat ?? SHIRT;
     const R = { torso: newRegion(), head: newRegion(), hair: newRegion(), glasses: newRegion() };
 
@@ -352,6 +352,18 @@ export function characterKit({ THREE, mergeGeometries, mergeVertices }) {
       case 'wave': T.sl = -2.6; T.slz = -.3 + Math.sin(t * 12) * .3; T.el = -.15; break;
       case 'stuck': T.sl = T.sr = -2.4; T.el = T.er = -1.9; T.slz = -.2; T.srz = .2; T.hx = .15; break;
       case 'held': T.sl = T.sr = -2.9; T.el = T.er = -.1; T.thl = .15; T.thr = -.15; break;
+      // um gesto por uso de móvel (mesmos nomes do kit Meshy; braços mais longos, ângulos menores)
+      case 'drink': { const p = (Math.sin(t * 1.4 + seed) + 1) / 2; T.sr = -.6 - p * .6; T.er = -1.0 - p * .9; T.hx = -.04 - p * .12; break; }
+      case 'stir': T.sr = -.9 + Math.sin(t * 5 + seed) * .12; T.srz = Math.cos(t * 5 + seed) * .2; T.er = -.8; T.sl = -.8; T.el = -.7; T.hx = .3; break;
+      case 'lift': { const p = (Math.sin(t * 1.6 + seed) + 1) / 2; T.sl = T.sr = -1.0 - p * 1.0; T.el = T.er = -.6 + p * .45; T.hx = .15 - p * .35; break; }
+      case 'counter': T.sl = -.85; T.el = -.75; T.sr = -.6 + Math.sin(t * 2.6 + seed) * .25; T.er = -1.0; T.hy = Math.sin(t * 1.1 + seed) * .25; break;
+      case 'care': { const f = Math.sin(t * 2.2 + seed) * .1; T.sl = -1.0 + f; T.sr = -1.0 - f; T.el = T.er = -.6; T.hx = .38; T.tx = .12; break; }
+      case 'hammer': { const p = Math.max(0, Math.sin(t * 6 + seed)); T.sr = -1.2 - p * .9; T.er = -1.1 + p * .6; T.sl = -.85; T.el = -.75; T.hx = .35; break; }
+      case 'press': { const p = Math.max(0, Math.sin(t * 2.4 + seed)); T.sr = -1.15; T.er = -.35 + p * .3; T.sl = -.4; T.el = -.6; T.hx = .28; break; }
+      case 'present': T.sl = -.7 + Math.sin(t * 2 + seed) * .15; T.sr = -.7 + Math.sin(t * 2 + seed + 1.6) * .15; T.slz = .5; T.srz = -.5; T.el = T.er = -.6; T.hy = Math.sin(t * .9 + seed) * .25; break;
+      case 'water': T.sr = -1.2; T.er = -.2; T.sl = -.3; T.el = -.5; T.hx = .38; T.tx = .08; break;
+      case 'relax': T.sl = T.sr = -2.6; T.el = T.er = -2.1; T.slz = .45; T.srz = -.45; T.hx = -.18; break;
+      case 'watch': T.sl = T.sr = -.8; T.el = T.er = -1.7; T.slz = -.2; T.srz = .2; T.hx = -.14; break;
     }
     if (st.moving && !st.sit) T.hy = 0;
     let P = v.pose; if (!P) P = v.pose = Object.assign({}, T);

@@ -42,6 +42,21 @@ export async function pickModel(provider, cfg, exclude = []) {
     : 'A conta não tem nenhum modelo de texto disponível.'), { code: 'no_model' });
 }
 
+// Modelo fixo da crítica visual dos móveis (decisão do dono): na OpenAI usa sempre este, com visão.
+// Outros provedores seguem com o modelo da conta. PIXELHQ_CRITIC_MODEL troca sem mexer no código.
+export const CRITIC_MODEL = { openai: 'gpt-6.1-sol' };
+export const criticModel = (provider) => process.env.PIXELHQ_CRITIC_MODEL || CRITIC_MODEL[provider] || null;
+
+// chamada da crítica visual: com modelo fixo não há troca automática (ela salvaria o modelo da
+// crítica como modelo da equipe); se ele falhar, o erro sobe e a crítica fica "sem avaliação"
+export async function critiqueChat(opts) {
+  const cfg = await settings.active();
+  if (!cfg) throw new Error('Conecte uma IA primeiro.');
+  const model = criticModel(cfg.provider);
+  if (!model) return chat(opts);
+  return PROVIDERS[cfg.provider].chat({ ...cfg, ...opts, model }).catch(e => { throw Object.assign(e, { provider: cfg.provider, model }); });
+}
+
 // chamada com troca automática de modelo; onSwitch(antigo, novo) avisa quem quiser mostrar
 export async function chat(opts, onSwitch) {
   const cfg = await settings.active();

@@ -23,12 +23,12 @@ function tplSala() {
     ],
     walls: [{ id: 'w1', kind: 'vidro', a: [9, 0], b: [9, 5] }, { id: 'w2', kind: 'vidro_porta', a: [9, 5], b: [14, 5] }, { id: 'w3', kind: 'ripado', a: [8, 7], b: [8, 11] }],
     people: [
-      { id: 'p-ana', name: 'Ana', skin: SKIN[1], hair: HAIR[0], hairStyle: 'longo', top: 'jaqueta', shirt: SHIRT[0], pants: PANTS[0], shoes: SHOES[1], extras: { cracha: true }, role: 'orquestrador', pos: [7.25, 2.5] },
-      { id: 'p-bia', name: 'Bia', skin: SKIN[3], hair: HAIR[0], hairStyle: 'cacheado', top: 'camiseta', shirt: SHIRT[4], pants: PANTS[1], shoes: SHOES[0], extras: { cracha: true, oculos: true }, role: 'dev', pos: [7.5, 5.75] },
-      { id: 'p-rafa', name: 'Rafa', skin: SKIN[0], hair: HAIR[2], hairStyle: 'curto', top: 'moletom', shirt: SHIRT[1], pants: PANTS[2], shoes: SHOES[1], extras: { fone: true }, role: 'dev', pos: [4.25, 9.75] },
-      { id: 'p-davi', name: 'Davi', skin: SKIN[2], hair: HAIR[0], hairStyle: 'raspado', top: 'camisa', shirt: SHIRT[7], pants: PANTS[0], shoes: SHOES[2], extras: { barba: true, cracha: true }, role: 'revisor', pos: [12.25, 6.25] },
-      { id: 'p-lia', name: 'Lia', skin: SKIN[0], hair: HAIR[3], hairStyle: 'coque', top: 'camisa', shirt: SHIRT[2], pants: PANTS[3], shoes: SHOES[0], extras: { oculos: true }, role: 'pesquisa', pos: [1.25, 6.25] },
-      { id: 'p-theo', name: 'Theo', skin: SKIN[4], hair: HAIR[0], hairStyle: 'curto', top: 'moletom', shirt: SHIRT[6], pants: PANTS[1], shoes: SHOES[3], extras: { fone: true, cracha: true }, role: 'devops', pos: [14.75, 4.25] },
+      { id: 'p-ana', name: 'Ana', gender: 'f', skin: SKIN[1], hair: HAIR[0], hairStyle: 'longo', top: 'jaqueta', shirt: SHIRT[0], pants: PANTS[0], shoes: SHOES[1], extras: { cracha: true }, role: 'orquestrador', pos: [7.25, 2.5] },
+      { id: 'p-bia', name: 'Bia', gender: 'f', skin: SKIN[3], hair: HAIR[0], hairStyle: 'rabo', top: 'camiseta', shirt: SHIRT[4], pants: PANTS[1], shoes: SHOES[0], extras: { cracha: true, oculos: true }, role: 'dev', pos: [7.5, 5.75] },
+      { id: 'p-rafa', name: 'Rafa', gender: 'm', skin: SKIN[0], hair: HAIR[2], hairStyle: 'curto', top: 'moletom', shirt: SHIRT[1], pants: PANTS[2], shoes: SHOES[1], extras: { fone: true }, role: 'dev', pos: [4.25, 9.75] },
+      { id: 'p-davi', name: 'Davi', gender: 'm', skin: SKIN[2], hair: HAIR[0], hairStyle: 'raspado', top: 'camisa', shirt: SHIRT[7], pants: PANTS[0], shoes: SHOES[2], extras: { barba: true, cracha: true }, role: 'revisor', pos: [12.25, 6.25] },
+      { id: 'p-lia', name: 'Lia', gender: 'f', skin: SKIN[0], hair: HAIR[3], hairStyle: 'coque', top: 'camisa', shirt: SHIRT[2], pants: PANTS[3], shoes: SHOES[0], extras: { oculos: true }, role: 'pesquisa', pos: [1.25, 6.25] },
+      { id: 'p-theo', name: 'Theo', gender: 'm', skin: SKIN[4], hair: HAIR[0], hairStyle: 'curto', top: 'moletom', shirt: SHIRT[6], pants: PANTS[1], shoes: SHOES[3], extras: { fone: true, cracha: true }, role: 'devops', pos: [14.75, 4.25] },
     ],
   };
 }
@@ -40,7 +40,16 @@ function normalize(w) {
   w.labels ??= {};
   for (const r of Object.values(w.roles)) { if (!KINDS[r.kind]) r.kind = 'produz'; r.c ??= '#5C5866'; r.n ??= 'Papel'; }
   const fallback = Object.keys(w.roles).find(k => w.roles[k].kind === 'produz') || Object.keys(w.roles)[0];
-  for (const p of w.people) { const look = randomLook(); for (const k in look) if (p[k] == null) p[k] = look[k]; p.hairStyle ??= 'curto'; p.top ??= 'camiseta'; p.shoes ??= '#2C2E34'; p.extras ??= {}; p.pos ??= [1.5, 1.5]; if (!w.roles[p.role]) p.role = fallback; delete p.desk; }
+  for (const p of w.people) {
+    p.gender = p.hairStyle ? genderOf(p) : (p.gender === 'f' || p.gender === 'm' ? p.gender : genderOfName(p.name));
+    const look = randomLook(p.gender); for (const k in look) if (p[k] == null) p[k] = look[k];
+    // penteado e barba sempre do gênero escolhido (cada penteado é um modelo feminino ou masculino)
+    if (!HAIR_G[p.gender].includes(p.hairStyle)) p.hairStyle = HAIR_G[p.gender][0];
+    if (p.gender === 'f' && p.extras?.barba) p.extras = { ...p.extras, barba: false };
+    p.top ??= 'camiseta'; p.shoes ??= '#2C2E34'; p.extras ??= {}; p.pos ??= [1.5, 1.5]; if (!w.roles[p.role]) p.role = fallback; delete p.desk; }
+  // toda sala tem uma porta de entrada encostada numa parede (fixDoor vem de 03-geometria.js, carregado depois;
+  // na primeira chamada, durante a carga deste arquivo, 99-inicio.js confere de novo)
+  if (typeof fixDoor === 'function') fixDoor(w);
   return w;
 }
 

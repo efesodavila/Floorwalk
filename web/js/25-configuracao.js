@@ -92,11 +92,13 @@ function aiLabel() {
 }
 
 async function setupInit() {
+  loadStep(.4, 'Conectando ao servidor…');
   try { setupState.view = await setupApi('/api/settings'); setupState.office = (await setupApi('/api/office')).office; }
   catch { document.body.classList.remove('booting'); return; }
   renderAIButton();
   // o escritório salvo no servidor manda: outro navegador ou um escritório novo recarregam a planta
   if (setupState.office && W.officeId !== setupState.office.createdAt) applyOffice(setupState.office);
+  reviewCustomFurniture(setupState.office);
   document.body.classList.toggle('has-office', !!setupState.office);
   renderMenu();
   document.body.classList.remove('booting');
@@ -143,7 +145,7 @@ $('#office-form').onsubmit = async (e) => {
     const r = await setupApi('/api/office/plan', { description: desc });
     clearInterval(tick);
     if (!r.ok) { officeStatus(r.error, 'err'); return; }
-    setupState.office = r.office; document.body.classList.add('has-office'); renderMenu(); closeSetup(); applyOffice(r.office);
+    setupState.office = r.office; document.body.classList.add('has-office'); renderMenu(); closeSetup(); applyOffice(r.office); reviewCustomFurniture(r.office);
     toast(`${r.office.name} está pronto. A equipe de ${r.office.team.length} pessoas entra na sala quando você pedir uma tarefa.`);
   } catch (err) { clearInterval(tick); officeStatus(err.message || 'O servidor do Pixel HQ não respondeu.', 'err'); }
   finally { btn.disabled = false; $('#office-back').disabled = false; }

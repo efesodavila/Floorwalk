@@ -2,7 +2,7 @@
 // Útil para abrir direto no navegador, compartilhar ou publicar como página estática.
 //
 // Inclui o visual 3D: o código 3D (Three.js e personagens) é empacotado com o esbuild, e os modelos dos
-// personagens (web/modelos/*.glb) são embutidos como data: URLs (~7 MB a mais).
+// personagens (web/modelos/*.glb) são embutidos como data: URLs (~14 MB de .glb com os ternos, ~19 MB a mais em base64).
 //   node scripts/build-single.mjs              → com 3D e modelos
 //   node scripts/build-single.mjs --sem-modelos → com 3D, personagens low-poly feitos em código (bem menor)
 //   node scripts/build-single.mjs --sem-3d      → só o 2D (o arquivo antigo, ~0,4 MB)

@@ -90,6 +90,7 @@ function renderCtx() {
   }
   const o = objById(selected.id); if (!o) { ctxBar.hidden = true; return; }
   const it = ITEMS[o.item]; ctxBar.hidden = false;
+  if (it.door) { ctxBar.innerHTML = `<span class="title"><b>${it.n}</b><small>a equipe entra e sai por aqui · arraste para outra parede</small></span>`; return; }
   ctxBar.innerHTML = `<span class="title"><b>${it.n}</b><small>arraste para mover</small></span><span class="sep"></span>
     <button type="button" id="c-rot">${IC.rotate}Girar <kbd>R</kbd></button>
     <button type="button" id="c-dup">${IC.copy}Duplicar</button>

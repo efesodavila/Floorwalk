@@ -60,8 +60,7 @@ cv.addEventListener('pointerdown', e => {
   closePop();
   const [sx, sy] = evPos(e), w = unIso(sx, sy);
   hover = w;
-  // 3D: botão direito (ou Shift sem nada para arrastar) gira a vista; meio ou espaço move
-  if (ed3d() && e.button === 2) { drag = { kind: 'rot', sx }; R3D.rotStart(sx); cv.setPointerCapture(e.pointerId); return; }
+  // 3D: botão direito ou do meio (ou espaço) move a vista; o esquerdo, em lugar vazio, gira (mais abaixo)
   if (e.button === 1 || e.button === 2 || spaceHeld) { drag = { kind: 'pan', sx, sy, cx: view.cx, cy: view.cy }; if (ed3d()) R3D.panStart(sx, sy); cv.setPointerCapture(e.pointerId); return; }
   if (e.button !== 0) return;
   cv.setPointerCapture(e.pointerId);
@@ -71,12 +70,13 @@ cv.addEventListener('pointerdown', e => {
     return;
   }
   if (placing) {
-    const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, [ww, d] = dims(o);
-    const at = { x: Math.floor(w.x - ww / 2 + .5), z: Math.floor(w.z - d / 2 + .5) }, res = footprintOk(o, at);
+    if (ITEMS[placing.item].door && W.objects.some(isDoor)) { placing = null; renderBanner(); return toast('A sala já tem porta de entrada. Arraste a porta para mudar de lugar.'); }
+    const o = { item: placing.item, rot: placing.rot, color: ITEMS[placing.item].color }, at = placeAt(o, w), res = footprintOk(o, at);
     if (res === 'off') return toast('Esse lugar está fora do piso. Escolha um ponto dentro da sala.');
+    if (res === 'door') return toast(DOOR_MSG);
     if (res.startsWith('overlap')) return toast(`Já tem "${res.slice(8)}" aí. Escolha outro lugar.`);
     const id = nid(placing.item);
-    change(() => W.objects.push({ id, item: placing.item, x: at.x, z: at.z, rot: placing.rot }), `${ITEMS[placing.item].n} colocado`);
+    change(() => W.objects.push({ id, item: placing.item, x: at.x, z: at.z, rot: o.rot }), `${ITEMS[placing.item].n} colocado`);
     if (!e.shiftKey) { placing = null; selected = { type: 'obj', id }; renderBanner(); renderPanel(); renderCtx(); }
     return;
   }
@@ -92,13 +92,14 @@ cv.addEventListener('pointerdown', e => {
     drag = { kind: 'move', sel: hit, start: w, at: base ? { x: base.x, z: base.z } : null, dx: base ? w.x - base.x : 0, dz: base ? w.z - base.z : 0, off: [0, 0], moved: false, sx, sy };
     dirty(); return;
   }
+  // lugar vazio: no 3D, arrastar com o esquerdo gira a sala; no 2D, move. Clique sem arrastar tira a seleção
+  if (ed3d()) { drag = { kind: 'rot', sx, sy, click: true }; R3D.rotStart(sx); return; }
   drag = { kind: 'pan', sx, sy, cx: view.cx, cy: view.cy, click: true };
-  if (ed3d()) R3D.panStart(sx, sy);
 });
 cv.addEventListener('pointermove', e => {
   const [sx, sy] = evPos(e), w = unIso(sx, sy); hover = w;
   hoverHandle = !drag ? hitHandle(sx, sy) : null;
-  if (drag?.kind === 'rot') R3D.rotMove(sx);
+  if (drag?.kind === 'rot') { if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.click = false; if (!drag.click) R3D.rotMove(sx); }
   else if (drag?.kind === 'pan') { if (ed3d()) R3D.panMove(sx, sy); else { view.cx = drag.cx + sx - drag.sx; view.cy = drag.cy + sy - drag.sy; } if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) { drag.click = false; if (sim.following) { sim.following = null; teamHTML = ''; renderTeam(); } } }
   else if (drag?.kind === 'person') { if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.moved = true; if (drag.moved) drag.at = [Math.round(w.x * 4) / 4, Math.round(w.z * 4) / 4]; }
   else if (drag?.kind === 'agent') {
@@ -110,7 +111,12 @@ cv.addEventListener('pointermove', e => {
   else if (drag?.kind === 'move') {
     if (Math.hypot(sx - drag.sx, sy - drag.sy) > 4) drag.moved = true;
     if (drag.moved) {
-      if (drag.sel.type === 'obj') drag.at = { x: Math.round(w.x - drag.dx), z: Math.round(w.z - drag.dz) };
+      if (drag.sel.type === 'obj') {
+        const o = objById(drag.sel.id);
+        // a porta "gruda" na parede mais perto do cursor (e vira para ela)
+        if (isDoor(o)) { const s = doorSpot(o, w.x, w.z, W.tiles, (q, at) => footprintOk(q, at, o.id) === 'ok'); if (s) { drag.at = { x: s.x, z: s.z }; drag.rot = s.rot; } }
+        else drag.at = { x: Math.round(w.x - drag.dx), z: Math.round(w.z - drag.dz) };
+      }
       else drag.off = [Math.round(w.x - drag.start.x), Math.round(w.z - drag.start.z)];
     }
   }
@@ -119,7 +125,7 @@ cv.addEventListener('pointermove', e => {
 function endDrag() {
   if (!drag) return;
   const d = drag; drag = null;
-  if (d.kind === 'rot') { R3D.rotEnd(); return; }
+  if (d.kind === 'rot') { R3D.rotEnd(); if (d.click && selected) { selected = null; renderCtx(); } return; }
   if (d.kind === 'pan' && d.click && selected) { selected = null; renderCtx(); }
   if (d.kind === 'pan' && d.click && mode === 'live' && sim.inspect) closeFicha();
   if (d.kind === 'person') {
@@ -146,9 +152,9 @@ function endDrag() {
   }
   if (d.kind === 'move' && d.moved) {
     if (d.sel.type === 'obj') {
-      const o = objById(d.sel.id), res = footprintOk(o, d.at, o.id);
-      if (res === 'ok') change(() => { const q = objById(d.sel.id); q.x = d.at.x; q.z = d.at.z; }, 'Movido');
-      else toast(res === 'off' ? 'Não dá para soltar fora do piso. Voltou para onde estava.' : `Já tem "${res.slice(8)}" ali. Voltou para onde estava.`);
+      const o = objById(d.sel.id), rot = d.rot ?? o.rot, res = footprintOk({ ...o, rot }, d.at, o.id);
+      if (res === 'ok') change(() => { const q = objById(d.sel.id); q.x = d.at.x; q.z = d.at.z; q.rot = rot; }, isDoor(o) ? 'A porta mudou de lugar' : 'Movido');
+      else toast(res === 'off' ? 'Não dá para soltar fora do piso. Voltou para onde estava.' : res === 'door' ? DOOR_MSG : `Já tem "${res.slice(8)}" ali. Voltou para onde estava.`);
     } else {
       const s = wallById(d.sel.id), m = { ...s, a: [s.a[0] + d.off[0], s.a[1] + d.off[1]], b: [s.b[0] + d.off[0], s.b[1] + d.off[1]] }, prob = wallProblem(m, s.id);
       if (!prob) change(() => { const q = wallById(d.sel.id); q.a = m.a; q.b = m.b; }, 'Movida');
@@ -204,15 +210,24 @@ function cancelModes() {
   if (tab === 'planta') tool = 'select';
   selected = null; renderBanner(); renderPanel(); renderCtx(); dirty();
 }
+// onde um móvel novo cai sob o cursor; a porta procura a parede mais perto e acerta o giro (muda o.rot)
+function placeAt(o, w) {
+  if (ITEMS[o.item].door) { const s = doorSpot(o, w.x, w.z, W.tiles, (q, at) => footprintOk(q, at) === 'ok'); if (s) { o.rot = s.rot; return { x: s.x, z: s.z }; } }
+  const [ww, d] = dims(o);
+  return { x: Math.floor(w.x - ww / 2 + .5), z: Math.floor(w.z - d / 2 + .5) };
+}
+const DOOR_MSG = 'A porta precisa ficar encostada numa parede (esquerda ou fundo), com o piso livre na frente.';
 function rotate() {
   if (placing) { placing.rot = (placing.rot + 1) % 4; dirty(); return; }
   if (selected?.type !== 'obj') return;
+  if (isDoor(objById(selected.id))) return toast('A porta acompanha a parede. Arraste para mudar de lugar.');
   const o = objById(selected.id), test = { ...o, rot: (o.rot + 1) % 4 }, res = footprintOk(test, { x: o.x, z: o.z }, o.id);
   if (res !== 'ok') return toast(res === 'off' ? 'Girado ele sairia do piso. Mova para um lugar com mais espaço.' : `Girado ele ficaria em cima de "${res.slice(8)}"`);
   change(() => { objById(selected.id).rot = test.rot; }, 'Girado');
 }
 function duplicate() {
   if (selected?.type !== 'obj') return;
+  if (isDoor(objById(selected.id))) return toast('A sala tem uma porta de entrada só.');
   const o = objById(selected.id), [w, d] = dims(o);
   for (const [dx, dz] of [[w, 0], [0, d], [-w, 0], [0, -d], [w, d], [-w, -d]]) {
     const at = { x: o.x + dx, z: o.z + dz };
@@ -223,6 +238,7 @@ function duplicate() {
 function removeSelected() {
   if (!selected) return;
   if (selected.type === 'obj') {
+    if (isDoor(objById(selected.id))) return toast('A equipe entra e sai pela porta: ela não pode ser apagada. Arraste para outra parede.');
     const id = selected.id, name = ITEMS[objById(id).item].n;
     change(() => { W.objects = W.objects.filter(o => o.id !== id); }, `${name} apagado`);
   } else { const id = selected.id, name = WALLKINDS[wallById(id).kind].n; change(() => { W.walls = W.walls.filter(s => s.id !== id); }, `${name} apagada`); }

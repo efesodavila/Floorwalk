@@ -41,7 +41,7 @@ function localPlan(text) {
   const byKind = k => sim.agents.find(a => kindOf(a.role) === k);
   const pick = (...ks) => { for (const k of ks) { const a = byKind(k); if (a) return nameOf(a); } return sim.agents[0] ? nameOf(sim.agents[0]) : null; };
   const label = text.length > 38 ? text.slice(0, 37) + '…' : text;
-  const research = has('pesquis', 'estudo', 'compar', 'analis'), lead = pick('coordena', 'produz'), maker = research ? pick('pesquisa', 'produz') : pick('produz'), rev = pick('revisa', 'coordena');
+  const research = has('pesquis', 'estudo', 'compar', 'analis'), lead = pick('coordena', 'produz'), maker = research ? pick('pesquisa', 'produz') : pick('produz', 'opera', 'atende'), rev = pick('revisa', 'coordena');
   const st = research ? 'pesquisando' : 'trabalhando';
   const P = [{ t: 0, agente: lead, estado: 'planejando', tarefa: label, com: maker !== lead ? [maker] : [] }];
   if (maker !== lead) P.push({ t: 0, agente: maker, estado: 'planejando', tarefa: label, com: [lead] });
@@ -54,7 +54,7 @@ function localPlan(text) {
 function addAgentLive(nome, papel) {
   if (!nome || agentByRef(nome)) return agentByRef(nome);
   const b = bounds(), id = nid('p'), pos = freeSpotNear((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
-  const p = { id, name: String(nome).slice(0, 14), ...randomLook(), role: ROLES[papel] ? papel : defaultRole(), pos };
+  const p = { id, name: String(nome).slice(0, 14), ...randomLook(genderOfName(nome)), role: ROLES[papel] ? papel : defaultRole(), pos };
   W.people.push(p); try { save(); } catch (e) {}
   const a = makeAgent(p); sim.agents.push(a); teamHTML = '';
   logFeed({ name: p.name, st: null, text: `Entrou na equipe como ${ROLES[p.role].n.toLowerCase()} para esta tarefa` });

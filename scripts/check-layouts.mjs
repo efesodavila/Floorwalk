@@ -16,14 +16,17 @@ const errors = []; pg.on('pageerror', e => errors.push(e.message));
 await pg.goto(page); await pg.waitForTimeout(500);
 const result = await pg.evaluate(() => {
   const NOMES = ['Ana', 'Bia', 'Caio', 'Duda', 'Edu', 'Fê', 'Gil', 'Hugo', 'Iara', 'Juca'];
-  const spec = (style, studio, reception, delivery, size = 6) => ({ name: 'Teste', style, delivery, areas: { studio, reception },
+  const spec = (style, studio, reception, delivery, size = 6, layout = 'rect') => ({ name: 'Teste', style, delivery, layout, areas: { studio, reception },
     roles: [{ id: 'c', name: 'C', kind: 'coordena' }, { id: 'p', name: 'P', kind: 'produz' }, { id: 'r', name: 'R', kind: 'revisa' }],
     team: NOMES.slice(0, size).map((n, i) => ({ name: n, role: i === 0 ? 'c' : i === 5 ? 'r' : 'p' })), labels: {}, tasks: [], research: [] });
   const out = {}; let n = 0;
-  for (const size of [6, 10]) for (const s of Object.keys(STYLE_PRESETS)) for (const st of [false, true]) for (const re of [false, true]) for (const d of ['servidor', 'impressora']) {
-    n++; const w = officeWorld(spec(s, st, re, d, size)), p = officeProblems(w);
+  for (const lay of ['rect', 'L']) for (const size of [6, 10]) for (const s of Object.keys(STYLE_PRESETS)) for (const st of [false, true]) for (const re of [false, true]) for (const d of ['servidor', 'impressora']) {
+    n++; const w = officeWorld(spec(s, st, re, d, size, lay)), p = officeProblems(w);
     if (w.people.length !== size) p.push(`equipe de ${size} virou ${w.people.length}`);
-    if (p.length) out[`${size} pessoas · ${s} · estúdio ${st} · recepção ${re} · ${d}`] = p;
+    // a porta de entrada precisa estar encostada numa parede (é por ela que a equipe entra e sai)
+    const D = w.objects.find(o => ITEMS[o.item].door);
+    if (!D) p.push('sem porta de entrada'); else { const keep = W; W = w; if (footprintOk(D, D, D.id) !== 'ok') p.push('porta de entrada fora da parede ou bloqueada'); W = keep; }
+    if (p.length) out[`${lay} · ${size} pessoas · ${s} · estúdio ${st} · recepção ${re} · ${d}`] = p;
   }
   // cada móvel extra em cada vaga em que cabe
   const extras = Object.keys(ITEMS).filter(id => ITEMS[id].d === 1 && ['atendimento', 'cozinha', 'comércio', 'oficina'].includes(ITEMS[id].cat));

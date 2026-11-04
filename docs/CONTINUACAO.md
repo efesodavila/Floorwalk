@@ -30,8 +30,8 @@ abre uma ficha com o que ele está fazendo.
 
 Regras de UX já aprendidas (não regredir):
 - **Nada 2D na experiência normal** (pedido explícito do dono): sala, editor, fantasma ao arrastar, miniaturas do
-  painel e retratos são 3D. O 2D (`web/js/05-desenho.js`, `09-cena.js`) só existe como reserva automática sem WebGL
-  e como camada transparente de marcas do editor (área verde/vermelha, seleção, alças "+").
+  painel, retratos e marcas do editor (área verde/vermelha, seleção, alças "+") são 3D. O 2D (`web/js/05-desenho.js`,
+  `09-cena.js`) só existe como reserva automática sem WebGL e, no editor, como camada dos textos (como os nomes).
 - Ao abrir/atualizar a página não pode aparecer o 2D antes do 3D (classe `espera3d` em `00-base.js` + CSS).
 - Todo móvel novo precisa de modelo 3D no estilo dos personagens (facetado, contorno preto), não só caixas.
 - Nada de barra de player nem cartões de personagens depois do setup (só no modo desenvolvedor, `body.dev`).
@@ -58,8 +58,8 @@ Requisitos: Node.js 22+ (`node --version`).
 npm install
 npm start            # servidor em http://127.0.0.1:8787 (abre o setup se a IA não estiver configurada)
 npm run demo         # mesmo fluxo de eventos, sem chamar IA nenhuma
-npm test             # 72 testes, todos devem passar
-npm run check:layouts   # (opcional, precisa de Playwright) valida 145 combinações de planta (6 e 10 pessoas)
+npm test             # 77 testes, todos devem passar (no Windows, o teste da permissão 0600 do settings.json falha: o NTFS não tem esse modo)
+npm run check:layouts   # (opcional, precisa de Playwright) valida as plantas: retangular e em L, 6 e 10 pessoas, todos os estilos, áreas, vagas e a porta
 npm run build:single    # arquivo único em dist/ COM 3D e modelos (~10 MB); --sem-modelos (~1 MB) | --sem-3d
 ```
 
@@ -131,13 +131,23 @@ pausa com a sala vazia.
 (esconde o canvas 2D e mostra "Carregando o escritório…"); `cena3d.js` tira a classe no primeiro quadro 3D, ou se o
 3D falhar (aí o 2D aparece).
 
-**Porta de entrada** (`cena3d.js`, `rebuild` → `entryDoor`): acha o capacho, vê qual parede externa ele toca
-(esquerda `x` ou fundo `z`; só essas paredes existem no 3D — a frente e a direita ficam abertas para a câmera),
-recorta a parede nesses quadrados até 2,1 de altura, põe batente, verga e **duas folhas de vidro** em dobradiças
-(`D.leaves`). Em `updateAnimations`, as folhas abrem (até ~77°) quando algum agente presente está a menos de 1,8 da
-porta. `entrance()` em `27-entregas-menu.js` põe quem entra logo dentro da porta, olhando para dentro (`face`).
-A planta (`officeWorld`) põe o capacho em `x: 0, z: 8, rot: 1` (parede esquerda). Se o usuário mover o capacho para
-longe das paredes, não há porta (as pessoas surgem no capacho).
+**Porta de entrada** (item `capacho`, nome "Porta de entrada", `door: true`): o usuário **arrasta a porta** no
+editor (pelo capacho ou pelo vão da porta na parede) e ela gruda na parede externa mais perto do cursor —
+esquerda (`rot` ímpar) ou fundo (`rot` par); só essas paredes existem no 3D, a frente e a direita ficam abertas para a
+câmera. Regras em `03-geometria.js`: `doorFits` (encostada na parede, sobre o piso), `doorSpot` (lugar válido mais
+perto), `doorInfo` (lado, trecho, para onde se olha ao entrar), `fixDoor` (salvo antigo, piso mudado ou porta sumida:
+volta para a parede mais perto ou é criada; roda em `normalize` e no arranque). `footprintOk` devolve `'door'` quando
+a porta não está numa parede e trata a porta como **sólida** para os outros móveis (nada fica em cima da passagem).
+A porta não gira, não duplica e não é apagada (a barra de contexto só mostra o nome e a dica).
+O 3D (`cena3d.js`, `rebuild` → `entryDoor = doorInfo()`) recorta a parede até 2,1 de altura, põe batente, verga e
+**duas folhas de vidro** em dobradiças (`D.leaves`); as folhas abrem (até ~77°) quando algum agente presente está a
+menos de 1,8. `entrance()` em `27-entregas-menu.js` põe quem entra logo dentro da porta, olhando para dentro.
+
+**Marcas do editor em 3D:** `editorMarks()` (`09-cena.js`) devolve uma lista em coordenadas da sala (áreas, pontos,
+alças "+", etiquetas). O 3D (`updateMarks` em `cena3d.js`) desenha como malhas na camada 1 (sem contorno, com
+profundidade: o móvel na frente esconde a marca); as alças "+" ficam por cima de tudo (`depthTest` desligado) para
+aparecerem atrás das paredes do fundo. O canvas 2D, no modo Construir, só desenha os **textos** (tamanho da parede,
+dica da alça). Sem WebGL, `drawMarks2D` desenha a mesma lista no 2D.
 
 `web/js3d/cena3d.js` (Three.js 0.170.0) desenha a sala em 3D por cima do 2D (o 2D só desenha se o 3D não estiver
 ativo; sem WebGL cai para o 2D). Pontos-chave:
@@ -192,11 +202,13 @@ Contrato de um "kit" de personagens (`personagens3d-*.js` exportam `characterKit
 
 ## 6. Personagens (estilo padrão = Meshy) — como funciona
 
-Arquivo: `web/js3d/personagens3d-meshy.js`. Modelos: `web/modelos/*.glb` (7 arquivos, ~6,9 MB, texturas 1K JPEG).
+Arquivo: `web/js3d/personagens3d-meshy.js`. Modelos: `web/modelos/*.glb` (7 de camiseta + 7 de terno, ~1 MB cada, texturas 1K JPEG).
 
 **Um modelo por penteado** (`POR_PENTEADO`): curto→`menino_curto` (arquivo `menino_acessorios.glb`), franja→
-`menino_franja`, longo→`menina_longo`, rabo→`menina_rabo2`, coque→`menina_rabo` (arquivo
-`menina_coque_acessorios.glb`), cacheado→`menino_cacheado`, raspado→`menino_raspado`. Os nomes de chave e de
+`menino_franja`, longo→`menina_longo`, rabo→`menina_rabo3` (arquivo `menina_rabo3_acessorios.glb`, refeito em 2026-11-03), coque→`menina_rabo` (arquivo
+`menina_coque_acessorios.glb`), cacheado→`menino_cacheado`, raspado→`menino_raspado`. Roupa **terno** usa `POR_TERNO` (penteado → `terno_<penteado>`); papéis novos em `roles`: `suit` (peça do terno: mantém a
+cor original, só a pele é repintada; acima do pescoço vale como rosto) e `keep` (olhos/boca em peças à parte, cor
+original). Âncoras `keep*` em `a` só servem para separar terno de pele. Os nomes de chave e de
 arquivo não batem em alguns casos; **a verdade é a tabela `MODELS`** (campo `file`).
 
 Cada modelo foi **gerado já com óculos, fone, crachá (e barba nos meninos)**. O código:
@@ -247,7 +259,7 @@ roupas e acessórios do editor (um teste garante). Serve de reserva quando os GL
 ## 8. Meshy (e Tripo) — como usar a partir daqui
 
 O Meshy é a fonte dos modelos. **Custos medidos (créditos):** imagem→imagem (nano-banana-2-lite) 3; imagem→3D
-smart-topology com textura 2K 15; rig 5. Um modelo completo com referência ≈ 23. Saldo em 2026-11-03: **557**.
+smart-topology com textura 2K 15; rig 5. Um modelo completo com referência ≈ 23. Saldo em 2026-11-03: **230** (391 antes dos ternos; 161 nos 7 ternos).
 Preços oficiais: https://docs.meshy.ai/en/api/pricing (verificar antes de gastar).
 
 - Usa-se a **CLI** `meshy-cli@0.4.0`: `npm exec --yes --package=meshy-cli@0.4.0 -- meshy ...`. Comandos usados:
@@ -313,61 +325,112 @@ disse que está **ótimo**).
 - Os estilos antigos (vinil, toon, GLB do Tripo) foram **removidos**; o histórico está no git antigo descartado
   e nos prints entregues ao dono, não no repositório atual.
 
+- **Porta movível** (dono): a porta de entrada é um item que o usuário arrasta para qualquer parede externa
+  (esquerda ou fundo); a equipe entra e sai por ela. Não pode ser apagada.
+- **Planta em L** (dono pediu "plantas realmente diferentes"): a IA escolhe `"planta": "retangular" | "em_l"` na
+  ficha (`layout: 'rect' | 'L'`). Em L, `officeWorld` acrescenta uma ala na frente-esquerda (`WING`, x 0..6, z 11..15)
+  com sala de espera (tapete, mesa de centro, sofá, poltrona, palmeira, luminária) e a porta na parede da ala.
+  **Dois andares não foi feito**: exige escada, caminhos entre andares, câmera e editor por andar e mudar o formato
+  do piso (`tiles` é por x,z) — é praticamente refazer a sala. Decidir com o dono antes de começar.
+- **Crítica visual dos móveis da IA** (dono aprovou o custo): depois de montar o escritório, a página tira uma foto 3D
+  de cada móvel desenhado pela IA (`R3D.itemShot`) e manda para `POST /api/office/critique`; o servidor chama a IA
+  conectada com a imagem (`critiqueFurniture` em `server/furniture.mjs`), que dá nota de 1 a 5 e, abaixo de 4,
+  propõe um desenho novo (`pending` no `office.json`). A página renderiza a proposta e manda de novo; ela só entra se a
+  nota subir (`scoreFurniture`). No máximo **2 chamadas por móvel, uma vez** (`reviewed`, gravado sem mudar `createdAt`).
+  Testado com a IA do dono (OpenAI gpt-5.4-mini, 2026-11-03): nota 2 na mesa fraca; a primeira correção saiu pior
+  (por isso a segunda avaliação); em outras rodadas a correção reprovou nas regras e o original ficou. O desenho
+  inicial dessa IA também reprova com frequência ("bloco escondido dentro de outro") e cai no plano B.
+  **Modelo fixo da crítica (decisão do dono, 2026-11-03): na OpenAI usa sempre `gpt-6.1-sol`** (`CRITIC_MODEL` e
+  `critiqueChat` em `server/llm.mjs`; `PIXELHQ_CRITIC_MODEL` troca). Sem troca automática de modelo (ela salvaria o
+  modelo da crítica como o da equipe); se falhar, o móvel fica "sem avaliação". Outros provedores usam o modelo da conta.
+  Teste real com o Sol: mesa de som nota 1 → desenho novo passou nas regras → nota 4, aprovado.
+  Imagens nos provedores: `images: [{mime, data}]` na mensagem (`asResponses`, `asChatCompletions`, `asAnthropic`,
+  `asOllama` em `providers.mjs`).
+
+- **Mouse** (dono): esquerdo arrasta = gira (encaixa em 90°), direito ou meio arrasta = move, roda = zoom; clique sem
+  arrastar abre a ficha (ao vivo) ou tira a seleção (editor). Arrastar móvel no editor continua igual.
+- **Menu** (dono): só o ícone (sem o nome do escritório); "Como os personagens se comportam" e "Ferramentas de
+  desenvolvimento" saíram do menu (modo desenvolvedor só com `?dev` no endereço).
+- **Alças "+"** ficam fora do contorno da sala na tela (`handles()` empurra cada uma para fora até sair da silhueta).
+- **Carregamento**: tela cheia com barra (`#loader`, `loadStep(p, texto)` em `00-base.js`), nada da interface por baixo.
+- **Gestos por móvel** (`ACT_POSE` em `cena3d.js`): trabalhar=typing, reunião=talk, kanban=board, TV=watch (braços
+  cruzados), ler=read, café/geladeira=drink, cozinha=stir, estoque=lift, loja/recepção=counter, atendimento=care,
+  bancada=hammer, impressora=press, servidores=hands, gravação=present, plantas=water, sofá=relax. Os dois kits têm os
+  gestos. Braços curtos do Meshy deixam alguns gestos sutis.
+- **Divisórias**: rodapé e arremate na alvenaria e na porta de madeira, puxador nas portas. A faixa jateada no vidro
+  foi tirada (o dono achou sem sentido).
+- **Estilo NPR (cel shading + nanquim)**: sombra em 3 faixas chapadas (`gradientMap`) e traço preto em tudo que não
+  é personagem, saído do pós-processamento (`PixelPass` em `cena3d.js`): degrau de profundidade pela 2ª derivada
+  (face plana não marca) e dobra de normal. Os móveis saíram da máscara dos personagens (era isso que deixava o
+  contorno só em parte deles). `?contornoMoveis=0` desliga o traço.
+- **Quinas retas**: móveis e caixas sem chanfro (`BoxGeometry`; o `RoundedBoxGeometry` ficou só no low-poly).
+- **Paredes nos 4 lados**: as que ficam entre a câmera e a sala baixam até rodapé (`low = .06`), então girar a vista
+  mostra a mesma sala de qualquer lado.
+- **Tela por estação**: cada tela da ilha/mesa pertence ao assento mais perto (`b.seat`, `screenKey` em
+  `07-animacoes.js`); só acende a de quem está sentado ali.
+- **Gênero no editor**: `gender` ('f'/'m') decide os penteados (`HAIR_G`) e a barba (só masculino, porque só os
+  modelos masculinos têm barba). Pessoas antigas: o penteado diz o gênero. Criadas pela IA: palpite pelo nome.
+- **Tipos de papel**: além de coordena/produz/revisa/pesquisa/entrega, há `atende` (venda, caixa, recepção,
+  suporte) e `opera` (estoque, limpeza, manutenção). No executor, produzir aceita produz → opera → atende; entregar
+  aceita entrega → atende.
+- **Nada em 2D**: enquanto o modelo 3D de alguém baixa, o retrato fica o último 3D da pessoa (ou vazio).
+- **Vasos sobre o apoio**: `pot(..., y)` recebe a altura do tampo/prateleira (antes ficavam no chão, com a planta
+  solta no ar: balcão de café, mesa de centro, recepção, estante de plantas).
+
 ## 12. Limites conhecidos (reais, não promessas)
 
 1. **Raspado** foi refeito (arquivo `menino_raspado_acessorios.glb`, armação sem lentes): fone separado do cabelo,
    olhos visíveis. Resolvido.
-2. **Rabo de cavalo sem óculos:** sobra um contorno claro e fraco da armação na bochecha (só em close). Tentativas
-   com `SHADOW`/limiar e removendo as placas das lentes falharam (as lentes carregam os olhos). Só regerando.
+2. **Rabo de cavalo** refeito (`menina_rabo3`, armação sem lentes, olhos em peças à parte): sem marca de armação,
+   crachá ou fone. Tronco e pernas vieram numa ilha só; `chest: .6` limita a correção do crachá ao peito (sem isso a
+   calça ficava da cor da camiseta). O modelo antigo saiu do repositório (está no histórico do git).
 3. **Curto e longo:** corrigidos o tronco/braços/virilha roxos (faixa do peito restrita) e o sapato da franja.
    Restam marcas mínimas em close.
 4. **"Franja" e "curto"** são modelos diferentes mas parecidos; **rabo** e **coque** são modelos diferentes.
-   **Não há variação de roupa** (moletom, paletó): cada roupa nova = um modelo novo por penteado (≈23 créditos cada,
-   ~160 para 7 penteados). Não foi feito.
+   **Roupas no estilo Meshy:** só existe o **terno** (7 modelos `terno_*.glb`, 2026-11-03); camisa, jaqueta e moletom
+   usam o modelo da camiseta. No terno: a cor é a do modelo (cinza nos meninos, marinho nas meninas; "Cor da roupa" e
+   "Calça" não mudam nada), o **crachá fica sempre** (a marca pintada no paletó só some com a peça por cima; o
+   cacheado veio sem crachá), e no longo cabelo, rosto e corpo são uma peça só (sobra uma marca do fone na lateral do
+   cabelo quando a pessoa não usa fone). Cada roupa nova custa ≈23 créditos por penteado (~160 para os 7).
 5. **Busca real na internet não foi testada neste ambiente** (o proxy bloqueia o DuckDuckGo); só contra servidor
    falso. O DuckDuckGo HTML pode mudar o formato ou bloquear robôs: se quebrar, `parseDuckDuckGo` em `server/web.mjs`
    ou use `BRAVE_API_KEY`. Sites que só renderizam com JavaScript chegam vazios.
 6. Agentes não executam código nem acessam sistemas do usuário (decisão, não limite técnico).
-7. Móveis criados pela IA: regras de qualidade novas reduzem os feios, mas não há avaliação **visual** (a IA não vê
-   o resultado). Uma próxima etapa seria renderizar o móvel e pedir crítica a um modelo com visão.
-8. Licença dos GLB do Meshy **não verificada** para redistribuição; licença do GLB do Tripo idem (já removido).
+7. Móveis criados pela IA: a crítica visual (seção 11) depende de a IA conectada aceitar imagens. Com modelo sem
+   visão (ex.: muitos do Ollama), o móvel fica como foi desenhado. Testada com OpenAI (gpt-5.4-mini e gpt-6.1-sol).
+8. Licença dos GLB do Meshy: o dono decidiu tirar da lista de pendências (fica por conta dele).
 9. O repositório git **local**; **não há remoto** (GitHub) ainda.
-10. O nome "Pixel HQ" **colide** com um app existente (ver seção 13).
+10. O nome "Pixel HQ" colide com um app existente (PixelHQ); o dono decidiu tirar da lista de pendências.
 
 ## 13. Pendências, em ordem de prioridade
 
-### A. Antes de publicar (dono precisa decidir/fazer)
-- [ ] **Trocar o nome do projeto.** Já existe o app [PixelHQ](https://apps.apple.com/app/id6758467298) (mostra
-      sessões do Claude Code como escritório em pixel art; instala com `npx pixelhq`). Perguntar o novo nome ao
-      dono e substituir em `package.json`, README, CONTRIBUTING, `web/index.html` (título), textos da interface, o
-      cabeçalho "Pixel HQ", `localStorage` (`pixelhq.3d`, `pixelhq.*`), variáveis `PIXELHQ_*`, `window.PIXELHQ_BRIDGE`,
-      o nome do zip e o protocolo ("Pixel HQ protocol v1"). Mantenha compatibilidade ou documente a quebra.
-- [ ] **Licença dos modelos 3D:** conferir os termos do plano do Meshy do dono; se não permitir redistribuir, remover
-      `web/modelos/` do repositório (o low-poly assume) e documentar como gerar.
-- [ ] **Licença do projeto:** `LICENSE` já existe (MIT). Confirmar com o dono e checar licenças das dependências.
-- [ ] **Remoto git:** o dono precisa passar o repositório; então `git remote add origin ...` e `git push -u origin main`.
-      O repositório local está correto (raiz em `pixel-hq/`, 70 arquivos).
+### A. Com o dono
+- [x] **Licença do projeto:** MIT confirmada pelo dono (2026-11-03). Falta só conferir as licenças das dependências.
+- [ ] **Remoto git:** o dono vai criar o repositório e passar o endereço; então `git remote add origin ...` e
+      `git push -u origin main`.
+- [x] Login no Meshy nesta máquina (feito pelo dono).
+- (Tirados da lista pelo dono: trocar o nome do projeto e a licença dos modelos 3D do Meshy.)
 
 ### B. Produto
 - [x] Internet (só leitura) e tarefas em paralelo — `server/web.mjs`, `locks.mjs`, `runner.mjs` (`research`).
-- [x] Edição da sala no 3D.
+- [x] Edição da sala no 3D. Marcas do editor (seleção, área verde/vermelha, pincel, grade, alças "+") em 3D.
 - [x] `build:single` com 3D; sala grande (7 a 10 pessoas).
 - [x] Regras de qualidade e segundo exemplo para móveis criados pela IA.
-- [ ] Testar a busca real fora deste ambiente (`npm start`, pedir "qual a cotação do dólar hoje?") e ajustar
+- [x] Crítica visual dos móveis da IA (seção 11). Testar com a IA do dono: criar um escritório que peça um móvel novo
+      e ver no terminal a linha `[crítica visual] ... nota N`.
+- [x] Porta de entrada movível pelo usuário (seção 5).
+- [x] Planta em L (seção 11).
+- [ ] **Dois andares** — não feito (ver seção 11 o porquê). Decidir com o dono se vale o tamanho do trabalho.
+- [ ] **Depois (dono):** testar a busca real (`npm start`, pedir "qual a cotação do dólar hoje?") e ajustar
       `parseDuckDuckGo` se o formato tiver mudado.
-- [ ] Crítica visual dos móveis da IA (renderizar + modelo com visão), se o dono quiser o custo extra.
-- [ ] Plantas realmente diferentes (formato em L, dois andares) — hoje só pequena e grande.
-
-- [ ] Paredes internas (divisórias) ainda são caixas retas (vidro, ripado, alvenaria): estão em 3D, mas sem
-      detalhe extra. Se o dono reclamar, refinar em `segBoxes`/`addStatic` (rodapé, perfis, puxadores).
-- [ ] Marcas do editor (área verde/vermelha, seleção, alças "+") ainda são desenhadas no canvas 2D por cima do 3D
-      (projetadas no piso). Se o dono pedir, trocar por malhas planas no 3D.
-- [ ] Ver no computador do dono o desempenho com os móveis novos (mais polígonos: cadeiras, folhas).
+- [x] Acabamento das divisórias (rodapé, arremate, faixa jateada, puxadores).
+- [x] Gesto próprio para cada móvel que o personagem usa.
 
 ### C. Personagens (custam créditos do Meshy)
 - [x] Raspado com fone separado e olhos visíveis (23 créditos).
-- [ ] Rabo de cavalo sem marca de armação: só regerando (≈23), com armação sem lentes como o raspado novo.
-- [ ] Variedade de roupa (≈23 por penteado × roupa) — **perguntar ao dono antes**; custo alto.
+- [x] Rabo de cavalo refeito sem marca de armação (23 créditos, 2026-11-03).
+- [x] Terno (masculino nos meninos, feminino nas meninas) nos 7 penteados — `POR_TERNO` em `personagens3d-meshy.js`.
+- [ ] Outras roupas (prévias prontas: moletom, camisa social, jaleco; ≈160 créditos cada). Decisão do dono.
 - [x] Marcas de tronco/braços nos modelos curto/longo e sapato da franja.
 
 ### D. Qualidade e manutenção
@@ -375,6 +438,9 @@ disse que está **ótimo**).
 - [x] `scripts/reduzir-textura-glb.py`, `scripts/glb-ilhas.mjs`, `scripts/retratos.mjs` + `web/dev/retratos.html`.
 - [x] Carregar só os modelos em uso.
 - [x] `docs/PROTOCOLO.md` atualizado (paralelismo, `run`, internet).
+- [ ] Sobras de estilos antigos fora do git (`web/js3d/personagens3d.js`, `-glb.js`, `-toon.js`,
+      `web/modelos/personagem-base.glb`) e a página velha `web/_retrato.html` (substituída por `web/dev/retratos.html`):
+      ninguém usa; apagar. Cópia guardada fora do projeto antes.
 
 ## 14. Como contribuir sem quebrar (convenções)
 
@@ -389,9 +455,11 @@ disse que está **ótimo**).
 
 ## 15. Estado e pendências (atualize aqui)
 
-- Commits em `main`: inicial, documento de continuação e a entrega dos itens 2, 3 e 4 (2026-11-03). Sem remoto.
-- `npm test`: 75 passando. `check:layouts`: 150 combinações válidas. `npm run check:layouts`: 145 combinações válidas.
-- Saldo Meshy: 557 créditos (23 gastos no raspado novo).
+- Commits em `main`. Sem remoto.
+- `npm test`: 85 testes; 84 passam no Windows (o da permissão 0600 do `settings.json` falha só no Windows, já antes).
+- Plantas: o laço principal do `check:layouts` (retangular e em L × 6 e 10 pessoas × estilos × áreas × entrega =
+  160 combinações, com a porta conferida) rodou no navegador sem problema. O script inteiro não rodou aqui (sem
+  Playwright instalado).
+- Saldo Meshy: **230** créditos (conferido em 2026-11-03, depois dos 7 ternos).
 - Estilo padrão: Meshy; reserva: low-poly. A sala abre sem precisar de `?estilo=`.
-- Próximo passo recomendado: **trocar o nome**, **confirmar licenças**, **criar o remoto**, depois **testar a busca
-  real** no computador do dono (seção 13.B).
+- Próximo passo recomendado: testar a crítica visual com a IA do dono; criar o remoto.

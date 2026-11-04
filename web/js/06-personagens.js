@@ -84,6 +84,7 @@ function spriteBase(p, o) {
     if (p.top === 'camiseta') P(7, Y(13), 2, 1, skD);
     if (p.top === 'camisa') { P(5, Y(13), 2, 1, '#FFFFFF'); P(9, Y(13), 2, 1, '#FFFFFF'); P(7, Y(13), 2, 1, skD); P(7, Y(15), 1, 1, shD); P(7, Y(17), 1, 1, shD); }
     if (p.top === 'jaqueta') { P(6, Y(13), 4, 6, '#F2EFEA'); P(6, Y(13), 1, 3, shD); P(9, Y(13), 1, 3, shD); P(7, Y(13), 2, 1, skD); }
+    if (p.top === 'terno') { P(7, Y(13), 2, 3, '#FFFFFF'); P(7, Y(14), 2, 4, '#2B2E38'); P(7, Y(13), 2, 1, skD); }
     if (p.top === 'moletom') { P(5, Y(16), 6, 2, shD); P(6, Y(13), 1, 2, '#FFFFFF'); P(9, Y(13), 1, 2, '#FFFFFF'); }
     if (ex.cracha) { P(6, Y(13), 1, 2, '#8C4FE0'); P(9, Y(13), 1, 2, '#8C4FE0'); P(7, Y(15), 2, 1, '#8C4FE0'); P(7, Y(16), 2, 2, '#FFFFFF'); P(7, Y(17), 2, 1, '#8C4FE0'); }
   } else if (p.top === 'moletom') { P(5, Y(13), 6, 2, shD); }
@@ -240,12 +241,38 @@ function depthSort(items, V) {
   return out;
 }
 
+// alças "+" para aumentar a sala: cada uma sai da borda para fora até ficar FORA do contorno da sala na tela
+// (com as paredes de pé; atrás de uma parede, a alça no piso apareceria por cima da sala)
 function handles() {
   const b = bounds(), mx = (b.x0 + b.x1) / 2, mz = (b.z0 + b.z1) / 2;
-  return [
-    { side: 'z-', x: mx, z: b.z0 - 1.2, label: 'Aumentar para ↗' }, { side: 'x+', x: b.x1 + 1.2, z: mz, label: 'Aumentar para ↘' },
-    { side: 'z+', x: mx, z: b.z1 + 1.2, label: 'Aumentar para ↙' }, { side: 'x-', x: b.x0 - 1.2, z: mz, label: 'Aumentar para ↖' },
-  ].map(h => ({ ...h, s: iso(h.x, h.z, 0) }));
+  const hull = convexHull([b.x0, b.x1].flatMap(x => [b.z0, b.z1].flatMap(z => [iso(x, z, 0), iso(x, z, WH + .1)])));
+  const sides = [
+    { side: 'z-', x: mx, z: b.z0, dx: 0, dz: -1, label: 'Aumentar para ↗' }, { side: 'x+', x: b.x1, z: mz, dx: 1, dz: 0, label: 'Aumentar para ↘' },
+    { side: 'z+', x: mx, z: b.z1, dx: 0, dz: 1, label: 'Aumentar para ↙' }, { side: 'x-', x: b.x0, z: mz, dx: -1, dz: 0, label: 'Aumentar para ↖' },
+  ];
+  return sides.map(h => {
+    let d = 1.2, s;
+    for (; d < 20; d += .4) { s = iso(h.x + h.dx * d, h.z + h.dz * d, 0); if (hullDist(hull, s) > 24) break; }
+    return { side: h.side, label: h.label, x: h.x + h.dx * d, z: h.z + h.dz * d, s };
+  });
+}
+function convexHull(P) {
+  const p = [...P].sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+// distância (px) do ponto ao contorno; negativa quando está dentro
+function hullDist(H, s) {
+  let pos = 0, neg = 0, best = Infinity;
+  for (let i = 0; i < H.length; i++) {
+    const a = H[i], c = H[(i + 1) % H.length], ex = c[0] - a[0], ey = c[1] - a[1], k = ex * (s[1] - a[1]) - ey * (s[0] - a[0]);
+    if (k > 0) pos++; else if (k < 0) neg++;
+    const t = Math.max(0, Math.min(1, ((s[0] - a[0]) * ex + (s[1] - a[1]) * ey) / (ex * ex + ey * ey || 1)));
+    best = Math.min(best, Math.hypot(s[0] - a[0] - ex * t, s[1] - a[1] - ey * t));
+  }
+  return pos && neg ? best : -best;
 }
 function footPoly(x, z, w, d, y = .02) { return [iso(x, z, y), iso(x + w, z, y), iso(x + w, z + d, y), iso(x, z + d, y)]; }
 function wallGhost() {

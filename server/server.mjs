@@ -10,6 +10,7 @@ import { PROVIDERS, explainError } from './providers.mjs';
 import * as settings from './settings.mjs';
 import * as office from './office.mjs';
 import * as llm from './llm.mjs';
+import { critiqueFurniture, scoreFurniture } from './furniture.mjs';
 import { msg, parseClientMessage } from './protocol.mjs';
 import { createPacer } from './pacer.mjs';
 import { runTask, teamOf } from './runner.mjs';
@@ -116,7 +117,7 @@ async function demoRun(task) {
   try { return await demoSteps(T, by, text, say); } finally { release(); }
 }
 async function demoSteps(T, by, text, say) {
-  const lead = leadOf(T), maker = by('produz')[0] || lead, rev = by('revisa')[0], res = by('pesquisa')[0], del = by('entrega')[0];
+  const lead = leadOf(T), maker = by('produz')[0] || by('opera')[0] || by('atende')[0] || lead, rev = by('revisa')[0], res = by('pesquisa')[0], del = by('entrega')[0] || by('atende')[0];
   const L = clip(text);
   const brief = async (m) => {
     if (m === lead) return;
@@ -167,10 +168,10 @@ let planning = false;
 const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
 // só a própria página pode chamar: outro site aberto no navegador não consegue ler nem trocar a chave
 const sameOrigin = (req) => { try { return new URL(req.headers.origin).host === req.headers.host; } catch { return false; } };
-async function readJSON(req) {
+async function readJSON(req, max = 16384) {
   if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Envie JSON'), { code: 415 });
   let size = 0; const chunks = [];
-  for await (const c of req) { size += c.length; if (size > 16384) throw Object.assign(new Error('Pedido grande demais'), { code: 413 }); chunks.push(c); }
+  for await (const c of req) { size += c.length; if (size > max) throw Object.assign(new Error('Pedido grande demais'), { code: 413 }); chunks.push(c); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 function checkInput(b) {
@@ -209,6 +210,39 @@ async function api(req, res, url) {
       return json(res, 200, { ok: true, settings: settings.publicView(await settings.load()) });
     }
     if (url.pathname === '/api/office' && req.method === 'GET') return json(res, 200, { office: await office.load() });
+    // crítica visual de um móvel criado pela IA, em duas etapas (no máximo 2 chamadas por móvel, uma vez só):
+    // 1) a página manda a foto do móvel; a IA dá nota e, se ruim, propõe um desenho (guardado como "pending");
+    // 2) a página manda a foto do desenho proposto (candidate: true); ele só fica se a nota nova for maior
+    if (url.pathname === '/api/office/critique' && req.method === 'POST') {
+      const b = await readJSON(req, 600000), id = String(b.id || '');
+      const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(b.image || ''));
+      if (!m) return json(res, 400, { error: 'Imagem inválida' });
+      const cur = await office.load(), c = cur?.custom?.find(x => x.id === id);
+      if (!c || c.base || !Array.isArray(c.boxes)) return json(res, 404, { error: 'Móvel não encontrado' });
+      if (c.reviewed) return json(res, 200, { ok: true, changed: false, custom: c });
+      if (b.candidate && !c.pending) return json(res, 409, { error: 'Nenhum desenho proposto para este móvel' });
+      if (!b.candidate && c.pending) return json(res, 200, { ok: true, pending: true, custom: c });
+      const cfg = await settings.active();
+      if (!cfg || DEMO) return json(res, 200, { ok: false, error: 'Sem IA conectada' });
+      const chat = (o) => llm.critiqueChat(o), save = (fields) => office.update(o => { const x = o.custom.find(k => k.id === id); if (x) { Object.assign(x, fields); if (fields.reviewed) delete x.pending; } return o; });
+      const done = async (fields, msg) => { const upd = await save(fields); console.log(`[crítica visual] ${c.name}: ${msg}`); return json(res, 200, { ok: true, changed: !!fields.boxes, score: fields.score, custom: upd.custom.find(k => k.id === id) }); };
+      try {
+        if (b.candidate) {
+          const s = await scoreFurniture(chat, { ...c, w: c.pending.w, boxes: c.pending.boxes }, m[1]);
+          if (s.score > c.pending.score) return done({ reviewed: true, score: s.score, w: c.pending.w, boxes: c.pending.boxes }, `desenho novo aprovado (nota ${c.pending.score} → ${s.score})`);
+          return done({ reviewed: true, score: c.pending.score }, `desenho novo recusado (nota ${c.pending.score} → ${s.score}); fica o original`);
+        }
+        const r = await critiqueFurniture(chat, c, m[1]);
+        if (!r.changed) return done({ reviewed: true, score: r.score }, `nota ${r.score}${r.rejected ? ' (a correção não passou nas regras: ' + r.rejected.join('; ') + ')' : ''}`);
+        const upd = await save({ pending: { score: r.score, w: r.w, boxes: r.boxes, problems: r.problems } });
+        console.log(`[crítica visual] ${c.name}: nota ${r.score}, desenho novo proposto (${r.problems.join('; ')})`);
+        return json(res, 200, { ok: true, pending: true, score: r.score, custom: upd.custom.find(k => k.id === id) });
+      } catch (e) {
+        // modelo sem visão (ou erro do provedor): marca como revisado para não gastar de novo a cada abertura
+        console.error('[crítica visual]', cfg.provider, e?.model || cfg.model, e?.status, String(e?.message).slice(0, 160));
+        return done({ reviewed: true, score: null }, 'sem avaliação (a IA não aceitou a imagem ou deu erro)');
+      }
+    }
     if (url.pathname === '/api/office/plan' && req.method === 'POST') {
       const b = await readJSON(req), desc = String(b.description || '').trim();
       if (desc.length < 15) return json(res, 400, { error: 'Descreva o serviço com pelo menos uma frase.' });

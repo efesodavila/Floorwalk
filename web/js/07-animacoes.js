@@ -2,7 +2,17 @@
 
 /* ---------- Animações dos elementos ---------- */
 // marca as peças que se mexem
-for (const k of ['desk', 'island']) ITEMS[k].boxes.forEach(b => { if (b.g === '#9D6BFF') b.screen = 1; });
+// cada tela pertence à estação (assento) mais perto dela: só acende a de quem está sentado ali
+for (const k of ['desk', 'island', 'reception']) {
+  const seats = ITEMS[k]?.seats || [];
+  ITEMS[k]?.boxes.forEach(b => {
+    if (b.g !== '#9D6BFF') return;
+    b.screen = 1;
+    const cx = b.x + b.w / 2, cz = b.z + b.d / 2;
+    let best = 0; seats.forEach(([sx, sz], i) => { if (Math.hypot(sx - cx, sz - cz) < Math.hypot(seats[best][0] - cx, seats[best][1] - cz)) best = i; });
+    b.seat = best;
+  });
+}
 ITEMS.tv.boxes.slice(4).forEach((b, i) => { b.bar = i; });
 ITEMS.rack.boxes.forEach((b, i) => { if (b.g) b.led = i; });
 ITEMS.coffee.boxes[5].steam = 1;
@@ -16,9 +26,14 @@ const WORK_ST = new Set(['trabalhando', 'revisando', 'planejando', 'entregando',
 let ACTIVE = new Map();
 function computeActive() {
   const m = new Map(); if (mode !== 'live') return m;
-  for (const a of sim.agents) { if (a.mv !== 'act' || !a.spot) continue; const o = a.spot.id.split('#')[0]; if (!m.has(o)) m.set(o, new Set()); m.get(o).add(a.idleAct || a.status); }
+  // por móvel (o) e por estação (o#i): a tela de cada estação só reage a quem senta nela
+  for (const a of sim.agents) {
+    if (a.mv !== 'act' || !a.spot) continue;
+    for (const k of [a.spot.id.split('#')[0], a.spot.id]) { if (!m.has(k)) m.set(k, new Set()); m.get(k).add(a.idleAct || a.status); }
+  }
   return m;
 }
+const screenKey = (b) => b.seat != null ? b.obj + '#' + b.seat : b.obj;
 /* quadro kanban: as colunas mostram o andamento real do projeto */
 function kanbanCounts() {
   if (mode !== 'live') return [4, 2, 3];
@@ -51,7 +66,7 @@ function drawScreen(c, b, V, T) {
   const onZ = n[1] > .5;
   const P = (u, v) => onZ ? iso(b.x + u * b.w, b.z + b.d, b.y + v * b.h, V) : iso(b.x + b.w, b.z + b.d * (1 - u), b.y + v * b.h, V);
   const quad = [P(0, 0), P(1, 0), P(1, 1), P(0, 1)];
-  const busy = ACTIVE.get(b.obj), working = busy && [...busy].some(s => WORK_ST.has(s));
+  const busy = ACTIVE.get(screenKey(b)), working = busy && [...busy].some(s => WORK_ST.has(s));
   c.save(); c.beginPath(); quad.forEach((q, i) => i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1])); c.closePath(); c.clip();
   c.fillStyle = working ? '#1C1636' : '#2B2742'; c.fill();
   const lw = Math.max(1, Math.round(V.z * .8));

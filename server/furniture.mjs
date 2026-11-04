@@ -120,6 +120,50 @@ export function validateDesign(raw) {
   return { ok: true, w, boxes: boxes.map(b => [b.x, b.z, b.l, b.p, b.y, b.a, COLORS[b.cor], b.glow ? 1 : 0]) };
 }
 
+/* ---------- crítica visual ----------
+   A IA que desenhou não vê o resultado. Depois do desenho, a página renderiza o móvel em 3D e manda a imagem; um
+   modelo com visão dá nota e, se ficou ruim, devolve um desenho corrigido (que passa pelas mesmas regras).
+   O desenho novo só fica se, renderizado e avaliado de novo (scoreFurniture), tiver nota MAIOR que o antigo:
+   no teste real, a primeira correção saiu pior que o original. No máximo 2 chamadas por móvel, uma vez ("reviewed"). */
+const NAME_OF = Object.fromEntries(Object.entries(COLORS).map(([k, v]) => [v.toLowerCase(), k]));
+export const toBlocks = (boxes) => (boxes || []).map(([x, z, l, p, y, a, hex, glow]) => ({ x, z, l, p, y, a, cor: NAME_OF[String(hex).toLowerCase()] || 'cinza', ...(glow ? { brilho: true } : {}) }));
+export const MIN_SCORE = 4;
+function critiquePrompt(c, scoreOnly = false) {
+  const rules = prompt({ name: c.name, purpose: c.purpose }).split('REGRAS')[1].split('EXEMPLO')[0].trim();
+  return `A imagem mostra, em vista isométrica, o móvel "${c.name}" (${c.purpose}) de um escritório virtual, montado com blocos.
+Ele está encostado na parede pelo fundo (z = 0); a pessoa usa pela frente (z = 1).
+
+1. Dê uma nota de 1 a 5: quanto alguém reconheceria este móvel só pela imagem (5 = reconhece na hora; 1 = não dá para saber o que é).
+2. Liste até 3 problemas visuais (proporção, peça faltando, cor que confunde, peça solta).
+${scoreOnly ? '3. NÃO refaça o desenho: só a nota e os problemas.' : `3. Se a nota for menor que ${MIN_SCORE}, refaça o desenho corrigindo os problemas, nas mesmas regras abaixo. Se for ${MIN_SCORE} ou mais, não mande blocos.
+   Mantenha o que já está certo: o tampo de mesa ou bancada continua na altura de uso (y perto de 0,75), os pés no chão,
+   e o que se usa (tela, painel, botões) fica EM CIMA do tampo ou na frente, nunca no chão.`}
+
+DESENHO ATUAL: {"w":${c.w},"blocos":${JSON.stringify(toBlocks(c.boxes))}}
+
+REGRAS ${rules}
+
+Responda SOMENTE com JSON: ${scoreOnly ? '{"nota":3,"problemas":["..."]}' : '{"nota":3,"problemas":["..."],"w":2,"blocos":[...]}'}`;
+}
+// image = PNG em base64 (sem o prefixo data:). Devolve { score, problems, changed, w, boxes }.
+export async function critiqueFurniture(chat, c, image) {
+  const text = await chat({ messages: [{ role: 'user', content: critiquePrompt(c), images: [{ mime: 'image/png', data: image }] }], json: true, maxTokens: 2000 });
+  const raw = extractJSON(text);
+  const score = Math.max(1, Math.min(5, Math.round(Number(raw?.nota)) || 3));
+  const problems = (Array.isArray(raw?.problemas) ? raw.problemas : []).map(p => String(p).slice(0, 120)).slice(0, 3);
+  if (score >= MIN_SCORE || !Array.isArray(raw?.blocos)) return { score, problems, changed: false };
+  const v = validateDesign(raw);
+  if (!v.ok) return { score, problems, changed: false, rejected: v.problems };
+  return { score, problems, changed: true, w: v.w, boxes: v.boxes };
+}
+
+// só a nota de um desenho (o candidato, já renderizado pela página)
+export async function scoreFurniture(chat, c, image) {
+  const text = await chat({ messages: [{ role: 'user', content: critiquePrompt(c, true), images: [{ mime: 'image/png', data: image }] }], json: true, maxTokens: 800 });
+  const raw = extractJSON(text);
+  return { score: Math.max(1, Math.min(5, Math.round(Number(raw?.nota)) || 3)), problems: (Array.isArray(raw?.problemas) ? raw.problemas : []).map(p => String(p).slice(0, 120)).slice(0, 3) };
+}
+
 function extractJSON(t) { t = String(t || ''); const a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) throw new Error('sem JSON'); return JSON.parse(t.slice(a, b + 1)); }
 
 // Desenha um móvel novo. Sempre devolve algo utilizável (o desenho, ou o plano B).

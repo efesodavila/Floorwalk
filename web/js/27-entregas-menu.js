@@ -63,7 +63,8 @@ resultEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeRes
 
 /* ---------- Menu do canto superior direito ---------- */
 const menuEl = $('#menu'), menuBtn = $('#menu-btn');
-let devMode = false; try { devMode = localStorage.getItem('pixelhq.dev') === '1'; } catch {}
+// modo desenvolvedor: só pelo endereço (?dev); não aparece mais no menu
+let devMode = new URLSearchParams(location.search).has('dev');
 function renderMenu() {
   document.body.classList.toggle('bridge', !!window.PIXELHQ_BRIDGE);
   document.body.classList.toggle('dev', devMode);
@@ -75,7 +76,6 @@ function renderMenu() {
   const v = typeof setupState !== 'undefined' ? setupState.view : null;
   const name = W.officeId ? W.name : null;
   $('#menu-head').innerHTML = name || v?.configured ? `<b>${escapeHTML(name || 'Pixel HQ')}</b><small>${v?.configured ? escapeHTML(`${aiLabel()} · ${v.model}`) : 'Sem IA conectada'}</small>` : '';
-  $('#menu-label').textContent = name || 'Menu';
 }
 function openMenu() { renderMenu(); menuEl.hidden = false; menuBtn.setAttribute('aria-expanded', 'true'); menuEl.querySelector('button:not([hidden])')?.focus(); }
 function closeMenu(focusBtn) { menuEl.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); if (focusBtn) menuBtn.focus(); }
@@ -119,13 +119,11 @@ const WALKING = new Set(['walk', 'approach', 'leave']);
 /* Entrada e saída: quem participa da tarefa chega pela frente da sala e sai por ela no fim. */
 function entrance() {
   if (!NAV) buildNav();
-  // a entrada é o capacho; sem ele, um ponto na frente da sala
-  const mat = W.objects.find(o => o.item === 'capacho'), b = bounds();
-  // capacho encostado na parede da esquerda ou do fundo: ali fica a porta (desenhada no 3D); entra-se olhando para dentro
-  const [mw, md] = mat ? dims(mat) : [0, 0], has = (x, z) => !!W.tiles[key(x, z)];
-  const leftWall = mat && has(mat.x, mat.z) && !has(mat.x - 1, mat.z);
-  const c = mat ? nearestCell(mat.x + (leftWall ? .4 : mw / 2), mat.z + (leftWall ? md / 2 : .4), 6) : nearestCell(b.x0 + (b.x1 - b.x0) * .35, b.z1 - .4, 8);
-  return c ? { cell: c, pt: cellC(c[0], c[1]), face: leftWall ? [1, 0] : [0, mat ? 1 : -1] } : null;
+  // a entrada é a porta (item "Porta de entrada", sempre encostada numa parede); sem ela, um ponto na frente da sala
+  const D = doorInfo(), b = bounds();
+  const mid = D && (D.u0 + D.u1) / 2;
+  const c = D ? nearestCell(D.side === 'x' ? D.c + .4 : mid, D.side === 'x' ? mid : D.c + .4, 6) : nearestCell(b.x0 + (b.x1 - b.x0) * .35, b.z1 - .4, 8);
+  return c ? { cell: c, pt: cellC(c[0], c[1]), face: D ? D.face : [0, -1] } : null;
 }
 function enterOffice(a) {
   const e = entrance();

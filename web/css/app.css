@@ -407,7 +407,7 @@ body.is-live .zoom { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
 .setup-alt { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line, rgba(0,0,0,.1)); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .setup-alt p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-soft); flex: 1 1 220px; }
 .setup-alt[hidden] { display: none; }
-body.so-claude #ask { display: none !important; }
+body.so-claude #ask, body.so-claude #m-office, body.so-claude #ai-btn, body.so-claude #m-web { display: none !important; }
 .setup-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .setup-actions button { min-height: 38px; padding: 8px 16px; }
 @media (max-width: 480px) { .setup-card { padding: 18px; } .setup h1 { font-size: 21px; } .setup-actions button { flex: 1; } }

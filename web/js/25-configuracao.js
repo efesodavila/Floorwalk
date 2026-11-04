@@ -100,15 +100,16 @@ async function setupInit() {
   fetch('/api/stale').then(r => r.json()).then(s => { if (s?.stale) toast('O servidor está com código antigo: pare (Ctrl+C) e rode npm start de novo para as melhorias valerem.'); }).catch(() => {});
   // o escritório salvo no servidor manda: outro navegador ou um escritório novo recarregam a planta
   // só um escritório NOVO troca a sala: a sala que o dono montou nunca é refeita sozinha
-  if (setupState.office && W.officeId !== setupState.office.createdAt) applyOffice(setupState.office);
+  // equipe de IA desligada: o escritório do negócio salvo no servidor não toma a sala
+  const soClaude = !aiTeamOn();
+  if (!soClaude && setupState.office && W.officeId !== setupState.office.createdAt) applyOffice(setupState.office);
   // primeira vez neste navegador com um negócio pronto (ex.: criado antes do tour existir): abre no Construir com o tour
-  else if (setupState.office) { let seen = false; try { seen = localStorage.getItem('floorwalk.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
+  else if (!soClaude && setupState.office) { let seen = false; try { seen = localStorage.getItem('floorwalk.tour.v1') === '1'; } catch {} if (!seen) { setMode('build'); tourMaybe(); } }
   reviewCustomFurniture(setupState.office);
-  document.body.classList.toggle('has-office', !!setupState.office || (claudeOnly() && !setupState.view.configured));
+  document.body.classList.toggle('has-office', !!setupState.office || soClaude);
   renderMenu();
   document.body.classList.remove('booting');
-  // modo "só Claude Code": sem IA e sem negócio, a sala de dev pronta mostra as sessões do Claude Code
-  const soClaude = claudeOnly() && !setupState.view.configured;
+  // modo "só Claude Code" (equipe de IA desligada): sem campo de tarefa, sem pedir IA nem negócio
   document.body.classList.toggle('so-claude', soClaude);
   if (soClaude) hooksHint();
   else if (!setupState.view.configured) openSetup(false);
@@ -117,13 +118,19 @@ async function setupInit() {
 }
 
 /* ---------- Atalho: só ver o Claude Code (sem chave, sem negócio) ---------- */
-const CLAUDE_KEY = 'floorwalk.claude';
-function claudeOnly() { try { return localStorage.getItem(CLAUDE_KEY) === '1'; } catch { return false; } }
-// sala de dev pronta (a da software house, sem a equipe): as sessões do Claude Code entram pela porta
-function tplClaude() { const w = tplSala(); w.name = 'Claude Code'; w.service = 'Sessões do Claude Code trabalhando.'; w.people = []; delete w.demo; return w; }
-$('#setup-claude').onclick = () => {
-  try { localStorage.setItem(CLAUDE_KEY, '1'); localStorage.setItem('floorwalk.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); } catch {}
+// desistir da equipe de IA na tela de conectar: volta ao modo só Claude Code, com a sala de dev
+$('#setup-claude').onclick = () => setAiTeam(false, true);
+// liga/desliga a equipe de IA e recarrega. Ao desligar, room=true troca a sala pela sala de dev pronta
+function setAiTeam(on, room) {
+  try {
+    localStorage.setItem(TEAM_KEY, on ? '1' : '0');
+    if (!on && room) { localStorage.setItem('floorwalk.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); }
+  } catch {}
   location.reload();
+}
+$('#m-aiteam').onclick = () => {
+  if (aiTeamOn()) { if (confirm('Desligar a equipe de IA? O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.')) setAiTeam(false, true); }
+  else setAiTeam(true);
 };
 // os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar
 async function hooksHint() {

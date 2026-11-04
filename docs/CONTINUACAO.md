@@ -626,3 +626,9 @@ disse que está **ótimo**).
   se chama `pixel-hq`: se renomear, rode `npm run hooks:install` de novo (o caminho do hook muda). Achado na pesquisa de
   nomes: concorrentes diretos além do Pixel Agents — AgentSystemLabs/agent-office (876★, escritório 3D cartoon com
   Claude Code), agentville (VS Code), agentloft e deskling (pixel art). Marca registrada e domínio não conferidos.
+- EQUIPE DE IA DESLIGADA POR PADRÃO (dono, 2026-11-04: "não quero mais usar o campo de texto"): `aiTeamOn()` /
+  `floorwalk.equipe` (02-mundo.js). Desligada: `body.so-claude` (sem campo de tarefa, sem "Descrever o negócio", "Trocar a
+  IA" e "Pesquisa na internet" no menu), nenhuma tela de setup, o escritório do servidor não toma a sala, sala de dev
+  `tplClaude()` na primeira visita, gaveta Equipe só com sessões, "Começar do zero" só troca a sala local (não apaga o
+  negócio no servidor). Menu ☰ → "Ligar a equipe de IA (tarefas)" / "Desligar…" (`setAiTeam`, recarrega). Nada do modo
+  negócio foi apagado do código.

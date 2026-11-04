@@ -20,8 +20,8 @@ npm run hooks:install
 npm start
 ```
 
-Abra http://127.0.0.1:8787, clique em **Ver o Claude Code sem IA** e abra uma sessão do Claude Code em qualquer
-projeto. Ela entra pela porta.
+Abra http://127.0.0.1:8787 e abra uma sessão do Claude Code em qualquer projeto. Ela entra pela porta.
+Sem chave e sem tela de configuração: o escritório já abre pronto para o Claude Code.
 
 | o Claude Code está… | na sala |
 |---------------------|---------|
@@ -61,13 +61,10 @@ servidor está desligado. Os eventos só vão para o seu computador (`127.0.0.1`
 `~/.floorwalk/hook.json`. Os seus pedidos não são lidos. Os comandos aparecem cortados e sem nada que pareça senha,
 chave ou token. As sessões nunca entram no escritório salvo.
 
-## A equipe de IA (opcional)
+## A equipe de IA (opcional, desligada por padrão)
 
-```bash
-npm start
-```
-
-Na primeira tela, escolha OpenAI, Anthropic ou Ollama e cole a chave. O servidor testa os modelos da sua conta e fica
+Menu (☰) → **Ligar a equipe de IA** liga; o mesmo item desliga de novo (a chave e o negócio continuam guardados).
+Desligada, não há campo de tarefa nem configuração de IA. Ligada, escolha OpenAI, Anthropic ou Ollama e cole a chave. O servidor testa os modelos da sua conta e fica
 com um que responde (`FLOORWALK_MODEL` no `.env` força um). Depois descreva o seu negócio: a IA cria a equipe, os papéis
 e os rótulos, e você monta a sala. Escreva uma tarefa no campo de baixo e veja a equipe trabalhar.
 

@@ -54,9 +54,15 @@ function normalize(w) {
 }
 
 const STORE = 'floorwalk.prototipo.v4';
+// equipe de IA (campo de tarefa, conectar IA, negócio): DESLIGADA por padrão; o produto abre para o Claude Code.
+// Liga e desliga pelo menu (☰ → Ligar a equipe de IA)
+const TEAM_KEY = 'floorwalk.equipe';
+function aiTeamOn() { try { return localStorage.getItem(TEAM_KEY) === '1'; } catch { return false; } }
+// sala de dev pronta (a da software house, sem a equipe): as sessões do Claude Code entram pela porta
+function tplClaude() { const w = tplSala(); w.name = 'Claude Code'; w.service = 'Sessões do Claude Code trabalhando.'; w.people = []; delete w.demo; return w; }
 let W = null;
 try { W = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { W = null; }
-if (!W || !W.tiles || !Array.isArray(W.objects)) W = tplSala();
+if (!W || !W.tiles || !Array.isArray(W.objects)) W = aiTeamOn() ? tplSala() : tplClaude();
 /* ?vitrine=1: sala grande com UM de cada móvel do catálogo, para revisar o visual. Não salva nada e não conecta ao
    escritório real (a sala salva da pessoa continua intacta). */
 const VITRINE = new URLSearchParams(location.search).has('vitrine');

@@ -21,8 +21,8 @@ npm run hooks:install
 npm start
 ```
 
-Open http://127.0.0.1:8787, click **Ver o Claude Code sem IA** ("watch Claude Code without an AI") and start a Claude
-Code session in any project. It walks in through the door.
+Open http://127.0.0.1:8787 and start a Claude Code session in any project. It walks in through the door.
+No API key and no setup screen: the office opens ready for Claude Code.
 
 | Claude Code is… | in the office |
 |-----------------|---------------|
@@ -62,13 +62,10 @@ when the server is not running. Events only go to your own machine (`127.0.0.1`)
 in `~/.floorwalk/hook.json`. Your prompts are not read. Commands are shown truncated, with anything that looks like a
 token, key or password removed. Sessions are never saved into your office layout.
 
-## The AI team (optional)
+## The AI team (optional, off by default)
 
-```bash
-npm start
-```
-
-On the first screen, pick OpenAI, Anthropic or Ollama and paste your key. The server tests the models on your
+Menu (☰) → **Ligar a equipe de IA** turns it on; the same item turns it off again (your key and business stay saved).
+When it is off there is no task field and no AI setup. When it is on, pick OpenAI, Anthropic or Ollama and paste your key. The server tests the models on your
 account and picks one that answers (set `FLOORWALK_MODEL` in `.env` to force one). Then describe your business: the
 AI creates the team, roles and labels, and you build the room. Type a task in the field at the bottom and watch the
 team work.

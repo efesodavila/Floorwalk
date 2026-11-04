@@ -72,9 +72,11 @@ function renderMenu() {
   $('#m-dev').setAttribute('aria-pressed', String(devMode));
   $('#m-3d').setAttribute('aria-pressed', String(!!window.R3D?.wanted));
   { const v = typeof setupState !== 'undefined' ? setupState.view : null; $('#m-web').setAttribute('aria-pressed', String(v?.web !== false)); }
+  $('#m-aiteam').textContent = aiTeamOn() ? 'Desligar a equipe de IA' : 'Ligar a equipe de IA (tarefas)';
   $('#m-edit').textContent = mode === 'build' ? 'Voltar ao trabalho (ao vivo)' : 'Editar a sala e as pessoas';
   const v = typeof setupState !== 'undefined' ? setupState.view : null;
   const name = W.officeId ? W.name : null;
+  if (!aiTeamOn()) { $('#menu-head').innerHTML = '<b>Floorwalk</b><small>Claude Code · equipe de IA desligada</small>'; return; }
   $('#menu-head').innerHTML = name || v?.configured ? `<b>${escapeHTML(name || 'Floorwalk')}</b><small>${v?.configured ? escapeHTML(`${aiLabel()} · ${v.model}`) : 'Sem IA conectada'}</small>` : '';
 }
 function openMenu() { renderMenu(); menuEl.hidden = false; menuBtn.setAttribute('aria-expanded', 'true'); menuEl.querySelector('button:not([hidden])')?.focus(); }
@@ -96,11 +98,13 @@ $('#m-office').onclick = () => openOfficeStep();
 // começar do zero: confirma, apaga o escritório no servidor e a sala salva neste navegador, e volta para "descrever o negócio"
 $('#m-reset').onclick = async () => {
   closeMenu();
+  // equipe de IA desligada: só troca a sala deste navegador pela sala de dev pronta (o negócio guardado no servidor fica)
+  if (!aiTeamOn()) { if (confirm('Voltar à sala de dev pronta?\n\nA sala que você montou neste navegador é trocada. As sessões do Claude Code continuam.')) setAiTeam(false, true); return; }
   const ok = confirm('Começar do zero?\n\nApaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer.\n\nContinuam: a IA conectada e os arquivos que os agentes já entregaram.');
   if (!ok) return;
   try { await setupApi('/api/office/reset', {}); }
   catch (e) { toast?.('Não consegui apagar: ' + e.message); return; }
-  try { localStorage.setItem(STORE, JSON.stringify(tplVazio())); } catch {}
+  try { localStorage.setItem(STORE, JSON.stringify(aiTeamOn() ? tplVazio() : tplClaude())); } catch {}
   location.reload();
 };
 // pesquisa na internet: liga/desliga no servidor (vale para as próximas tarefas)
@@ -180,7 +184,8 @@ function renderTeamDrawer() {
   // a equipe do negócio e as sessões do Claude Code são coisas diferentes: listas separadas
   const team = W.people.filter(p => !p.ext), ext = sim.agents.filter(a => a.ext && !a.gone && personOf(a));
   // só Claude Code (nenhuma tarefa delegada nesta visita e alguma sessão aberta): a equipe do negócio fica recolhida
-  const hideTeam = !!ext.length && !MISSIONS.length && !showBizTeam && !!team.length;
+  const soClaude = !aiTeamOn();
+  const hideTeam = soClaude ? !!team.length : !!ext.length && !MISSIONS.length && !showBizTeam && !!team.length;
   const extras = W.objects.filter(o => (SPOTS[o.item] || []).some(sp => /^(care|cook|stock|sell|craft|attend|record|x_)/.test(sp[2]))).map(o => ITEMS[o.item].n);
   drawer.innerHTML = `<button type="button" class="close" id="d-close" aria-label="Fechar">✕</button><h2>${hideTeam ? 'Sessões do Claude Code' : 'Equipe' + (W.officeId ? ' · ' + escapeHTML(W.name) : '')}</h2>
     ${hideTeam ? '' : (team.length ? `<p>As pessoas entram na sala quando uma tarefa delegada precisa delas. Clique para ver a ficha.</p>` : '')}
@@ -188,7 +193,8 @@ function renderTeamDrawer() {
     ${!hideTeam && extras.length ? `<p class="hint">Na sala também há: ${extras.map(escapeHTML).join(', ')}.</p>` : ''}
     ${ext.length ? `${hideTeam ? '' : '<h3 class="team-sub">Sessões do Claude Code abertas</h3>'}
     <ul class="team-list">${ext.map(a => { const p = personOf(a), R = RULES[a.status]; return `<li><button type="button" data-p="${p.id}"><img src="${avatar(p, 3)}" alt="" width="36" height="42"><span><b>${escapeHTML(p.name)}</b> <i class="chip" style="background:${R.c}">${R.n}</i>${a.detail ? `<small>${escapeHTML(a.detail)}</small>` : ''}</span></button></li>`; }).join('')}</ul>` : ''}`;
-  if (hideTeam) drawer.insertAdjacentHTML('beforeend', `<p class="hint">A equipe do negócio (${team.length} pessoas) entra quando você delegar uma tarefa. <button type="button" class="linkish" id="d-biz">Mostrar a equipe</button></p>`);
+  if (!ext.length && soClaude) drawer.insertAdjacentHTML('beforeend', '<p class="hint">Nenhuma sessão do Claude Code aberta. Abra uma no terminal e ela entra pela porta.</p>');
+  if (hideTeam && !soClaude) drawer.insertAdjacentHTML('beforeend', `<p class="hint">A equipe do negócio (${team.length} pessoas) entra quando você delegar uma tarefa. <button type="button" class="linkish" id="d-biz">Mostrar a equipe</button></p>`);
   drawer.querySelector('#d-biz')?.addEventListener('click', () => { showBizTeam = true; renderTeamDrawer(); });
   drawer.querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
     if (mode !== 'live') setMode('live');

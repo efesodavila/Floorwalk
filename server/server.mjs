@@ -20,6 +20,7 @@ import { createLocks } from './locks.mjs';
 import { createClaudeBridge } from './claude-code.mjs';
 import { status as hooksStatus } from './claude-hooks-install.mjs';
 import crypto from 'node:crypto';
+import net from 'node:net';
 import os from 'node:os';
 
 const WORKSPACE = path.resolve(process.env.WORKSPACE_DIR || './workspace');
@@ -173,7 +174,26 @@ async function demoSteps(T, by, text, say) {
 /* ---------- HTTP + WebSocket ---------- */
 const WEB = path.join(ROOT, 'web');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
+// endereço que o navegador usou (cabeçalho Host): só o próprio computador ou um IP digitado. Barra o "DNS rebinding":
+// um site qualquer cujo nome passa a apontar para 127.0.0.1 teria a mesma origem e o mesmo Host, e passaria pela checagem
+// de origem. Para usar por um nome (ex.: proxy, Tailscale), liste em FLOORWALK_ALLOWED_HOSTS (separados por vírgula)
+const ALLOWED_HOSTS = new Set(['localhost', ...String(process.env.FLOORWALK_ALLOWED_HOSTS || '').split(',').map(h => h.trim().toLowerCase()).filter(Boolean)]);
+function hostOk(req) {
+  let h; try { h = new URL('http://' + String(req.headers.host || '')).hostname.toLowerCase(); } catch { return false; }
+  h = h.replace(/^\[|\]$/g, '');
+  return !!h && (net.isIP(h) > 0 || ALLOWED_HOSTS.has(h) || h.endsWith('.localhost'));
+}
 const server = http.createServer(async (req, res) => {
+  if (!hostOk(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Endereço não permitido. Use http://127.0.0.1 ou liste o nome em FLOORWALK_ALLOWED_HOSTS.'); return; }
+  try { await handle(req, res); }
+  catch (e) {
+    // nada derruba o servidor: endereço malformado vira 400, o resto 500
+    const bad = e instanceof URIError;
+    if (!bad) console.error('[http]', req.method, req.url?.slice(0, 120), e?.message);
+    if (!res.headersSent) { res.writeHead(bad ? 400 : 500); res.end(); } else res.destroy();
+  }
+});
+async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   // código do servidor mudou depois que ele subiu? (a página avisa: "reinicie o servidor")
   if (url.pathname === '/api/stale') {
@@ -210,13 +230,20 @@ const server = http.createServer(async (req, res) => {
     const data = await fs.readFile(file);
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' }); res.end(data);
   } catch { res.writeHead(404); res.end('Não encontrado'); }
-});
+}
 
 /* ---------- API de configuração ---------- */
 let planning = false;
 const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
 // só a própria página pode chamar: outro site aberto no navegador não consegue ler nem trocar a chave
 const sameOrigin = (req) => { try { return new URL(req.headers.origin).host === req.headers.host; } catch { return false; } };
+// a chave guardada só vai para o endereço que já estava salvo (ou o padrão do provedor). Endereço novo exige a chave
+// digitada no mesmo pedido: senão quem controla a página poderia mandar a chave guardada para um servidor qualquer
+function cfgFor(b, s) {
+  const typed = b.apiKey?.trim(), saved = s.baseUrls[b.provider], asked = b.baseUrl?.trim();
+  const sameUrl = !asked || asked === saved || asked === PROVIDERS[b.provider]?.defaultBaseUrl;
+  return { apiKey: typed || (sameUrl ? settings.keyFor(s, b.provider) : undefined), baseUrl: asked || saved };
+}
 async function readJSON(req, max = 16384) {
   if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Envie JSON'), { code: 415 });
   let size = 0; const chunks = [];
@@ -236,7 +263,7 @@ async function api(req, res, url) {
     if (url.pathname === '/api/settings' && req.method === 'GET') return json(res, 200, { ...settings.publicView(await settings.load()), demo: DEMO });
     if (url.pathname === '/api/settings/test' && req.method === 'POST') {
       const b = await readJSON(req), P = checkInput(b), s = await settings.load();
-      const cfg = { apiKey: b.apiKey?.trim() || settings.keyFor(s, b.provider), baseUrl: b.baseUrl?.trim() || s.baseUrls[b.provider] };
+      const cfg = cfgFor(b, s);
       if (P.needsKey && !cfg.apiKey) return json(res, 200, { ok: false, error: 'Cole a chave de API para testar.' });
       const t0 = Date.now();
       try { const { models, recommended } = await P.test(cfg); return json(res, 200, { ok: true, models, recommended, ms: Date.now() - t0 }); }
@@ -245,7 +272,7 @@ async function api(req, res, url) {
     if (url.pathname === '/api/settings' && req.method === 'POST') {
       // conectar: confere a chave, escolhe sozinho um modelo que responde e salva
       const b = await readJSON(req), P = checkInput(b), s = await settings.load();
-      const cfg = { apiKey: b.apiKey?.trim() || settings.keyFor(s, b.provider), baseUrl: b.baseUrl?.trim() || s.baseUrls[b.provider] };
+      const cfg = cfgFor(b, s);
       if (P.needsKey && !cfg.apiKey) return json(res, 200, { ok: false, error: 'Cole a chave de API.' });
       let model;
       try { ({ model } = await llm.pickModel(b.provider, cfg)); }
@@ -331,7 +358,7 @@ async function api(req, res, url) {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 server.on('upgrade', (req, sock, head) => {
   // só aceita a própria página: impede que outro site use a sua chave via localhost
-  let ok = false; try { ok = new URL(req.headers.origin).host === req.headers.host; } catch {}
+  let ok = false; try { ok = hostOk(req) && new URL(req.headers.origin).host === req.headers.host; } catch {}
   if (!req.url.startsWith('/events') || !ok) { sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); sock.destroy(); return; }
   wss.handleUpgrade(req, sock, head, (ws) => wss.emit('connection', ws));
 });
@@ -364,6 +391,8 @@ await fs.mkdir(path.join(WORKSPACE, 'projeto'), { recursive: true });
 await writeHookFile().catch(e => console.error('[claude code] não consegui gravar', HOOK_FILE, e.message));
 server.listen(PORT, HOST, () => {
   console.log(`Floorwalk ${DEMO ? '(demo: tarefas simuladas)' : ''} em http://${HOST}:${PORT}`);
+  // fora do próprio computador, qualquer aparelho da rede abre a página e vê as sessões: avisa
+  if (!['127.0.0.1', '::1', 'localhost'].includes(HOST)) console.warn(`[aviso] HOST=${HOST}: o Floorwalk fica aberto para a rede. Só faça isso numa rede de confiança.`);
   settings.active().then(c => console.log(c ? `IA: ${PROVIDERS[c.provider].name} · ${c.model}` : 'IA ainda não configurada: abra a página para escolher.'));
   console.log(`Arquivos dos agentes: ${path.join(WORKSPACE, 'projeto')}`);
 });

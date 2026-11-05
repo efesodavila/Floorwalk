@@ -19,15 +19,21 @@ Fontes: decisões do dono em [`CONTINUACAO.md`](CONTINUACAO.md) (seções 1, 2, 
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| A1 | A chave da IA nunca volta para a página: nenhuma resposta da API e nenhuma mensagem do WebSocket a contém. | `server/settings.mjs` (`publicView`), `server/server.mjs` | ✅ `providers.test.mjs` "nunca devolve a chave" |
+| A1 | A chave da IA nunca volta para a página (só os 4 últimos caracteres, para a pessoa reconhecer qual é), e a chave guardada só vai para o endereço do provedor que já estava salvo: endereço novo exige a chave digitada no mesmo pedido. | `server/settings.mjs` (`publicView`), `server/server.mjs` (`cfgFor`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
 | A2 | `data/settings.json` só pode ser lido pelo dono (modo 0600). No Windows quem protege é a permissão da pasta. | `server/settings.mjs` | ✅ fora do Windows; ❌ no Windows |
-| A3 | Rota que muda alguma coisa (`POST /api/*`) só aceita pedido da própria página (mesma origem). | `server/server.mjs` (`sameOrigin`) | ✅ "recusa pedidos de outro site" |
-| A4 | O WebSocket `/events` só aceita conexão da própria página: outro site aberto no navegador não manda tarefa nem gasta a chave. | `server/server.mjs` (`upgrade`) | ❌ |
-| A5 | O servidor escuta só em `127.0.0.1`, a não ser que `HOST` diga outra coisa. | `server/server.mjs` | ❌ |
+| A3 | Rota que muda alguma coisa (`POST /api/*`) só aceita pedido da própria página (mesma origem). Todo pedido, de qualquer rota, só é atendido se o endereço usado for o do próprio computador (`localhost`, IP) ou um nome listado em `FLOORWALK_ALLOWED_HOSTS`: barra o "DNS rebinding". | `server/server.mjs` (`sameOrigin`, `hostOk`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
+| A4 | O WebSocket `/events` só aceita conexão da própria página: outro site aberto no navegador não manda tarefa nem gasta a chave. | `server/server.mjs` (`upgrade`) | ✅ `seguranca.test.mjs` |
+| A5 | O servidor escuta só em `127.0.0.1`, a não ser que `HOST` diga outra coisa; com outro `HOST`, avisa no terminal que ficou aberto para a rede. | `server/server.mjs` | ✅ `seguranca.test.mjs` (endereço padrão) |
 | A6 | A rota dos hooks (`POST /api/hooks/claude`) exige a senha de `~/.floorwalk/hook.json`. Sem ela: 403. | `server/server.mjs` (`hookAuth`) | ✅ "sem a senha, é recusado" |
-| A7 | Arquivos estáticos nunca saem da pasta `web/`; o Three.js só sai de `build/` e `examples/jsm/`. | `server/server.mjs` | ✅ Three.js; ❌ pasta `web/` |
-| A8 | Internet dos agentes é só leitura (buscar e ler páginas); endereços da rede interna e protocolos estranhos são recusados. | `server/web.mjs` (`checkURL`) | ✅ `web.test.mjs` |
+| A7 | Arquivos estáticos nunca saem da pasta `web/`; o Three.js só sai de `build/` e `examples/jsm/`. Nenhum pedido derruba o servidor: endereço malformado recebe 400. | `server/server.mjs` (`handle`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
+| A8 | Internet dos agentes é só leitura (buscar e ler páginas); endereços da rede interna e protocolos estranhos são recusados. | `server/web.mjs` (`checkURL`) | ✅ `web.test.mjs` ⚠️ ver nota abaixo |
 | A9 | O repositório não contém segredos, dados do usuário (`data/`, `workspace/`, `.env`) nem e-mail pessoal nos commits. | `.gitignore`, histórico do git | 🔎 conferido antes do primeiro envio |
+
+**Revisão da camada A (2026-11-04):** quatro regras falhavam e foram corrigidas, com teste: um site qualquer conseguia se
+passar pelo endereço do Floorwalk (DNS rebinding) e mandar a chave guardada para um servidor dele (A1, A3); o WebSocket
+aceitava esse site (A4); um endereço malformado derrubava o servidor (A7). Ficam em aberto: A2 no Windows (depende da
+permissão da pasta); A8 confere o IP antes de baixar, mas o download resolve o nome de novo (um site pode trocar o IP
+entre as duas consultas) e, atrás de proxy, a checagem fica só pelo nome.
 
 ## B. Ponte com o Claude Code
 
@@ -111,7 +117,7 @@ Fontes: decisões do dono em [`CONTINUACAO.md`](CONTINUACAO.md) (seções 1, 2, 
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 35 |
+| ✅ Com teste automático (inclui parciais) | 38 |
 | 🔎 Só conferidas à mão | 15, quase todas da página (C e D), onde não há teste de interface |
-| ❌ Sem prova | 3 (A4, A5, G3), mais partes de A2, A7, E5 e E9 |
-| ⚠️ Divergência conhecida | 1 (E10) |
+| ❌ Sem prova | 1 (G3), mais partes de A2, E5 e E9 |
+| ⚠️ Divergência conhecida | 2 (E10; A8 parcial) |

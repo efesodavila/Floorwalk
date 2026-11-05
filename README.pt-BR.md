@@ -57,6 +57,9 @@ ações com a hora. O histórico continua lá depois de recarregar a página.
 - Só mexe nas próprias entradas. Os seus hooks, e os de outras ferramentas, ficam como estão.
 - `npm run hooks:status` mostra se está ligado; `npm run hooks:uninstall` tira só as entradas do Floorwalk.
 
+O servidor só atende pedidos endereçados ao seu próprio computador (`localhost` ou um IP), o que impede outro site de se
+passar por ele (DNS rebinding). Para acessar por um nome (proxy, Tailscale), liste o nome em `FLOORWALK_ALLOWED_HOSTS`.
+
 O hook nunca atrapalha o Claude Code: não escreve nada, sempre sai com sucesso e desiste em menos de 1 segundo quando o
 servidor está desligado. Os eventos só vão para o seu computador (`127.0.0.1`), com uma senha guardada em
 `~/.floorwalk/hook.json`. Os seus pedidos não são lidos. Os comandos aparecem cortados e sem nada que pareça senha,

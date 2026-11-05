@@ -57,6 +57,9 @@ history of its actions. The history survives a page reload.
 - It only touches its own entries. Your hooks, and hooks from other tools, stay as they are.
 - `npm run hooks:status` shows whether it is on; `npm run hooks:uninstall` removes only Floorwalk's entries.
 
+The server only answers requests addressed to your own machine (`localhost` or an IP), which blocks other websites from
+posing as it (DNS rebinding). To reach it through a name (a reverse proxy, Tailscale), list it in `FLOORWALK_ALLOWED_HOSTS`.
+
 The hook never gets in Claude Code's way: it prints nothing, always exits successfully and gives up in under a second
 when the server is not running. Events only go to your own machine (`127.0.0.1`), authenticated with a secret stored
 in `~/.floorwalk/hook.json`. Your prompts are not read. Commands are shown truncated, with anything that looks like a

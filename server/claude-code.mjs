@@ -3,7 +3,6 @@
 // POST /api/hooks/claude. Aqui cada evento vira um estado do protocolo: o personagem da sessão vai ao
 // lugar certo da sala (editar → computador, ler → estante, deploy → servidores, pedir permissão → bloqueado).
 // Nada aqui chama IA nem guarda o conteúdo dos eventos: só o necessário para desenhar a sala.
-import path from 'node:path';
 
 export const ROLE = { role: 'claude_code', roleName: 'Claude Code', kind: 'produz' };
 // eventos que o instalador registra no ~/.claude/settings.json (o que não está aqui não chega ao servidor)
@@ -17,7 +16,8 @@ export const redact = (s) => String(s ?? '')
   .replace(/(bearer|basic)\s+[^\s"']+/gi, '$1 …')
   .replace(/((?:token|key|secret|senha|password|passwd|authorization|bearer)\w*["']?\s*[=:]\s*["']?)[^\s"']+/gi, '$1…')
   .replace(/[A-Za-z0-9_\-+/=]{24,}/g, '…');
-const base = (p) => p ? path.basename(String(p).replace(/[\\/]+$/, '')) : '';
+// último pedaço do caminho, com barra de Windows ou de Linux/Mac (o servidor pode rodar num sistema e o Claude Code em outro, ex.: WSL)
+const base = (p) => p ? String(p).replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '';
 
 const DEPLOY = /\b(git\s+push|npm\s+publish|vercel|netlify|fly\s+deploy|railway\s+up|docker\s+push|kubectl\s+apply|terraform\s+apply|gh\s+release|deploy)\b/i;
 const TESTS = /\b(test|tests|jest|vitest|pytest|mocha|playwright|eslint|lint|tsc|check-types)\b/i;

@@ -1,6 +1,6 @@
 {
   "name": "floorwalk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "See your Claude Code sessions at work in a 3D office: each session is a character that walks to the right desk as it edits, reads, tests and ships.",
   "license": "MIT",
   "repository": {

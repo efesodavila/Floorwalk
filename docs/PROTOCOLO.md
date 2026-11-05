@@ -90,7 +90,7 @@ comportamento no escritório é o **tipo** (`kind`), que é sempre um destes:
 
 ## Claude Code → servidor
 
-Os hooks do Claude Code (`npm run hooks:install`) rodam `scripts/claude-hook.mjs`, que repassa cada evento em
+Os hooks do Claude Code (pelo plugin do Floorwalk ou por `npm run hooks:install`) rodam `plugin/scripts/claude-hook.mjs`, que repassa cada evento em
 `POST /api/hooks/claude` com o cabeçalho `x-floorwalk-token` (senha de `~/.floorwalk/hook.json`, gravada pelo
 servidor ao subir; `FLOORWALK_HOME` troca a pasta). Sem a senha: 403. `server/claude-code.mjs` traduz o evento em
 `team` + `state` (tabela no README). A página só escuta: o que ela mandar pelo WebSocket é ignorado. Eventos: SessionStart, SessionEnd, UserPromptSubmit, PreToolUse,

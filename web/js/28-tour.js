@@ -4,17 +4,20 @@
    Fica no menu ☰ ("Como usar").
    Cada passo destaca uma parte da tela e explica em uma ou duas frases. Esc ou "Pular" fecha; setas navegam. */
 const TOUR_KEY = 'floorwalk.tour.v1';
+// primeiro o objetivo (acompanhar as sessões); montar a sala é a parte opcional, depois do passo "fork"
 const TOUR = [
-  { t: 'Bem-vindo ao Floorwalk', x: 'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Este tour mostra como montar a sala. Leva um minuto.' },
-  { sel: '#modes', mode: 'build', t: 'Construir e Ao vivo', x: '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: as sessões trabalham e você acompanha. Você pode trocar a qualquer hora.' },
+  { t: 'Bem-vindo ao Floorwalk', mode: 'live', x: 'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Primeiro, como acompanhar as sessões. Depois, se quiser, como montar a sala.' },
+  { sel: '#live-status', mode: 'live', t: 'Está funcionando?', x: 'Este aviso diz se o Floorwalk está recebendo o Claude Code: o que falta ligar, quantas sessões estão abertas e há quanto tempo chegou o último evento.' },
+  { mode: 'live', t: 'O móvel é a atividade', x: 'Editando arquivos: <b>computador</b>. Lendo ou pesquisando: <b>estante ou poltrona</b>. <b>git push</b> e deploy: <b>rack de servidores</b>. Pedindo permissão: <b>alerta vermelho</b>. Turno concluído: comemora.' },
+  { mode: 'live', t: 'Clique para ver os detalhes', x: 'Clique num personagem: a ficha mostra o que ele está fazendo, o tempo em cada atividade e o histórico.' },
+  { mode: 'live', t: 'Olhar a sala', x: 'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem.' },
+  { sel: '#menu-btn', mode: 'live', fork: true, t: 'Menu', x: 'As sessões abertas, o idioma, a iluminação, rever este tour e <b>Editar a sala e as pessoas</b>. Quer ver como montar a sua sala?' },
   { sel: '#tab-planta', mode: 'build', tab: 'planta', t: 'Passo 1 · Planta', x: 'Mude o tamanho da sala (botões + e −, ou os + roxos nas bordas), o piso e a cor das paredes. Aqui também se desenham paredes internas, portas, vidro e divisórias: escolha o tipo e arraste no piso.' },
   { sel: '#tab-elementos', mode: 'build', tab: 'elementos', t: 'Passo 2 · Elementos', x: 'Escolha um móvel na lista e clique no piso para colocar. Arraste para mudar de lugar. Clique num móvel para girar, trocar a cor ou apagar. Quem edita vai ao computador, quem lê vai à estante e quem publica vai aos servidores.' },
   { sel: '#tab-pessoas', mode: 'build', tab: 'pessoas', t: 'Passo 3 · Pessoas', x: 'Pessoas fixas da sala, se quiser alguma. As sessões do Claude Code entram sozinhas e não ficam salvas aqui.' },
   { sel: '.panel-foot', mode: 'build', tab: 'planta', t: 'Errou? Tem volta', x: '<b>Desfazer</b> (Ctrl+Z) e <b>Refazer</b>. O aviso ao lado mostra se algum móvel ficou sem passagem ou encavalado.' },
-  { sel: '.zoom', mode: 'build', t: 'Olhar a sala', x: 'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem. <b>Centralizar</b> volta ao começo.' },
-  { sel: '#done-edit', mode: 'build', t: 'Terminou de montar?', x: '<b>Concluir edição</b> leva para o modo Ao vivo. Dá para voltar e mexer depois.' },
-  { sel: '#menu-btn', mode: 'build', t: 'Menu', x: 'As sessões abertas, o idioma, a iluminação, rever este tour e <b>limpar a sala</b>.' },
-  { t: 'Pronto!', x: 'Abra uma sessão do Claude Code no terminal e veja o personagem entrar. Bom trabalho!', mode: 'build', tab: 'planta' },
+  { sel: '#done-edit', mode: 'build', t: 'Terminou de montar?', x: '<b>Concluir edição</b> volta para o modo ao vivo. Dá para voltar e mexer depois pelo menu.' },
+  { t: 'Pronto!', mode: 'live', x: 'Abra uma sessão do Claude Code e veja o personagem entrar. Bom trabalho!' },
 ];
 let tourAt = -1, tourEl = null;
 function tourStart() {
@@ -44,7 +47,8 @@ function tourGo(i) {
   tourEl.querySelector('h3').textContent = T(s.t);
   tourEl.querySelector('p').innerHTML = T(s.x);
   tourEl.querySelector('.tour-back').hidden = i === 0;
-  tourEl.querySelector('.tour-next').textContent = i === TOUR.length - 1 ? 'Começar' : 'Próximo';
+  tourEl.querySelector('.tour-next').textContent = T(i === TOUR.length - 1 ? 'Começar' : s.fork ? 'Ver como montar a sala' : 'Próximo');
+  tourEl.querySelector('.tour-skip').textContent = T(s.fork ? 'Terminar' : 'Pular');
   requestAnimationFrame(() => { tourPlace(); tourEl?.querySelector('.tour-next').focus(); }); // o tour pode ter fechado nesse meio-tempo
 }
 // recorte em volta do elemento do passo e o cartão ao lado (abaixo, acima ou no meio, o que couber)
@@ -67,6 +71,8 @@ function tourPlace() {
 function tourEnd() {
   if (!tourEl) return;
   tourEl.remove(); tourEl = null; tourAt = -1;
+  // termina sempre no modo ao vivo: é onde as sessões aparecem (sair no meio da parte da sala não deixa a pessoa no editor)
+  try { if (mode !== 'live') { setMode('live'); renderMenu(); } } catch {}
   removeEventListener('resize', tourPlace); removeEventListener('keydown', tourKey, true);
   try { localStorage.setItem(TOUR_KEY, '1'); } catch {}
 }

@@ -98,7 +98,7 @@ test('arquivo inválido ou com formato estranho: aborta sem tocar em nada', asyn
   const dir = await tmp(), file = path.join(dir, 'settings.json');
   for (const bad of ['{ isso não é json', '[]', '{"hooks": []}', '{"hooks": {"Stop": {}}}']) {
     await fs.writeFile(file, bad);
-    await assert.rejects(install({ file, script: SCRIPT }), /Nada foi alterado/);
+    await assert.rejects(install({ file, script: SCRIPT }), /Nothing was changed/);
     assert.equal(await fs.readFile(file, 'utf8'), bad);
   }
   await assert.rejects(fs.access(file + BACKUP_SUFFIX));
@@ -127,7 +127,7 @@ test('de ponta a ponta: o script do hook chega ao servidor e vira estado na sala
     ws.on('message', (d) => got.push(JSON.parse(d)));
     await new Promise(r => ws.on('open', r));
     const hook = (ev) => new Promise((res) => {
-      const p = spawn(process.execPath, ['scripts/claude-hook.mjs', '--floorwalk'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+      const p = spawn(process.execPath, ['plugin/scripts/claude-hook.mjs', '--floorwalk'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
       let out = ''; p.stdout.on('data', d => out += d);
       p.on('exit', (code) => res({ code, out }));
       p.stdin.end(JSON.stringify(ev));

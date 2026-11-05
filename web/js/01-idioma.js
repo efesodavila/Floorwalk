@@ -113,6 +113,14 @@ const EN = {
   // avisos do Claude Code
   'Falta ligar o Claude Code: rode npm run hooks:install no terminal e abra uma sessão nova.': 'Claude Code is not connected yet: run npm run hooks:install in a terminal and start a new session.',
   'Pronto. Abra uma sessão do Claude Code: ela entra pela porta.': 'Ready. Start a Claude Code session: it walks in through the door.',
+  // aviso fixo do canto (26-estado.js)
+  'Sem conexão com o servidor': 'Not connected to the server', 'Tentando de novo… Se ele estiver parado, rode npm start na pasta do Floorwalk.': 'Retrying… If it is stopped, run npm start in the Floorwalk folder.',
+  'Os hooks apontam para uma pasta que não existe mais': 'The hooks point to a folder that no longer exists', 'Rode npm run hooks:install de novo na pasta do Floorwalk (ou instale o plugin).': 'Run npm run hooks:install again in the Floorwalk folder (or install the plugin).',
+  'Falta ligar o Claude Code': 'Claude Code is not connected yet', 'Instale o plugin do Floorwalk ou rode npm run hooks:install. Veja o README.': 'Install the Floorwalk plugin or run npm run hooks:install. See the README.',
+  'Esperando a primeira sessão do Claude Code': 'Waiting for the first Claude Code session', 'Abra uma sessão nova: ela entra pela porta.': 'Start a new session: it walks in through the door.',
+  '1 sessão aberta': '1 session open', 'Clique num personagem para ver o que ele está fazendo.': 'Click a character to see what it is doing.',
+  'Sessões': 'Sessions', 'Restaurar a sala padrão…': 'Restore the default room…', 'Restaurar a sala padrão?': 'Restore the default room?', 'Restaurar': 'Restore',
+  'A sala deste navegador volta a ser a sala de dev pronta': 'The room in this browser goes back to the ready-made dev room',
   'O servidor está com código antigo: pare (Ctrl+C) e rode npm start de novo para as melhorias valerem.': 'The server is running old code: stop it (Ctrl+C) and run npm start again to apply the updates.',
   'Desligar a equipe de IA? O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.': 'Turn off the AI team? The task field goes away and the room shows only Claude Code sessions. The connected AI and the business stay saved.',
   'Voltar à sala de dev pronta?\n\nA sala que você montou neste navegador é trocada. As sessões do Claude Code continuam.': 'Go back to the ready-made dev room?\n\nThe room you built in this browser is replaced. Claude Code sessions continue.',
@@ -127,8 +135,13 @@ const EN = {
   'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.': 'The task field goes away and the room shows only Claude Code sessions. The connected AI and the business stay saved.',
   'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A sala da equipe, a IA conectada e o negócio continuam guardados e voltam quando você ligar de novo.': "The task field goes away and the room shows only Claude Code sessions. The team's room, the connected AI and the business stay saved and come back when you turn it on again.",
   // tour
-  'Pular': 'Skip', 'Voltar': 'Back', 'Próximo': 'Next', 'Começar': 'Start',
-  'Construir e Ao vivo': 'Build and Live', 'Errou? Tem volta': 'Made a mistake? Undo it', 'Pronto!': 'All set!',
+  'Pular': 'Skip', 'Voltar': 'Back', 'Próximo': 'Next', 'Começar': 'Start', 'Terminar': 'Finish', 'Ver como montar a sala': 'Show me how to build the room',
+  'Está funcionando?': 'Is it working?', 'O móvel é a atividade': 'The furniture is the activity', 'Clique para ver os detalhes': 'Click for the details',
+  'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Primeiro, como acompanhar as sessões. Depois, se quiser, como montar a sala.': 'Every Claude Code session becomes a character that walks in through the door and goes to the furniture that matches what it is doing. First, how to follow your sessions. Then, if you want, how to build the room.',
+  'Este aviso diz se o Floorwalk está recebendo o Claude Code: o que falta ligar, quantas sessões estão abertas e há quanto tempo chegou o último evento.': 'This badge tells you whether Floorwalk is receiving Claude Code: what is missing, how many sessions are open and when the last event arrived.',
+  'Clique num personagem: a ficha mostra o que ele está fazendo, o tempo em cada atividade e o histórico.': 'Click a character: its card shows what it is doing, the time per activity and the history.',
+  'Abra uma sessão do Claude Code e veja o personagem entrar. Bom trabalho!': 'Start a Claude Code session and watch the character walk in. Have a good one!',
+  'Errou? Tem volta': 'Made a mistake? Undo it', 'Pronto!': 'All set!',
   'Bem-vindo ao Floorwalk': 'Welcome to Floorwalk', 'Passo 1 · Planta': 'Step 1 · Layout', 'Passo 2 · Elementos': 'Step 2 · Items',
   'Passo 3 · Pessoas': 'Step 3 · People', 'Olhar a sala': 'Look around', 'Terminou de montar?': 'Done building?',
   'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Este tour mostra como montar a sala. Leva um minuto.': 'Each Claude Code session becomes a character who walks in through the door and goes to the furniture for what it is doing. This tour shows how to set up the room. It takes a minute.',
@@ -140,12 +153,11 @@ const EN = {
 };
 /* trechos com tags (o elemento inteiro tem este HTML) */
 const EN_HTML = {
-  '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: as sessões trabalham e você acompanha. Você pode trocar a qualquer hora.': '<b>Build</b>: you set up the room. <b>Live</b>: the sessions work and you watch. Switch any time.',
   '<b>Desfazer</b> (Ctrl+Z) e <b>Refazer</b>. O aviso ao lado mostra se algum móvel ficou sem passagem ou encavalado.': '<b>Undo</b> (Ctrl+Z) and <b>Redo</b>. The notice next to them shows if furniture is blocked or overlapping.',
-  'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem. <b>Centralizar</b> volta ao começo.': 'Drag with the <b>left</b> button to rotate the room and with the <b>right</b> one to move it. The mouse wheel zooms. Arrows or W A S D also move. <b>Center</b> resets the view.',
-  '<b>Concluir edição</b> leva para o modo Ao vivo. Dá para voltar e mexer depois.': '<b>Done editing</b> takes you to Live mode. You can come back and change things later.',
-  'As sessões abertas, o idioma, a iluminação, rever este tour e <b>limpar a sala</b>.': 'Open sessions, language, lighting, replay this tour and <b>clear the room</b>.',
-  'Abra uma sessão do Claude Code no terminal e veja o personagem entrar. Bom trabalho!': 'Open a Claude Code session in the terminal and watch the character walk in. Have fun!',
+  'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem.': 'Drag with the <b>left</b> button to rotate the room and with the <b>right</b> one to move it. The mouse wheel zooms. Arrows or W A S D also move.',
+  '<b>Concluir edição</b> volta para o modo ao vivo. Dá para voltar e mexer depois pelo menu.': '<b>Done editing</b> takes you back to live mode. You can come back and change things later from the menu.',
+  'As sessões abertas, o idioma, a iluminação, rever este tour e <b>Editar a sala e as pessoas</b>. Quer ver como montar a sua sala?': 'Open sessions, language, lighting, replay this tour and <b>Edit the room and people</b>. Want to see how to build your room?',
+  'Editando arquivos: <b>computador</b>. Lendo ou pesquisando: <b>estante ou poltrona</b>. <b>git push</b> e deploy: <b>rack de servidores</b>. Pedindo permissão: <b>alerta vermelho</b>. Turno concluído: comemora.': 'Editing files: <b>computer</b>. Reading or searching: <b>bookshelf or armchair</b>. <b>git push</b> and deploy: <b>server rack</b>. Asking permission: <b>red alert</b>. Turn done: celebrates.',
 };
 /* frases com partes variáveis (arquivo, comando, pessoa, número); null = deixa como está */
 const EN_RE = [
@@ -185,7 +197,7 @@ const EN_RE = [
   [/^Arraste sobre a grade para <b>acrescentar piso<\/b>$/, 'Drag over the grid to <b>add floor</b>'],
   [/^Arraste sobre o piso para <b>remover<\/b>$/, 'Drag over the floor to <b>remove</b>'],
   [/^Arraste sobre o piso para aplicar <b>(.+)<\/b>$/, 'Drag over the floor to apply <b>$1</b>'],
-  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(.+) colocado$/, '$1 placed'], [/^(.+) apagad[oa]$/, '$1 deleted'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^(\d+) × (\d+) quadrados?$/, '$1 × $2 squares'], [/^Remover (.+)$/, 'Remove $1'],
+  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(.+) colocado$/, '$1 placed'], [/^(d+) sessões abertas$/, '$1 sessions open'], [/^Último evento há (.+). Abra uma sessão nova: ela entra pela porta.$/, 'Last event $1 ago. Start a new session: it walks in through the door.'], [/^Último evento há (.+)$/, 'Last event $1 ago'], [/^(.+) apagad[oa]$/, '$1 deleted'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^(\d+) × (\d+) quadrados?$/, '$1 × $2 squares'], [/^Remover (.+)$/, 'Remove $1'],
   [/^Para mudar (.+) de lugar, arraste na sala e solte onde quiser\.$/, 'To move $1, drag them in the room and drop them where you want.'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
 ];
 

@@ -48,7 +48,8 @@ Código que roda no carregamento (fora de funções) só pode usar o que já foi
 | `21-ficha.js`, `23-ficha-render.js` | ficha do agente |
 | `22-agentes.js` | quem chega pela ponte (sessões do Claude Code) vira uma pessoa da sala |
 | `24-quadros.js` | cartões que expandem e retraem |
-| `25-configuracao.js` | início com o servidor: aviso dos hooks, "Limpar a sala" |
+| `25-configuracao.js` | início com o servidor, "Restaurar a sala padrão" |
+| `26-estado.js` | aviso fixo do modo ao vivo: conexão, hooks, sessões abertas e último evento |
 | `27-menu.js` | menu do canto superior direito, entrada e saída pela porta, gaveta das sessões |
 | `28-tour.js` | tour "Como usar", pelo menu ☰ |
 | `../js3d/cena3d.js` | cena 3D (módulo ES, padrão com o servidor): lê os mesmos dados do 2D (`worldBoxes`, `segBoxes`, `animBox`, `peopleDrawables`) e desenha com Three.js |
@@ -63,9 +64,19 @@ O teste `web-structure` avisa se esquecer.
 
 | arquivo | assunto |
 |---------|---------|
+| `start.mjs` | entrada do `npm start`: confere a versão do Node e lê o `.env` |
 | `server.mjs` | HTTP (página, `/health`, `/api/hooks/claude`, `/api/hooks/status`), WebSocket (`/events`) |
 | `claude-code.mjs` | ponte: cada evento do hook do Claude Code vira um estado na sala |
-| `claude-hooks-install.mjs` | instala e remove os hooks no `~/.claude/settings.json` |
+| `claude-hooks-install.mjs` | instala e remove os hooks à mão no `~/.claude/settings.json`; o status vê também o plugin |
+
+## Plugin do Claude Code (`plugin/` e `.claude-plugin/marketplace.json`)
+
+O repositório é o próprio marketplace (`claude plugin marketplace add efesodavila/Floorwalk`). O plugin fica em `plugin/`,
+separado da raiz, para o Claude Code não instalar as dependências do projeto (Three.js) junto: o hook só usa o que vem
+com o Node. `plugin/hooks/hooks.json` tem os mesmos eventos de `HOOK_EVENTS` (o teste `instalacao` confere); ao mudar
+os eventos, gere o arquivo de novo e suba a versão em `plugin/.claude-plugin/plugin.json` junto com a do `package.json`.
+`scripts/claude-hook.mjs` só repassa para `plugin/scripts/claude-hook.mjs` (instalações da v0.1.0 gravaram o caminho antigo).
+Para conferir: `claude plugin validate ./plugin` e `claude plugin validate .`.
 | `protocol.mjs`, `places.mjs` | formato das mensagens e lugares da sala |
 | `pacer.mjs` | segura cada estado alguns segundos, para o personagem ter tempo de andar |
 

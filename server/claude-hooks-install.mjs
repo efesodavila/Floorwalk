@@ -26,10 +26,10 @@ async function readSettings(file) {
   let raw;
   try { raw = await fs.readFile(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return { data: {}, exists: false, mode: 0o600 }; throw e; }
   let data;
-  try { data = raw.trim() ? JSON.parse(raw) : {}; } catch { throw fail(`Não consegui ler ${file} (JSON inválido). Nada foi alterado.`); }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) throw fail(`${file} não é um objeto JSON. Nada foi alterado.`);
-  if (data.hooks != null && (typeof data.hooks !== 'object' || Array.isArray(data.hooks))) throw fail(`"hooks" em ${file} tem um formato que não conheço. Nada foi alterado.`);
-  for (const [k, v] of Object.entries(data.hooks || {})) if (!Array.isArray(v)) throw fail(`"hooks.${k}" em ${file} não é uma lista. Nada foi alterado.`);
+  try { data = raw.trim() ? JSON.parse(raw) : {}; } catch { throw fail(`Could not read ${file} (invalid JSON). Nothing was changed.`); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw fail(`${file} is not a JSON object. Nothing was changed.`);
+  if (data.hooks != null && (typeof data.hooks !== 'object' || Array.isArray(data.hooks))) throw fail(`"hooks" in ${file} has a format I don't recognize. Nothing was changed.`);
+  for (const [k, v] of Object.entries(data.hooks || {})) if (!Array.isArray(v)) throw fail(`"hooks.${k}" in ${file} is not a list. Nothing was changed.`);
   const mode = (await fs.stat(file)).mode & 0o777;
   return { data, exists: true, mode };
 }
@@ -60,12 +60,17 @@ async function writeSettings(file, data, mode, exists) {
   const tmp = `${real}.floorwalk-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
   await fs.writeFile(tmp, text, { mode });
   await fs.rename(tmp, real);
-  if (await fs.readFile(real, 'utf8') !== text) throw new Error(`A gravação de ${file} não conferiu. Restaure a cópia ${backup} se precisar.`);
+  if (await fs.readFile(real, 'utf8') !== text) throw new Error(`Writing ${file} did not verify. Restore the copy ${backup} if needed.`);
   return exists ? backup : null;
 }
 
+// plugin do Floorwalk ligado (instalado pelo /plugin): ele já traz os hooks; instalar também à mão mandaria tudo em dobro
+export const PLUGIN_KEY = /^floorwalk@/;
+const pluginOn = (data) => Object.entries(data.enabledPlugins || {}).some(([k, v]) => PLUGIN_KEY.test(k) && v);
+
 export async function install({ file = defaultSettingsPath(), script }) {
   const { data, exists, mode } = await readSettings(file);
+  if (pluginOn(data)) throw fail('The Floorwalk plugin is already on, and it brings the hooks itself. Nothing was changed.');
   const hooks = data.hooks ? { ...data.hooks } : {};
   strip(hooks); // reinstalar não duplica (e atualiza o caminho se a pasta mudou)
   const entry = { type: 'command', command: hookCommand(script), timeout: 5 };
@@ -85,8 +90,15 @@ export async function uninstall({ file = defaultSettingsPath() } = {}) {
   return { file, removed };
 }
 
+// installed: ligado (pelo plugin ou à mão) · plugin: pelo plugin · broken: à mão, mas o script não existe mais
+// (pasta do Floorwalk movida ou apagada: todo evento falharia em silêncio)
 export async function status({ file = defaultSettingsPath() } = {}) {
   const { data } = await readSettings(file);
-  const on = HOOK_EVENTS.filter(ev => (data.hooks?.[ev] || []).some(g => g?.hooks?.some(isOurs)));
-  return { file, installed: on.length === HOOK_EVENTS.length, events: on };
+  const ours = (ev) => (data.hooks?.[ev] || []).flatMap(g => g?.hooks || []).filter(isOurs);
+  const on = HOOK_EVENTS.filter(ev => ours(ev).length);
+  const plugin = pluginOn(data);
+  const cmd = on.length ? ours(on[0])[0].command : '';
+  const script = (cmd.match(/"([^"]*claude-hook.mjs)"/) || [])[1];
+  const broken = !plugin && !!script && !(await fs.access(script).then(() => true, () => false));
+  return { file, installed: plugin || on.length === HOOK_EVENTS.length, plugin, broken, events: on };
 }

@@ -1,0 +1,14 @@
+{
+  "name": "floorwalk",
+  "owner": {
+    "name": "efesodavila"
+  },
+  "description": "Floorwalk: see your Claude Code sessions at work in a 3D office.",
+  "plugins": [
+    {
+      "name": "floorwalk",
+      "source": "./plugin",
+      "description": "Hooks that feed your local Floorwalk room. Nothing leaves your machine."
+    }
+  ]
+}

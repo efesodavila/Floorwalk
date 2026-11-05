@@ -438,3 +438,17 @@ body.r3d-avatars .person img, body.r3d-avatars .ficha .f-head img, body.r3d-avat
 button.danger-solid { background: var(--warn); border-color: var(--warn); color: #FFFFFF; }
 button.danger-solid:hover { filter: brightness(.92); }
 @media (max-width: 480px) { .dlg-actions button { flex: 1; } }
+
+/* ---------- Aviso fixo do modo ao vivo (26-estado.js): está funcionando? ---------- */
+.live-status { position: fixed; z-index: 20; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  max-width: min(420px, calc(100vw - 32px)); display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 12px;
+  background: var(--chip); color: var(--ink); box-shadow: var(--shadow); border: 1px solid var(--line); font: 13px/1.35 var(--font-ui); pointer-events: none; }
+.live-status .ls-dot { flex: none; width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; background: var(--ink-faint); }
+.live-status[data-tone="ok"] .ls-dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.live-status[data-tone="warn"] .ls-dot { background: #C77700; box-shadow: 0 0 0 3px #FFF1DC; }
+.live-status[data-tone="off"] .ls-dot { background: var(--ink-faint); }
+.live-status .ls-text { display: grid; gap: 2px; }
+.live-status b { font-weight: 600; }
+.live-status small { color: var(--ink-soft); font-size: 12px; }
+.live-status[data-tone="warn"] { border-color: #F0C98A; }
+@media (max-width: 520px) { .live-status { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: 12px; right: 12px; max-width: none; } }

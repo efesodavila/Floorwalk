@@ -59,7 +59,7 @@ test('B6: o hook não repassa o texto do pedido nem o conteúdo de arquivos ao s
   await fs.writeFile(path.join(home, 'hook.json'), JSON.stringify({ port: rec.address().port, token: 'a'.repeat(48) }));
   const env = { ...process.env, FLOORWALK_HOME: home };
   const run = (ev) => new Promise((res) => {
-    const p = spawn(process.execPath, ['scripts/claude-hook.mjs', '--floorwalk'], { env, stdio: ['pipe', 'ignore', 'ignore'] });
+    const p = spawn(process.execPath, ['plugin/scripts/claude-hook.mjs', '--floorwalk'], { env, stdio: ['pipe', 'ignore', 'ignore'] });
     p.on('exit', res); p.stdin.end(JSON.stringify(ev));
   });
   try {

@@ -41,12 +41,12 @@ continua: ela também protege as sessões.
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| B1 | O hook nunca atrapalha o Claude Code: não escreve nada na saída, sempre sai com código 0 e desiste rápido (menos de 1,5 s) quando o servidor está desligado. | `scripts/claude-hook.mjs` | ✅ "de ponta a ponta" |
+| B1 | O hook nunca atrapalha o Claude Code: não escreve nada na saída, sempre sai com código 0 e desiste rápido (menos de 1,5 s) quando o servidor está desligado. | `plugin/scripts/claude-hook.mjs` | ✅ "de ponta a ponta" |
 | B2 | O instalador não mexe em `~/.claude/settings.json` ilegível ou com formato que não conhece. | `server/claude-hooks-install.mjs` | ✅ "aborta sem tocar em nada" |
 | B3 | Antes da primeira escrita, guarda uma cópia do original e nunca a sobrescreve. A cópia feita com o nome antigo (`.pixel-hq.backup`) também vale como original. | idem | ✅ |
 | B4 | Só mexe nas próprias entradas: hooks do usuário e de outras ferramentas ficam iguais, e desinstalar devolve o arquivo como era. Se o `settings.json` for um atalho (dotfiles), continua atalho: a gravação vai para o arquivo de verdade. | idem (`isOurs`, `writeSettings`) | ✅ (o do atalho roda no Linux e no Mac) |
 | B5 | Reinstalar não duplica entradas; entradas antigas (`--pixel-hq`) são trocadas pelas novas. | idem | ✅ |
-| B6 | O texto do pedido do usuário nunca é lido nem repassado. O hook só manda ao servidor os campos que a sala usa: o pedido, o conteúdo de arquivos e as respostas das ferramentas não saem do Claude Code. | `scripts/claude-hook.mjs`, `server/claude-code.mjs` | ✅ `ponte.test.mjs` |
+| B6 | O texto do pedido do usuário nunca é lido nem repassado. O hook só manda ao servidor os campos que a sala usa: o pedido, o conteúdo de arquivos e as respostas das ferramentas não saem do Claude Code. | `plugin/scripts/claude-hook.mjs`, `server/claude-code.mjs` | ✅ `ponte.test.mjs` |
 | B7 | Comandos aparecem cortados e sem nada que pareça senha, chave ou token, em qualquer forma comum: `X=valor`, `--password valor`, `-u usuário:senha`, `postgres://usuário:senha@…`, cabeçalhos e cookies. | `server/claude-code.mjs` (`redact`) | ✅ `ponte.test.mjs` |
 | B8 | Cada ferramenta leva ao lugar certo: editar → computador; ler, buscar, web → estante; testes → revisando; `git push`/deploy → rack; planejar/delegar → quadro; permissão → bloqueado; pergunta ao usuário → aguardando; fim do turno → concluído. Só conta o comando que roda: `cat deploy.md` ou `git commit -m "test"` não é deploy nem teste. | `server/claude-code.mjs` (`toolAction`) | ✅ `ponte.test.mjs` |
 | B9 | Cada sessão vira um personagem com o nome da pasta do projeto; duas sessões na mesma pasta viram "nome" e "nome 2". | idem (`nameFor`) | ✅ |

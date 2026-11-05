@@ -1,10 +1,11 @@
 // Servidor do Floorwalk
 // - serve a página do escritório em http://HOST:PORT/
-// - recebe os eventos das sessões do Claude Code (POST /api/hooks/claude, mandados por scripts/claude-hook.mjs)
+// - recebe os eventos das sessões do Claude Code (POST /api/hooks/claude, mandados por plugin/scripts/claude-hook.mjs)
 // - WebSocket em /events: transmite à página o que cada sessão está fazendo
 // (a equipe de IA própria, com tarefas, ficou no branch equipe-ia)
 import http from 'node:http';
 import fs from 'node:fs/promises';
+import fss from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './env.mjs'; // nomes antigos das variáveis (PIXELHQ_*): antes de tudo
@@ -54,12 +55,17 @@ function claudeTeam() { return { ...msg.team(claude.members()), source: 'claude-
 // senha dos hooks: o script do hook lê de ~/.floorwalk/hook.json (só o usuário lê) e manda no cabeçalho
 const HOOK_FILE = path.join(process.env.FLOORWALK_HOME || path.join(os.homedir(), '.floorwalk'), 'hook.json');
 let HOOK_TOKEN = '';
-async function writeHookFile() {
+let lastEventAt = 0; // hora do último evento recebido de um hook (a página mostra "último evento há X")
+async function loadHookToken() {
   // mesma senha de antes (inclusive da pasta do nome antigo, ~/.pixel-hq): o hook já instalado continua valendo
   for (const f of [HOOK_FILE, path.join(os.homedir(), '.pixel-hq', 'hook.json')]) { if (HOOK_TOKEN) break; try { HOOK_TOKEN = JSON.parse(await fs.readFile(f, 'utf8')).token || ''; } catch {} }
   if (!/^[a-f0-9]{48}$/.test(HOOK_TOKEN)) HOOK_TOKEN = crypto.randomBytes(24).toString('hex');
-  await fs.mkdir(path.dirname(HOOK_FILE), { recursive: true });
-  await fs.writeFile(HOOK_FILE, JSON.stringify({ port: PORT, token: HOOK_TOKEN }), { mode: 0o600 });
+}
+// só depois que a porta abriu: se ela estiver ocupada, o arquivo continua apontando para o servidor que já roda.
+// Síncrono de propósito: fica gravado antes do primeiro pedido ser atendido
+function writeHookFile() {
+  fss.mkdirSync(path.dirname(HOOK_FILE), { recursive: true });
+  fss.writeFileSync(HOOK_FILE, JSON.stringify({ port: PORT, token: HOOK_TOKEN }), { mode: 0o600 });
 }
 const hookAuth = (req) => {
   const got = Buffer.from(String(req.headers['x-floorwalk-token'] || '')), want = Buffer.from(HOOK_TOKEN);
@@ -79,7 +85,7 @@ function hostOk(req) {
   return !!h && (net.isIP(h) > 0 || ALLOWED_HOSTS.has(h) || h.endsWith('.localhost'));
 }
 const server = http.createServer(async (req, res) => {
-  if (!hostOk(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Endereço não permitido. Use http://127.0.0.1 ou liste o nome em FLOORWALK_ALLOWED_HOSTS.'); return; }
+  if (!hostOk(req)) { res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Host not allowed. Use http://127.0.0.1 or list the name in FLOORWALK_ALLOWED_HOSTS.'); return; }
   try { await handle(req, res); }
   catch (e) {
     // nada derruba o servidor: endereço malformado vira 400, o resto 500
@@ -90,9 +96,9 @@ const server = http.createServer(async (req, res) => {
 });
 const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
 async function readJSON(req, max = 16384) {
-  if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Envie JSON'), { code: 415 });
+  if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw Object.assign(new Error('Send JSON'), { code: 415 });
   let size = 0; const chunks = [];
-  for await (const c of req) { size += c.length; if (size > max) throw Object.assign(new Error('Pedido grande demais'), { code: 413 }); chunks.push(c); }
+  for await (const c of req) { size += c.length; if (size > max) throw Object.assign(new Error('Request too large'), { code: 413 }); chunks.push(c); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 async function handle(req, res) {
@@ -106,18 +112,21 @@ async function handle(req, res) {
   if (url.pathname === '/health') return json(res, 200, { ok: true, sessoes: claude.members().length });
   // diz à página que ela está rodando com o servidor (liga o modo tempo real)
   if (url.pathname === '/config.js') { res.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' }); res.end(`window.FLOORWALK_BRIDGE = true;\n`); return; }
-  // eventos do Claude Code (scripts/claude-hook.mjs): sem página, por isso a senha em vez da origem
+  // eventos do Claude Code (plugin/scripts/claude-hook.mjs): sem página, por isso a senha em vez da origem
   if (url.pathname === '/api/hooks/claude') {
     if (req.method !== 'POST' || !hookAuth(req)) { res.writeHead(403); res.end(); return; }
-    try { claude.handle(await readJSON(req, 4 * 1024 * 1024)); res.writeHead(204); res.end(); }
+    try { claude.handle(await readJSON(req, 4 * 1024 * 1024)); lastEventAt = Date.now(); res.writeHead(204); res.end(); }
     catch (e) { res.writeHead(typeof e.code === 'number' ? e.code : 400); res.end(); }
     return;
   }
   // os hooks do Claude Code estão instalados? (a página avisa o que rodar)
   if (url.pathname === '/api/hooks/status' && req.method === 'GET') {
-    try { return json(res, 200, { installed: (await hooksStatus()).installed }); } catch { return json(res, 200, { installed: false }); }
+    // installed: está no settings.json · broken: está, mas o script não existe mais (pasta movida ou apagada)
+    // lastEventAt: hora do último evento que chegou de verdade (0 = nenhum desde que o servidor subiu)
+    try { const s = await hooksStatus(); return json(res, 200, { installed: s.installed, broken: s.broken, plugin: s.plugin, lastEventAt }); }
+    catch { return json(res, 200, { installed: false, broken: false, plugin: false, lastEventAt }); }
   }
-  if (url.pathname.startsWith('/api/')) return json(res, 404, { error: 'Rota não encontrada' });
+  if (url.pathname.startsWith('/api/')) return json(res, 404, { error: 'Not found' });
   if (req.method !== 'GET') { res.writeHead(405); res.end(); return; }
   // Three.js (cena 3D) servido do node_modules: só os módulos de build/ e examples/jsm/
   if (url.pathname.startsWith('/vendor/three/')) {
@@ -135,7 +144,7 @@ async function handle(req, res) {
   try {
     const data = await fs.readFile(file);
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' }); res.end(data);
-  } catch { res.writeHead(404); res.end('Não encontrado'); }
+  } catch { res.writeHead(404); res.end('Not found'); }
 }
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
@@ -156,10 +165,23 @@ wss.on('connection', (ws) => {
   ws.on('close', () => clients.delete(ws));
 });
 
-await writeHookFile().catch(e => console.error('[claude code] não consegui gravar', HOOK_FILE, e.message));
+await loadHookToken();
+// porta ocupada (outro Floorwalk ou outro programa): uma frase em vez do erro cru do Node
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use (is Floorwalk already running? open http://127.0.0.1:${PORT}).`);
+    console.error(`To use another port: PORT=${PORT + 1} npm start  (or set PORT in a .env file, see .env.example)`);
+  } else if (e.code === 'EACCES') console.error(`No permission to use port ${PORT}. Pick another one, e.g. PORT=8790 npm start`);
+  else console.error('Could not start the server:', e.message);
+  process.exit(1);
+});
 server.listen(PORT, HOST, () => {
-  console.log(`Floorwalk em http://${HOST}:${PORT}`);
+  try { writeHookFile(); } catch (e) { console.error('[claude code] could not write', HOOK_FILE, e.message); }
+  console.log(`Floorwalk running at http://${HOST === '0.0.0.0' ? '127.0.0.1' : HOST}:${PORT}`);
   // fora do próprio computador, qualquer aparelho da rede abre a página e vê as sessões: avisa
-  if (!['127.0.0.1', '::1', 'localhost'].includes(HOST)) console.warn(`[aviso] HOST=${HOST}: o Floorwalk fica aberto para a rede. Só faça isso numa rede de confiança.`);
-  hooksStatus().then(s => console.log(s.installed ? 'Hooks do Claude Code instalados.' : 'Hooks do Claude Code ainda não instalados: rode npm run hooks:install'), () => {});
+  if (!['127.0.0.1', '::1', 'localhost'].includes(HOST)) console.warn(`[warning] HOST=${HOST}: Floorwalk is open to your network. Only do this on a network you trust.`);
+  hooksStatus().then(s => console.log(
+    s.broken ? 'Claude Code hooks point to a folder that no longer exists: run npm run hooks:install again.'
+      : s.installed ? 'Claude Code hooks are on. Start a new Claude Code session and it walks into the room.'
+        : 'Claude Code hooks are not installed yet: install the plugin or run npm run hooks:install (see README).'), () => {});
 });

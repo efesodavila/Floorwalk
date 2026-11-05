@@ -1,0 +1,11 @@
+{
+  "name": "floorwalk",
+  "version": "0.1.0",
+  "description": "Shows each Claude Code session as a character in a 3D office. Feeds your local Floorwalk server (start it with npm start in the Floorwalk folder). Nothing leaves your machine.",
+  "author": {
+    "name": "efesodavila"
+  },
+  "homepage": "https://github.com/efesodavila/Floorwalk#readme",
+  "repository": "https://github.com/efesodavila/Floorwalk",
+  "license": "MIT"
+}

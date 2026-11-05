@@ -18,15 +18,11 @@ async function setupInit() {
   document.body.classList.remove('booting');
   hooksHint();
 }
-// os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar
-async function hooksHint() {
-  let on = null; try { on = (await setupApi('/api/hooks/status')).installed; } catch {}
-  if (on === false) toast('Falta ligar o Claude Code: rode npm run hooks:install no terminal e abra uma sessão nova.');
-  else if (on) toast('Pronto. Abra uma sessão do Claude Code: ela entra pela porta.');
-}
+// os hooks estão ligados? o aviso fixo do canto (26-estado.js) diz o que falta e fica até resolver
+function hooksHint() { pollHooks(); }
 // nome no topo da página
 function renderBrand() { const el = $('.brand span'); if (el) el.textContent = 'Claude Code'; }
-// "Limpar a sala" (menu): a sala deste navegador volta a ser a sala de dev pronta; as sessões continuam
+// "Restaurar a sala padrão" (menu): a sala deste navegador volta a ser a sala de dev pronta; as sessões continuam
 function resetRoom() {
   try { localStorage.setItem('floorwalk.tour.v1', '1'); localStorage.setItem(STORE, JSON.stringify(tplClaude())); } catch {}
   location.reload();

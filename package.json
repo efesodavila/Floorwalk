@@ -17,7 +17,7 @@
     "node": ">=22.9"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env server/server.mjs",
+    "start": "node server/start.mjs",
     "test": "node --test",
     "build:single": "node scripts/build-single.mjs",
     "hooks:install": "node scripts/claude-hooks.mjs install",

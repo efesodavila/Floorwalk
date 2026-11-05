@@ -61,7 +61,7 @@ test('A4: o WebSocket só aceita a própria página', async () => {
 });
 
 test('A5: sem HOST, o servidor escuta só no próprio computador', async () => {
-  assert.match(out, /em http:\/\/127\.0\.0\.1:/);
+  assert.match(out, /at http:\/\/127\.0\.0\.1:/);
 });
 
 test('A7: arquivos fora de web/ não saem, e endereço malformado não derruba o servidor', async () => {

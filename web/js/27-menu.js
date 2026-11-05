@@ -41,10 +41,10 @@ menuEl.addEventListener('keydown', (e) => {
 for (const id of ['m-team', 'm-edit', 'open-rules', 'open-test', 'open-changes']) $('#' + id).addEventListener('click', () => closeMenu());
 $('#m-edit').onclick = () => { setMode(mode === 'build' ? 'live' : 'build'); renderMenu(); };
 $('#m-lang').onclick = () => setLang(LANG === 'pt' ? 'en' : 'pt');
-// limpar a sala: só troca a sala deste navegador pela sala de dev pronta; as sessões continuam
+// restaurar a sala padrão: só troca a sala deste navegador pela sala de dev pronta; as sessões continuam
 $('#m-reset').onclick = async () => {
   closeMenu();
-  if (await askConfirm({ title: 'Limpar a sala?', text: 'A sala que você montou neste navegador volta a ser a sala de dev pronta. As sessões do Claude Code continuam.', ok: 'Limpar a sala', danger: true })) resetRoom();
+  if (await askConfirm({ title: 'Restaurar a sala padrão?', text: 'A sala que você montou neste navegador volta a ser a sala de dev pronta. As sessões do Claude Code continuam.', ok: 'Restaurar', danger: true })) resetRoom();
 };
 $('#m-3d').onclick = () => {
   const on = !window.R3D?.wanted;

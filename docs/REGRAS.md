@@ -42,16 +42,24 @@ entre as duas consultas) e, atrás de proxy, a checagem fica só pelo nome.
 | B1 | O hook nunca atrapalha o Claude Code: não escreve nada na saída, sempre sai com código 0 e desiste rápido (menos de 1,5 s) quando o servidor está desligado. | `scripts/claude-hook.mjs` | ✅ "de ponta a ponta" |
 | B2 | O instalador não mexe em `~/.claude/settings.json` ilegível ou com formato que não conhece. | `server/claude-hooks-install.mjs` | ✅ "aborta sem tocar em nada" |
 | B3 | Antes da primeira escrita, guarda uma cópia do original e nunca a sobrescreve. A cópia feita com o nome antigo (`.pixel-hq.backup`) também vale como original. | idem | ✅ |
-| B4 | Só mexe nas próprias entradas: hooks do usuário e de outras ferramentas ficam iguais, e desinstalar devolve o arquivo como era. | idem (`isOurs`) | ✅ |
+| B4 | Só mexe nas próprias entradas: hooks do usuário e de outras ferramentas ficam iguais, e desinstalar devolve o arquivo como era. Se o `settings.json` for um atalho (dotfiles), continua atalho: a gravação vai para o arquivo de verdade. | idem (`isOurs`, `writeSettings`) | ✅ (o do atalho roda no Linux e no Mac) |
 | B5 | Reinstalar não duplica entradas; entradas antigas (`--pixel-hq`) são trocadas pelas novas. | idem | ✅ |
-| B6 | O texto do pedido do usuário nunca é lido nem repassado. | `server/claude-code.mjs` | ✅ |
-| B7 | Comandos aparecem cortados e sem nada que pareça senha, chave ou token. | idem (`redact`) | ✅ |
-| B8 | Cada ferramenta leva ao lugar certo: editar → computador; ler, buscar, web → estante; testes → revisando; `git push`/deploy → rack; planejar/delegar → quadro; permissão → bloqueado; pergunta ao usuário → aguardando; fim do turno → concluído. | idem (`toolAction`) | ✅ |
+| B6 | O texto do pedido do usuário nunca é lido nem repassado. O hook só manda ao servidor os campos que a sala usa: o pedido, o conteúdo de arquivos e as respostas das ferramentas não saem do Claude Code. | `scripts/claude-hook.mjs`, `server/claude-code.mjs` | ✅ `ponte.test.mjs` |
+| B7 | Comandos aparecem cortados e sem nada que pareça senha, chave ou token, em qualquer forma comum: `X=valor`, `--password valor`, `-u usuário:senha`, `postgres://usuário:senha@…`, cabeçalhos e cookies. | `server/claude-code.mjs` (`redact`) | ✅ `ponte.test.mjs` |
+| B8 | Cada ferramenta leva ao lugar certo: editar → computador; ler, buscar, web → estante; testes → revisando; `git push`/deploy → rack; planejar/delegar → quadro; permissão → bloqueado; pergunta ao usuário → aguardando; fim do turno → concluído. Só conta o comando que roda: `cat deploy.md` ou `git commit -m "test"` não é deploy nem teste. | `server/claude-code.mjs` (`toolAction`) | ✅ `ponte.test.mjs` |
 | B9 | Cada sessão vira um personagem com o nome da pasta do projeto; duas sessões na mesma pasta viram "nome" e "nome 2". | idem (`nameFor`) | ✅ |
-| B10 | O primeiro evento de uma sessão nunca se perde: a página sabe quem é a pessoa antes de receber o estado dela. | `server/server.mjs` (`team` antes do `state`) | ✅ parcial (o teste de ponta a ponta confere que os dois chegam) |
+| B10 | O primeiro evento de uma sessão nunca se perde: a página sabe quem é a pessoa antes de receber o estado dela. | `server/server.mjs` (`team` antes do `state`) | ✅ `ponte.test.mjs` (ordem) |
 | B11 | Sessão encerrada, ou sem nenhum evento há 1 hora, sai da sala e da lista. | `claude-code.mjs` (`sweep`), `16-fonte-tempo-real.js` (`a.gone`) | ✅ servidor; 🔎 página |
-| B12 | Recarregar a página não apaga o histórico: o servidor reenvia os últimos 40 estados de cada personagem, só para a ficha (ninguém anda). | `server/server.mjs` (`history`, `replay`) | 🔎 |
+| B12 | Recarregar a página não apaga o histórico: o servidor reenvia os últimos 40 estados de cada personagem, só para a ficha (ninguém anda). Sessão encerrada não é reenviada, e sessão nova com o mesmo nome começa com a ficha vazia. | `server/server.mjs` (`history`, `replay`, `endedSessions`) | ✅ servidor (`ponte.test.mjs`); 🔎 página |
 | B13 | Caminho de arquivo do Windows num servidor Linux ou Mac vira só o nome do arquivo. | `claude-code.mjs` (`base`) | ✅ (no GitHub) |
+
+**Revisão da camada B (2026-11-05):** cinco regras falhavam e foram corrigidas, com teste: o hook mandava ao servidor o
+texto do pedido e o conteúdo inteiro dos arquivos (B6); `--password x`, `-u usuário:senha` e senha dentro de endereço
+apareciam na tela (B7); `cat deploy.md` virava deploy e `git commit -m "test"` virava teste (B8); um `settings.json` que
+era atalho virava arquivo comum (B4); a cada recarga, sessões já encerradas voltavam como "agente desconhecido", e uma
+sessão nova na mesma pasta herdava a ficha da anterior (B12). Ficam em aberto: depois que você aprova uma permissão, o
+personagem continua "bloqueado" até o próximo evento (o Claude Code não avisa quando a permissão é dada); o hook só
+procura o servidor em `127.0.0.1` (com `HOST` apontando para outro endereço, os eventos não chegam).
 
 ## C. Página: sala, sessões e ficha
 
@@ -117,7 +125,7 @@ entre as duas consultas) e, atrás de proxy, a checagem fica só pelo nome.
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 38 |
-| 🔎 Só conferidas à mão | 15, quase todas da página (C e D), onde não há teste de interface |
+| ✅ Com teste automático (inclui parciais) | 39 |
+| 🔎 Só conferidas à mão | 14, quase todas da página (C e D), onde não há teste de interface |
 | ❌ Sem prova | 1 (G3), mais partes de A2, E5 e E9 |
 | ⚠️ Divergência conhecida | 2 (E10; A8 parcial) |

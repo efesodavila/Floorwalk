@@ -12,7 +12,13 @@ setTimeout(done, 1500).unref?.();
 try {
   const chunks = [];
   for await (const c of process.stdin) chunks.push(c);
-  const body = Buffer.concat(chunks).toString('utf8');
+  // só o que a sala usa sai daqui: o texto do pedido, o conteúdo de arquivos e as respostas das ferramentas ficam no Claude Code
+  const ev = JSON.parse(Buffer.concat(chunks).toString('utf8') || 'null');
+  const pick = (o, keys) => Object.fromEntries(keys.filter(k => o && typeof o[k] === 'string').map(k => [k, o[k].slice(0, 4000)]));
+  const body = ev && typeof ev === 'object' ? JSON.stringify({
+    ...pick(ev, ['session_id', 'hook_event_name', 'cwd', 'source', 'tool_name', 'message', 'notification_type', 'agent_type']),
+    tool_input: pick(ev.tool_input, ['file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'command', 'description', 'subagent_type']),
+  }) : '';
   // porta e senha do servidor: gravadas por ele ao subir (só o usuário lê)
   // pasta nova (~/.floorwalk); a antiga (~/.pixel-hq) vale enquanto um servidor antigo estiver rodando
   const dirs = [process.env.FLOORWALK_HOME || process.env.PIXELHQ_HOME, path.join(os.homedir(), '.floorwalk'), path.join(os.homedir(), '.pixel-hq')].filter(Boolean);

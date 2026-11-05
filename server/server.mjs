@@ -43,8 +43,10 @@ const locks = createLocks();   // agente ocupado em outra tarefa: espera
 const queue = [];
 
 const history = new Map();   // agente -> últimos estados com a hora (a ficha mostra o histórico a quem conecta depois)
+const endedSessions = new Set(); // sessões do Claude Code encerradas: o "offline" delas é o último, e nada fica guardado
 function broadcast(m) {
-  if (m.type === 'state') {
+  if (m.type === 'state' && m.state === 'offline' && endedSessions.delete(m.agent)) { lastState.delete(m.agent); history.delete(m.agent); }
+  else if (m.type === 'state') {
     lastState.set(m.agent, m);
     const h = history.get(m.agent) || []; h.push({ ...m, at: Date.now() }); if (h.length > 40) h.shift(); history.set(m.agent, h);
   }
@@ -59,6 +61,9 @@ const claude = createClaudeBridge({
   say: (m, hold) => pacer.push(msg.state(m), hold),
   log: (agent, text) => broadcast(msg.log(agent, text)),
   team: () => broadcast(claudeTeam()), // na hora: o primeiro estado da sessão vem logo atrás
+  // sessão nova com o nome de uma que já acabou: a ficha começa vazia (é outro personagem)
+  fresh: (name) => { if (!endedSessions.has(name)) { lastState.delete(name); history.delete(name); } },
+  ended: (name) => endedSessions.add(name),
 });
 // sessão sem nenhum evento há 1 h (terminal fechado à força, sem SessionEnd): sai da sala
 setInterval(() => claude.sweep(60 * 60 * 1000), 60 * 1000).unref();

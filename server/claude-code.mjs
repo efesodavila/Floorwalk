@@ -11,16 +11,28 @@ export const HOOK_EVENTS = ['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'P
 export const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUseFailure', 'PermissionRequest']);
 
 const clip = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-// comandos podem trazer segredos (export TOKEN=…, curl -H "Authorization: …"): some com o valor e com sequências longas
+// comandos podem trazer segredos (export TOKEN=…, curl -H "Authorization: …", --password x, -u user:senha,
+// postgres://user:senha@host): some com o valor e com sequências longas. Na dúvida, esconde a mais.
+const SECRET = '(?:token|key|secret|senha|pass|pwd|auth|cookie|credential|bearer)';
+const VALUE = `("[^"]*"|'[^']*'|[^\\s"']+)`;
+const FLAG_SECRET = new RegExp(`((?:^|\\s)--?[\\w-]*${SECRET}[\\w-]*)(\\s+|=)${VALUE}`, 'gi');
+const ASSIGN_SECRET = new RegExp(`(${SECRET}\\w*["']?\\s*[=:]\\s*)${VALUE}`, 'gi');
 export const redact = (s) => String(s ?? '')
   .replace(/(bearer|basic)\s+[^\s"']+/gi, '$1 …')
-  .replace(/((?:token|key|secret|senha|password|passwd|authorization|bearer)\w*["']?\s*[=:]\s*["']?)[^\s"']+/gi, '$1…')
+  .replace(/(\w+:\/\/[^\s:/@]+):[^\s@/]+@/g, '$1:…@')
+  .replace(/((?:^|\s)(?:-u|--user)\s+[^\s:]+):\S+/g, '$1:…')
+  .replace(FLAG_SECRET, '$1$2…')
+  .replace(ASSIGN_SECRET, '$1…')
   .replace(/[A-Za-z0-9_\-+/=]{24,}/g, '…');
 // último pedaço do caminho, com barra de Windows ou de Linux/Mac (o servidor pode rodar num sistema e o Claude Code em outro, ex.: WSL)
 const base = (p) => p ? String(p).replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '';
 
-const DEPLOY = /\b(git\s+push|npm\s+publish|vercel|netlify|fly\s+deploy|railway\s+up|docker\s+push|kubectl\s+apply|terraform\s+apply|gh\s+release|deploy)\b/i;
-const TESTS = /\b(test|tests|jest|vitest|pytest|mocha|playwright|eslint|lint|tsc|check-types)\b/i;
+// o que conta é o comando que roda, não o texto dele: "cat deploy.md" ou git commit -m "test" não é deploy nem teste.
+// Cada trecho (separado por && || ; |) perde as variáveis da frente (X=1) e os lançadores (npx, sudo…) e é testado do começo.
+const DEPLOY = /^(git\s+push|(npm|pnpm|yarn|bun)\s+publish|vercel(\s+(deploy|--prod)|\s*$)|netlify\s+deploy|fly(ctl)?\s+deploy|railway\s+up|docker\s+push|kubectl\s+apply|terraform\s+apply|gh\s+release|firebase\s+deploy|wrangler\s+(deploy|publish)|(npm|pnpm|yarn|bun)\s+(run\s+)?deploy\S*)/i;
+const TESTS = /^((npm|pnpm|yarn|bun)\s+(run\s+)?(test|t|lint|check|typecheck|check-types)\S*|node\s+--test|jest|vitest|pytest|python\d?\s+-m\s+pytest|mocha|playwright\s+test|eslint|tsc|go\s+(test|vet)|cargo\s+(test|clippy)|dotnet\s+test|phpunit|rspec|Invoke-Pester)(?=\s|$)/i;
+const LAUNCHER = /^((\w+=("[^"]*"|'[^']*'|\S*)\s+)|(sudo|npx|bunx|time|env|(pnpm|yarn)\s+(dlx|exec))\s+)/;
+const commands = (raw) => String(raw).split(/&&|\|\||[;|\n]/).map(c => { c = c.trim(); while (LAUNCHER.test(c)) c = c.replace(LAUNCHER, ''); return c; });
 
 // o que uma ferramenta significa na sala: { state, place, detail }
 export function toolAction(tool, input = {}) {
@@ -34,8 +46,9 @@ export function toolAction(tool, input = {}) {
   }
   if (t === 'Bash' || t === 'PowerShell') {
     const raw = String(input.command || ''), cmd = clip(redact(raw), 70);
-    if (DEPLOY.test(raw)) return { state: 'entregando', place: 'servidores', detail: `Publicando: ${cmd}` };
-    if (TESTS.test(raw)) return { state: 'revisando', place: 'computador', detail: `Testando: ${cmd}` };
+    const parts = commands(raw);
+    if (parts.some(c => DEPLOY.test(c))) return { state: 'entregando', place: 'servidores', detail: `Publicando: ${cmd}` };
+    if (parts.some(c => TESTS.test(c))) return { state: 'revisando', place: 'computador', detail: `Testando: ${cmd}` };
     return { state: 'trabalhando', place: 'computador', detail: cmd ? `Rodando: ${cmd}` : 'Rodando um comando' };
   }
   if (t === 'AskUserQuestion') return { state: 'aguardando', place: 'computador', detail: 'Fazendo uma pergunta a você' };
@@ -47,7 +60,8 @@ export function toolAction(tool, input = {}) {
 
 // sessões ativas: session_id → { name, cwd, since }. Nome = pasta do projeto ("floorwalk", "floorwalk 2"…)
 // say(estado, hold): manda um estado; log(agente, texto); team(): a equipe mudou (alguém entrou)
-export function createClaudeBridge({ say, log, team }) {
+// fresh(nome): sessão nova com esse nome (a ficha começa vazia); ended(nome): o próximo "offline" dele é o último
+export function createClaudeBridge({ say, log, team, fresh = () => {}, ended = () => {} }) {
   const sessions = new Map();
   const nameFor = (id, cwd) => {
     if (sessions.has(id)) return sessions.get(id).name;
@@ -55,7 +69,7 @@ export function createClaudeBridge({ say, log, team }) {
     const used = new Set([...sessions.values()].map(s => s.name.toLowerCase()));
     let name = root, n = 2; while (used.has(name.toLowerCase())) name = `${root} ${n++}`;
     sessions.set(id, { name, cwd: String(cwd || ''), since: Date.now(), last: Date.now() });
-    team();
+    fresh(name); team();
     return name;
   };
   const members = () => [...sessions.values()].map(s => ({ name: s.name, ...ROLE, source: 'claude-code' }));
@@ -81,14 +95,14 @@ export function createClaudeBridge({ say, log, team }) {
       case 'SubagentStart': return put('planejando', { place: 'reuniao', detail: `Subagente começou${ev.agent_type ? ': ' + clip(ev.agent_type, 40) : ''}` });
       case 'SubagentStop': log(name, 'Subagente terminou'); return { agent: name, log: true };
       case 'Stop': return put('concluido', { detail: 'Turno concluído' }, 4500);
-      case 'SessionEnd': { const r = put('offline', { detail: 'Sessão encerrada' }); sessions.delete(id); team(); return r; }
+      case 'SessionEnd': { ended(name); const r = put('offline', { detail: 'Sessão encerrada' }); sessions.delete(id); team(); return r; }
       default: return null;
     }
   }
   // sessões sem evento há mais de idleMs: encerradas (a lista da equipe que vai à página é a verdade sobre quem existe)
   function sweep(idleMs, now = Date.now()) {
     let n = 0;
-    for (const [id, s] of sessions) if (now - s.last > idleMs) { say({ agent: s.name, state: 'offline', task: clip(base(s.cwd) || 'Claude Code', 60), detail: 'Sessão sem atividade' }); sessions.delete(id); n++; }
+    for (const [id, s] of sessions) if (now - s.last > idleMs) { ended(s.name); say({ agent: s.name, state: 'offline', task: clip(base(s.cwd) || 'Claude Code', 60), detail: 'Sessão sem atividade' }); sessions.delete(id); n++; }
     if (n) team();
     return n;
   }

@@ -55,10 +55,12 @@ async function writeSettings(file, data, mode, exists) {
   const old = await Promise.any(LEGACY_BACKUPS.map(s => fs.access(file + s).then(() => file + s))).catch(() => null);
   const backup = old || file + BACKUP_SUFFIX;
   if (exists && !old) { try { await fs.copyFile(file, backup, fs.constants.COPYFILE_EXCL); } catch (e) { if (e.code !== 'EEXIST') throw e; } }
-  const tmp = `${file}.floorwalk-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
+  // settings.json pode ser um atalho (dotfiles): grava no arquivo de verdade, senão a troca (rename) poria um arquivo no lugar do atalho
+  const real = await fs.realpath(file).catch(() => file);
+  const tmp = `${real}.floorwalk-tmp-${process.pid}`, text = JSON.stringify(data, null, 2) + '\n';
   await fs.writeFile(tmp, text, { mode });
-  await fs.rename(tmp, file);
-  if (await fs.readFile(file, 'utf8') !== text) throw new Error(`A gravação de ${file} não conferiu. Restaure a cópia ${backup} se precisar.`);
+  await fs.rename(tmp, real);
+  if (await fs.readFile(real, 'utf8') !== text) throw new Error(`A gravação de ${file} não conferiu. Restaure a cópia ${backup} se precisar.`);
   return exists ? backup : null;
 }
 

@@ -11,7 +11,9 @@ when it reads, the server rack when it pushes, and it raises a flag when it need
 
 [Português](README.pt-BR.md)
 
-![Five Claude Code sessions in the office by day: two at the desks (editing and running tests), one reading in the armchair, one pushing at the server rack, one blocked waiting for permission](docs/img/room-day.png)
+![Demo: in an empty room, a desk is dropped on the floor and dragged to a new spot; a character gets new hair, clothes and accessories; then Claude Code sessions walk in through the door, one runs git push and walks to the server rack, and a click on a character opens its card with the time per activity and the history.](docs/img/demo.gif)
+
+<sub>[Watch as MP4](docs/img/demo.mp4) · full version, 76 seconds</sub>
 
 > Status: early open-source release. Works on Windows, macOS and Linux with Node 22.9+.
 > The interface follows your browser language (English or Portuguese); switch it in the menu (☰ → Idioma / Language).

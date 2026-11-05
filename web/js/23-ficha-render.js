@@ -28,7 +28,7 @@ function renderFicha() {
       <dl>
         ${p.bio ? `<dt>Função</dt><dd>${escapeHTML(p.bio)}</dd>` : ''}
         ${a.detail ? `<dt>Fazendo</dt><dd>${escapeHTML(a.detail)}</dd>` : ''}
-        <dt>${a.ext ? 'Projeto' : 'Tarefa'}</dt><dd>${a.task ? escapeHTML(a.task) : '<span class="muted">Nenhuma</span>'}</dd>
+        <dt>${a.ext ? 'Projeto' : 'Tarefa'}</dt><dd>${(a.ext ? a.project || a.task : a.task) ? escapeHTML(a.ext ? a.project || a.task : a.task) : '<span class="muted">Nenhuma</span>'}</dd>
         <dt>Onde</dt><dd>${escapeHTML(whereOf(a))}</dd>
         <dt class="f-dev">Por quê</dt><dd class="f-dev">${escapeHTML(a.decision || '')}</dd>
         ${withN.length ? `<dt>Com</dt><dd>${withN.map(escapeHTML).join(', ')}</dd>` : ''}

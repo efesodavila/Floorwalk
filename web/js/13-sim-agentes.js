@@ -152,6 +152,8 @@ function applyEvent(raw) {
   if (a.present === false) enterOffice(a);
   a.detail = ev.detail ? String(ev.detail).slice(0, 140) : '';
   if (ev.task ?? ev.tarefa) a.task = ev.task ?? ev.tarefa; else if (st === 'ocioso' || st === 'offline') a.task = '';
+  // sessão de fora: a "tarefa" é o projeto (pasta) e não some quando ela fica livre
+  if (a.ext && (ev.task ?? ev.tarefa)) a.project = String(ev.task ?? ev.tarefa);
   // since: relógio da simulação (para quando a aba some); sinceAt: hora real, a que vale para sessões de fora (o servidor manda "at" ao reconectar)
   const at = Number(ev.at) > 1e12 ? Number(ev.at) : Date.now(); // só hora absoluta (ms); arquivos de eventos podem usar "at" relativo
   if (st !== a.status) { a.since = sim.clock; a.sinceAt = at; }

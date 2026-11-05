@@ -185,7 +185,7 @@ const EN_RE = [
   [/^Arraste sobre a grade para <b>acrescentar piso<\/b>$/, 'Drag over the grid to <b>add floor</b>'],
   [/^Arraste sobre o piso para <b>remover<\/b>$/, 'Drag over the floor to <b>remove</b>'],
   [/^Arraste sobre o piso para aplicar <b>(.+)<\/b>$/, 'Drag over the floor to apply <b>$1</b>'],
-  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^(\d+) × (\d+) quadrados?$/, '$1 × $2 squares'], [/^Remover (.+)$/, 'Remove $1'],
+  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(.+) colocado$/, '$1 placed'], [/^(.+) apagad[oa]$/, '$1 deleted'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^(\d+) × (\d+) quadrados?$/, '$1 × $2 squares'], [/^Remover (.+)$/, 'Remove $1'],
   [/^Para mudar (.+) de lugar, arraste na sala e solte onde quiser\.$/, 'To move $1, drag them in the room and drop them where you want.'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
 ];
 

@@ -11,7 +11,9 @@ quando lê, o rack de servidores quando publica, e levanta um alerta quando prec
 
 [English](README.md)
 
-![Cinco sessões do Claude Code no escritório de dia: duas nas mesas (editando e rodando testes), uma lendo na poltrona, uma publicando no rack de servidores e uma bloqueada esperando permissão](docs/img/room-day.png)
+![Demonstração: numa sala vazia, uma mesa é colocada no piso e arrastada para outro lugar; um personagem ganha cabelo, roupa e acessórios novos; depois as sessões do Claude Code entram pela porta, uma faz git push e vai ao rack de servidores, e um clique num personagem abre a ficha com o tempo por atividade e o histórico.](docs/img/demo.gif)
+
+<sub>[Ver em MP4](docs/img/demo.mp4) · versão completa, 76 segundos</sub>
 
 > Estado: primeira versão aberta. Funciona no Windows, macOS e Linux com Node 22.9 ou mais novo.
 > A interface segue o idioma do navegador (inglês ou português); dá para trocar no menu (☰ → Language / Idioma).

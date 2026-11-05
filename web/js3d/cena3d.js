@@ -442,7 +442,14 @@ sun.shadow.bias = .0015; sun.shadow.normalBias = .05; // evita "acne" (listras) 
     window.fullAvatar = (p, s = 4) => { try { return shot(p, 36 * s, 60 * s, true); } catch (e) { console.warn('[3D] retrato', e); return BLANK; } };
     document.body.classList.add('r3d-avatars');
     // listas já desenhadas com o retrato 2D: redesenha
-    function refresh() { try { if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards(); } catch {} }
+    // também a gaveta Equipe e a ficha: guardam o HTML pronto e só redesenhariam no próximo evento (retrato em branco até lá)
+    function refresh() {
+      try {
+        if (typeof renderPanel === 'function') renderPanel(); if (typeof renderCards === 'function') renderCards();
+        if (typeof teamHTML !== 'undefined') teamHTML = ''; if (typeof fichaHTML !== 'undefined') fichaHTML = '';
+        if (typeof drawerMode !== 'undefined' && drawerMode === 'team' && typeof renderDrawer === 'function') renderDrawer();
+      } catch {}
+    }
     refresh();
   }
   // miniaturas do editor (Elementos, paredes, pisos) feitas com os mesmos modelos 3D da sala

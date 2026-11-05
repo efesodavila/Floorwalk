@@ -152,12 +152,16 @@ function applyEvent(raw) {
   if (a.present === false) enterOffice(a);
   a.detail = ev.detail ? String(ev.detail).slice(0, 140) : '';
   if (ev.task ?? ev.tarefa) a.task = ev.task ?? ev.tarefa; else if (st === 'ocioso' || st === 'offline') a.task = '';
-  if (st !== a.status) a.since = sim.clock;
+  // since: relógio da simulação (para quando a aba some); sinceAt: hora real, a que vale para sessões de fora (o servidor manda "at" ao reconectar)
+  const at = Number(ev.at) > 1e12 ? Number(ev.at) : Date.now(); // só hora absoluta (ms); arquivos de eventos podem usar "at" relativo
+  if (st !== a.status) { a.since = sim.clock; a.sinceAt = at; }
+  a.sinceAt ||= at;
   a.status = st; a.withNames = (ev.with || []).map(w => { const b = agentByRef(w); return b ? nameOf(b) : String(w); });
-  const it = decide(a, st, ev); setIntent(a, it);
+  // sessão encerrada já saindo pela porta: o "offline" atrasado não a manda de volta ao sofá
+  const it = decide(a, st, ev); if (!(a.ext && a.gone && a.leaving)) setIntent(a, it);
   const why = ev.detail ? `${String(ev.detail).slice(0, 140)} · ${it.reason}` : it.reason;
   logFeed({ name: nameOf(a), st, task: a.task, text: why, src: ev.source });
-  histPush(a, { st, task: a.task, text: why, detail: a.detail, at: Date.now(), src: ev.source });
+  histPush(a, { st, task: a.task, text: why, detail: a.detail, at, src: ev.source });
   teamHTML = '';
   if (ev.source === 'manual' && test && !test.finished) checkTasks();
 }

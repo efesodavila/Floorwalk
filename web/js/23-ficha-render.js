@@ -1,19 +1,30 @@
 'use strict';
 
+// segundos em cada estado, pela hora de cada entrada do histórico: cada estado dura até o próximo (o último, até agora)
+function wallTimes(hist, now = Date.now()) {
+  const h = (hist || []).filter(x => x.st && x.at && !x.auto).sort((x, y) => x.at - y.at), out = {};
+  for (let i = 0; i < h.length; i++) { const end = i + 1 < h.length ? h[i + 1].at : now; out[h[i].st] = (out[h[i].st] || 0) + Math.max(0, (end - h[i].at) / 1000); }
+  return out;
+}
+
 function renderFicha() {
   if (mode !== 'live' || !sim.inspect) { ficha.hidden = true; return; }
   const a = sim.agents.find(q => q.id === sim.inspect), p = a && personOf(a);
   if (!a || !p) { closeFicha(); return; }
   const R = RULES[a.status], role = ROLES[a.role] || { n: 'Sem papel', c: '#5C5866' };
   const withN = (a.withNames || []).filter(Boolean);
-  const times = Object.entries(a.timeIn || {}).filter(([, v]) => v > .5).sort((x, y) => y[1] - x[1]), total = times.reduce((s, [, v]) => s + v, 0) || 1;
+  // sessão de fora (Claude Code): tempo pelo relógio de verdade, a partir do histórico com hora (vale com a aba em segundo
+  // plano e depois de recarregar). Os outros usam o relógio da simulação, que para quando a aba some.
+  const now = Date.now(), ago = a.ext && a.sinceAt ? (now - a.sinceAt) / 1000 : sim.clock - (a.since || 0);
+  const timeIn = a.ext ? wallTimes(a.hist, now) : a.timeIn;
+  const times = Object.entries(timeIn || {}).filter(([, v]) => v > .5).sort((x, y) => y[1] - x[1]), total = times.reduce((s, [, v]) => s + v, 0) || 1;
   const hist = a.hist || [], done = hist.filter(h => h.st === 'concluido' && h.task).length, blocks = hist.filter(h => h.st === 'bloqueado').length, evs = hist.filter(h => !h.auto).length;
   const shown = fichaAll ? hist : hist.slice(0, 8);
   const html = `
     <div class="f-head"><img src="${avatar(p, 4)}" alt="" width="48" height="56"><div><b>${escapeHTML(p.name)}</b><span style="color:${role.c}">${role.n}</span></div>
       <button type="button" class="icon" data-f="close" aria-label="Fechar ficha" title="Fechar (Esc)">✕</button></div>
     <section class="f-now"><h4>Agora</h4>
-      <div class="f-state"><i class="chip" style="background:${R.c}">${R.n}</i><span>há ${fmtDur(sim.clock - (a.since || 0))}</span></div>
+      <div class="f-state"><i class="chip" style="background:${R.c}">${R.n}</i><span>há ${fmtDur(ago)}</span></div>
       <dl>
         ${p.bio ? `<dt>Função</dt><dd>${escapeHTML(p.bio)}</dd>` : ''}
         ${a.detail ? `<dt>Fazendo</dt><dd>${escapeHTML(a.detail)}</dd>` : ''}

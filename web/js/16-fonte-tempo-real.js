@@ -13,8 +13,14 @@ function connectWS(url) {
     sim.wsState = 'conectando'; renderSourceBox();
   } catch { sim.wsState = 'erro'; renderSourceBox(); }
 }
-// sessão de fora que terminou e já saiu da sala: some da equipe (a sessão não existe mais)
+// sessão de fora que terminou: sai pela porta e some da equipe (a sessão não existe mais).
+// A saída é daqui, e não da "sala quieta" (27-entregas-menu.js), que para no modo desenvolvedor e durante tarefas da equipe de IA
 setInterval(() => {
+  for (const a of sim.agents) if (a.ext && a.gone && a.present !== false && mode === 'live') {
+    if (!sim.playing) { a.present = false; continue; } // animação parada: ninguém andaria até a porta
+    if (a.leaving) { const e = entrance(); if (!WALKING.has(a.mv) || (e && Math.hypot(a.x - e.pt[0], a.z - e.pt[1]) < .9)) { a.present = false; a.leaving = false; a.path = []; } }
+    else if (!a.held) leaveOffice(a);
+  }
   for (const a of [...sim.agents]) if (a.ext && a.gone && (a.present === false || mode !== 'live')) {
     if (sim.inspect === a.id) closeFicha();
     if (sim.following === a.id) sim.following = null;
@@ -39,6 +45,8 @@ function onBridgeMsg(m) {
   const t = m.type || 'state';
   if (t === 'hello') { sim.bridge = m; logFeed({ name: 'Conexão', st: null, text: `Ponte conectada: ${m.server || 'servidor'} (protocolo ${m.protocol ?? '?'})` }); return; }
   if (t === 'team') {
+    // equipe de IA desligada: a equipe do negócio que o servidor guarda não entra na sala (nem fica salva nela); só as sessões de fora
+    if (!m.source && !(typeof aiTeamOn === 'function' ? aiTeamOn() : true) && !sim.bridge?.demo) return;
     // fora do escritório (editando a sala): guarda quem é de fora para pôr na sala ao voltar
     if (mode !== 'live') {
       if (m.source) for (const [k, x] of extWaiting.team) if (x.source === m.source && !(m.agents || []).some(y => String(y.name).toLowerCase() === k)) { extWaiting.team.delete(k); extWaiting.state.delete(k); }

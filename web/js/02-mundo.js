@@ -83,7 +83,13 @@ if (VITRINE) W = tplVitrine();
 W = normalize(W);
 syncCatalog();
 // pessoas de fora (sessões do Claude Code) não entram no escritório salvo: existem só enquanto a sessão existe
-function save() { if (VITRINE) return; try { localStorage.setItem(STORE, JSON.stringify({ ...W, people: W.people.filter(p => !p.ext) })); } catch {} }
+// sessões de fora (Claude Code) não entram no escritório salvo: nem a pessoa, nem o cargo que só ela usa
+function save() {
+  if (VITRINE) return;
+  const people = W.people.filter(p => !p.ext), roles = { ...W.roles };
+  for (const p of W.people) if (p.ext && !people.some(q => q.role === p.role)) delete roles[p.role];
+  try { localStorage.setItem(STORE, JSON.stringify({ ...W, people, roles })); } catch {}
+}
 
 let past = [], future = [];
 function snapshot() { return JSON.stringify(W); }

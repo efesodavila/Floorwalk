@@ -65,16 +65,24 @@ procura o servidor em `127.0.0.1` (com `HOST` apontando para outro endereço, os
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| C1 | A equipe de IA vem **desligada**: sem campo de tarefa, sem tela de conectar IA, sem descrever negócio. Liga e desliga pelo menu; a chave e o negócio ficam guardados. | `02-mundo.js` (`aiTeamOn`), `25-configuracao.js` | 🔎 |
-| C2 | Com a equipe desligada, a primeira visita abre a sala de dev pronta, e o negócio salvo no servidor não toma a sala. | `02-mundo.js` (`tplClaude`), `25-configuracao.js` (`setupInit`) | 🔎 |
-| C3 | Sessões do Claude Code nunca entram no escritório salvo no navegador. | `02-mundo.js` (`save`) | 🔎 |
-| C4 | A sessão aberta fica na sala; só sai quando termina. | `27-entregas-menu.js` | 🔎 |
-| C5 | A gaveta Equipe separa as sessões do Claude Code da equipe do negócio; com a equipe desligada (ou sem tarefa delegada), a equipe do negócio fica recolhida. | `27-entregas-menu.js` (`renderTeamDrawer`) | 🔎 |
-| C6 | Clicar num personagem abre a ficha com o que ele está fazendo agora, onde, o tempo em cada atividade e o histórico com hora. Vale para todos, não só no modo desenvolvedor. | `23-ficha-render.js` | 🔎 |
-| C7 | "Limpar a sala" (equipe desligada) troca só a sala deste navegador pela sala de dev; nada é apagado no servidor. | `27-entregas-menu.js` (`m-reset`) | 🔎 |
-| C8 | Nenhum `confirm`, `alert` ou `prompt` do navegador. Toda ação que apaga ou troca algo pede confirmação na janela própria, com o foco começando em "Cancelar". | `20-toast-gaveta.js` (`askConfirm`) | 🔎 (dá para virar teste automático) |
-| C9 | No menu, a linha separadora só aparece entre grupos com item visível. | `27-entregas-menu.js` (`tidyMenuLines`) | 🔎 |
-| C10 | A experiência normal é toda em 3D: o 2D só aparece sozinho sem WebGL (ou com `?2d`) e nunca pisca antes do 3D ao abrir. | `00-base.js`, `js3d/cena3d.js` | 🔎 |
+| C1 | A equipe de IA vem **desligada**: sem campo de tarefa, sem tela de conectar IA, sem descrever negócio. Liga e desliga pelo menu; a chave e o negócio ficam guardados. | `02-mundo.js` (`aiTeamOn`), `25-configuracao.js` | 🔎 conferido (2026-11-05) |
+| C2 | Com a equipe desligada, a primeira visita abre a sala de dev pronta, e o negócio salvo no servidor não toma a sala: nem a sala, nem a equipe dele (que entra só com a equipe ligada). | `02-mundo.js` (`tplClaude`), `25-configuracao.js` (`setupInit`), `16-fonte-tempo-real.js` (`team`) | 🔎 conferido (2026-11-05) |
+| C3 | Sessões do Claude Code nunca entram no escritório salvo no navegador: nem a pessoa, nem o cargo "Claude Code". | `02-mundo.js` (`save`) | 🔎 conferido (2026-11-05) |
+| C4 | A sessão aberta fica na sala; só sai quando termina, e então sai mesmo com o modo desenvolvedor ligado ou com uma tarefa da equipe de IA em andamento. | `27-entregas-menu.js`, `16-fonte-tempo-real.js` | 🔎 conferido (2026-11-05) |
+| C5 | A gaveta Equipe separa as sessões do Claude Code da equipe do negócio; com a equipe desligada (ou sem tarefa delegada), a equipe do negócio fica recolhida. Cada um aparece com a foto do próprio personagem 3D. | `27-entregas-menu.js` (`renderTeamDrawer`) | 🔎 conferido (2026-11-05) |
+| C6 | Clicar num personagem abre a ficha com o que ele está fazendo agora, onde, o tempo em cada atividade e o histórico com hora. Vale para todos, não só no modo desenvolvedor. Para sessões do Claude Code, o tempo é o do relógio de verdade: conta com a aba em segundo plano e continua depois de recarregar. | `23-ficha-render.js` (`wallTimes`), `13-sim-agentes.js` (`sinceAt`) | 🔎 conferido (2026-11-05) |
+| C7 | "Limpar a sala" (equipe desligada) troca só a sala deste navegador pela sala de dev; nada é apagado no servidor. | `27-entregas-menu.js` (`m-reset`) | 🔎 conferido (2026-11-05) |
+| C8 | Nenhum `confirm`, `alert` ou `prompt` do navegador. Toda ação que apaga ou troca algo pede confirmação na janela própria, com o foco começando em "Cancelar". | `20-toast-gaveta.js` (`askConfirm`) | ✅ `pagina.test.mjs` (nenhum nativo); 🔎 foco e Esc conferidos |
+| C9 | No menu, a linha separadora só aparece entre grupos com item visível. | `27-entregas-menu.js` (`tidyMenuLines`) | 🔎 conferido (2026-11-05) |
+| C10 | A experiência normal é toda em 3D: o 2D só aparece sozinho sem WebGL (ou com `?2d`) e nunca pisca antes do 3D ao abrir. | `00-base.js`, `js3d/cena3d.js` | 🔎 conferido no código (2026-11-05) |
+
+**Revisão da camada C (2026-11-05):** cinco regras falhavam e foram corrigidas, conferidas no navegador antes e depois:
+com a equipe desligada, a equipe do negócio salva no servidor entrava na sala de dev e ficava salva nela (C2, a origem
+dos "personagens que nunca são usados"); o cargo "Claude Code" ficava salvo no escritório (C3); com o modo
+desenvolvedor ligado, uma sessão encerrada ficava no sofá para sempre (C4); a foto na gaveta Equipe e na ficha ficava em
+branco até o próximo evento da sessão (C5, C6); e a ficha contava o tempo pelo relógio da simulação, que para com a aba
+em segundo plano: uma sessão editando havia 85 s aparecia "há 18s" (C6). A C8 virou teste automático. Fica em aberto:
+se o próprio arquivo do 3D não carregar (erro de rede ou de sintaxe), a tela fica no "carregando" sem cair para o 2D (C10).
 
 ## D. Editor da sala
 
@@ -125,7 +133,7 @@ procura o servidor em `127.0.0.1` (com `HOST` apontando para outro endereço, os
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 39 |
-| 🔎 Só conferidas à mão | 14, quase todas da página (C e D), onde não há teste de interface |
+| ✅ Com teste automático (inclui parciais) | 40 |
+| 🔎 Só conferidas à mão | 13, quase todas da página (C e D), onde não há teste de interface |
 | ❌ Sem prova | 1 (G3), mais partes de A2, E5 e E9 |
 | ⚠️ Divergência conhecida | 2 (E10; A8 parcial) |

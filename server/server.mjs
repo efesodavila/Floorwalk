@@ -47,7 +47,7 @@ const endedSessions = new Set(); // sessões do Claude Code encerradas: o "offli
 function broadcast(m) {
   if (m.type === 'state' && m.state === 'offline' && endedSessions.delete(m.agent)) { lastState.delete(m.agent); history.delete(m.agent); }
   else if (m.type === 'state') {
-    lastState.set(m.agent, m);
+    lastState.set(m.agent, { ...m, at: Date.now() }); // com a hora: quem conecta depois sabe há quanto tempo está assim
     const h = history.get(m.agent) || []; h.push({ ...m, at: Date.now() }); if (h.length > 40) h.shift(); history.set(m.agent, h);
   }
   const data = JSON.stringify(m);

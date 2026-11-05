@@ -647,3 +647,5 @@ disse que está **ótimo**).
   Promise<boolean>; Esc/Cancelar/clique fora = não; ação perigosa começa com o foco em Cancelar. Não use confirm/alert/prompt.
   Menu em 3 grupos (trabalho e IA | iluminação, idioma, tour | limpar); `tidyMenuLines()` esconde a linha cujo grupo ficou
   vazio. Com a equipe desligada o último item é "Limpar a sala…" (volta à sala de dev pronta).
+- REGRAS (2026-11-04): [`docs/REGRAS.md`](REGRAS.md) lista as 54 regras de negócio conferíveis (onde vivem e como provar). Decisão
+  nova do dono entra lá também. Base da revisão de conformidade (skill spec-to-code-compliance, camada por camada).

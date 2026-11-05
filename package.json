@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Escritório em pixel art onde agentes de IA trabalham à vista: você delega tarefas e vê cada personagem executar a sua parte.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/efesodavila/Floorwalk.git"
+  },
+  "homepage": "https://github.com/efesodavila/Floorwalk#readme",
+  "bugs": {
+    "url": "https://github.com/efesodavila/Floorwalk/issues"
+  },
   "private": true,
   "type": "module",
   "engines": {

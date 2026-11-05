@@ -14,8 +14,8 @@ when it reads, the server rack when it pushes, and it raises a flag when it need
 ## Quick start (Claude Code, no API key)
 
 ```bash
-git clone <this repository>
-cd floorwalk
+git clone https://github.com/efesodavila/Floorwalk.git
+cd Floorwalk
 npm install
 npm run hooks:install
 npm start

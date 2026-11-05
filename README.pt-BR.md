@@ -14,8 +14,8 @@ quando lê, o rack de servidores quando publica, e levanta um alerta quando prec
 ## Começo rápido (Claude Code, sem chave de IA)
 
 ```bash
-git clone <este repositório>
-cd floorwalk
+git clone https://github.com/efesodavila/Floorwalk.git
+cd Floorwalk
 npm install
 npm run hooks:install
 npm start

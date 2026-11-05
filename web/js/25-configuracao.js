@@ -128,9 +128,25 @@ function setAiTeam(on, room) {
   } catch {}
   location.reload();
 }
+// ligar/desligar a equipe de IA: cada modo tem a sua sala. A sala que está na tela fica guardada e volta quando você
+// voltar àquele modo; a sala que o dono montou nunca é trocada sem volta. Sem sala guardada: equipe ligada parte do
+// escritório do negócio (ou da sala padrão), equipe desligada parte da sala de dev pronta.
+const ROOM_KEY = { on: 'floorwalk.sala.equipe', off: 'floorwalk.sala.claude' };
+function switchAiTeam(on) {
+  try {
+    const cur = localStorage.getItem(STORE);
+    if (cur) localStorage.setItem(on ? ROOM_KEY.off : ROOM_KEY.on, cur);
+    const back = localStorage.getItem(on ? ROOM_KEY.on : ROOM_KEY.off);
+    if (back) localStorage.setItem(STORE, back);
+    else if (on) localStorage.removeItem(STORE);
+    else localStorage.setItem(STORE, JSON.stringify(tplClaude()));
+    localStorage.setItem(TEAM_KEY, on ? '1' : '0');
+  } catch {}
+  location.reload();
+}
 $('#m-aiteam').onclick = () => {
-  if (aiTeamOn()) askConfirm({ title: 'Desligar a equipe de IA?', text: 'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.', ok: 'Desligar' }).then(ok => ok && setAiTeam(false, true));
-  else setAiTeam(true);
+  if (aiTeamOn()) askConfirm({ title: 'Desligar a equipe de IA?', text: 'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A sala da equipe, a IA conectada e o negócio continuam guardados e voltam quando você ligar de novo.', ok: 'Desligar' }).then(ok => ok && switchAiTeam(false));
+  else switchAiTeam(true);
 };
 // os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar
 async function hooksHint() {

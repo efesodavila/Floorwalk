@@ -119,6 +119,7 @@ function wallProblem(s, ignoreId) {
   const K = WALLKINDS[s.kind], I = segInfo(s);
   if (I.len < K.min) return K.min > 1 ? `Arraste pelo menos ${K.min} quadrados para caber a porta` : 'Arraste ao longo da grade para desenhar';
   if (!wallOnFloor(s)) return 'A parede precisa ficar sobre o piso';
+  if (W.objects.some(o2 => wallBlocksDoor(s, o2))) return 'A parede trancaria a porta de entrada';
   const o = W.objects.find(o2 => !ITEMS[o2.item].flat && wallCrossesObj(s, o2)); if (o) return `A parede passaria por cima de "${ITEMS[o.item].n}"`;
   if (W.walls.some(w2 => w2.id !== ignoreId && wallsOverlap(s, w2))) return 'Já existe uma parede nesse trecho';
   return null;
@@ -137,6 +138,24 @@ function doorFits(o, at, tiles = W.tiles) {
     if (!has(x, z) || (left ? has(x - 1, z) : has(x, z - 1))) return false;
   }
   return true;
+}
+// parede que tranca a porta: passa por cima dela, ou corre na linha da parede dela ou colada na frente, cobrindo parte da porta
+// (a porta é um item "chato" no chão; a checagem comum de parede ignora itens chatos)
+function wallBlocksDoor(s, o, at = o) {
+  if (!isDoor(o)) return false;
+  if (wallCrossesObj(s, o, at)) return true;
+  const I = segInfo(s), [w, d] = dims(o), left = o.rot % 2 === 1, e = 1e-6;
+  if (left === I.alongX) return false; // perpendicular à parede da porta: só tranca se passar por cima (acima)
+  const c0 = left ? at.x : at.z, u0 = left ? at.z : at.x, u1 = u0 + (left ? d : w);
+  return (I.c === c0 || I.c === c0 + 1) && I.u0 < u1 - e && I.u1 > u0 + e;
+}
+// a borracha de piso só apaga um quadrado livre: sem móvel (nem porta) em cima e sem deixar parede fora do piso
+function tileRemovable(k) {
+  if (!W.tiles[k]) return true;
+  const [x, z] = k.split(',').map(Number);
+  if (W.objects.some(o => { const [ow, od] = dims(o); return x >= o.x && x < o.x + ow && z >= o.z && z < o.z + od; })) return false;
+  const keep = W.tiles; W.tiles = { ...keep }; delete W.tiles[k];
+  try { return W.walls.every(wallOnFloor); } finally { W.tiles = keep; }
 }
 // o lugar válido mais perto do ponto (cx, cz): { x, z, rot }, ou null se a sala não tem parede que sirva
 function doorSpot(o, cx, cz, tiles = W.tiles, ok = () => true) {
@@ -187,6 +206,7 @@ function footprintOk(o, at, ignoreId) {
     if (x < p.x + pw && x + w > p.x && z < p.z + pd && z + d > p.z) return 'overlap:' + ITEMS[p.item].n;
   }
   const s = W.walls.find(s2 => wallCrossesObj(s2, o, at)); if (s) return 'overlap:' + WALLKINDS[s.kind].n;
+  if (me.door && W.walls.some(s2 => wallBlocksDoor(s2, o, at))) return 'door';
   return 'ok';
 }
 function warnings() {

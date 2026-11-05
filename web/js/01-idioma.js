@@ -62,6 +62,8 @@ const EN = {
   'Não dá para soltar fora do piso. Voltou para onde estava.': "Can't drop off the floor. It went back.",
   'A porta precisa ficar encostada numa parede (esquerda ou fundo), com o piso livre na frente.': 'The door must sit against a wall (left or back), with free floor in front.',
   'A porta acompanha a parede. Arraste para mudar de lugar.': 'The door follows the wall. Drag to move it.',
+  'A parede trancaria a porta de entrada': 'The wall would block the entrance door',
+  'Tire o móvel ou a parede de cima antes de apagar esse piso': 'Remove the furniture or wall on top before erasing this floor',
   'Girado ele sairia do piso. Mova para um lugar com mais espaço.': 'Rotated, it would leave the floor. Move it somewhere with more room.',
   'A sala tem uma porta de entrada só.': 'The room has only one entrance.', 'Sem espaço livre ao lado para duplicar': 'No free space next to it to duplicate',
   'A equipe entra e sai pela porta: ela não pode ser apagada. Arraste para outra parede.': "People come and go through the door: it can't be deleted. Drag it to another wall.",
@@ -114,6 +116,7 @@ const EN = {
   'Apaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer. Continuam: a IA conectada e os arquivos que os agentes já entregaram.': 'Deletes the current business: the team, the room you built and the task history. This cannot be undone. Kept: the connected AI and the files the agents already delivered.',
   'Desligar a equipe de IA?': 'Turn off the AI team?',
   'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.': 'The task field goes away and the room shows only Claude Code sessions. The connected AI and the business stay saved.',
+  'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A sala da equipe, a IA conectada e o negócio continuam guardados e voltam quando você ligar de novo.': "The task field goes away and the room shows only Claude Code sessions. The team's room, the connected AI and the business stay saved and come back when you turn it on again.",
   // tour
   'Pular': 'Skip', 'Voltar': 'Back', 'Próximo': 'Next', 'Começar': 'Start',
   'Bem-vindo ao seu escritório': 'Welcome to your office', 'Passo 1 · Planta': 'Step 1 · Layout', 'Passo 2 · Elementos': 'Step 2 · Items',

@@ -88,10 +88,18 @@ se o próprio arquivo do 3D não carregar (erro de rede ou de sintaxe), a tela f
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| D1 | A sala tem exatamente uma porta de entrada, encostada numa parede externa (esquerda ou fundo), com piso livre na frente. Ela não pode ser apagada. | `17-entrada.js` | 🔎 |
-| D2 | Móvel não fica fora do piso nem em cima de outro móvel ou parede; girar não pode fazê-lo sair do piso. | `17-entrada.js` | 🔎 |
-| D3 | A sala que o dono montou nunca é refeita sozinha. | `25-configuracao.js` (`setupInit`) | 🔎 |
+| D1 | A sala tem exatamente uma porta de entrada, encostada numa parede externa (esquerda ou fundo), com piso livre na frente. Ela não pode ser apagada, e nenhuma parede pode passar por cima dela nem trancá-la (na linha da parede dela ou colada na frente); num salvo antigo trancado, a porta muda de lugar sozinha. | `03-geometria.js` (`doorFits`, `wallBlocksDoor`, `fixDoor`), `17-entrada.js` | ✅ `sala.test.mjs` |
+| D2 | Móvel não fica fora do piso nem em cima de outro móvel ou parede; girar não pode fazê-lo sair do piso; a borracha de piso, como diminuir a sala, não apaga o chão embaixo de móvel, da porta ou de parede. | `03-geometria.js` (`footprintOk`, `tileRemovable`), `17-entrada.js` | ✅ `sala.test.mjs` |
+| D3 | A sala que o dono montou nunca é refeita sozinha. Ligar e desligar a equipe de IA não perde sala: cada modo guarda a sua e ela volta quando se volta ao modo. | `25-configuracao.js` (`setupInit`, `switchAiTeam`) | 🔎 conferido (2026-11-05) |
 | D4 | Todo móvel do catálogo tem modelo 3D, com geometria dentro da área dele. | `js3d/moveis3d.js` | ✅ `moveis3d.test.mjs` |
+
+**Revisão da camada D (2026-11-05):** três regras falhavam e foram corrigidas: dava para desenhar uma parede por cima
+da porta de entrada ou colada na frente dela, trancando a passagem, porque a porta é um item "chato" no chão e a
+checagem de parede ignora esses itens (D1); a borracha de piso apagava o chão embaixo de móveis, da porta e de paredes,
+o que diminuir a sala pela borda já recusava (D2); e ligar a equipe de IA trocava a sala que você montou pelo escritório
+do negócio, e desligar a trocava pela sala de dev pronta, sem volta e sem aviso (D3). D1 e D2 viraram testes
+automáticos; D3 foi conferida no navegador nos dois sentidos. Fica como está, por ser de propósito: tapete e outros
+itens chatos podem ficar embaixo de móveis.
 
 ## E. Equipe de IA (opcional)
 
@@ -133,7 +141,7 @@ se o próprio arquivo do 3D não carregar (erro de rede ou de sintaxe), a tela f
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 40 |
-| 🔎 Só conferidas à mão | 13, quase todas da página (C e D), onde não há teste de interface |
+| ✅ Com teste automático (inclui parciais) | 42 |
+| 🔎 Só conferidas à mão | 11, quase todas da página (C e D), onde não há teste de interface |
 | ❌ Sem prova | 1 (G3), mais partes de A2, E5 e E9 |
 | ⚠️ Divergência conhecida | 2 (E10; A8 parcial) |

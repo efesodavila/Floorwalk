@@ -172,7 +172,10 @@ function paintAt(w) {
     if (!spanOk(next)) { if (!drag.warned) { toast(`Tamanho máximo: ${MAXS} × ${MAXS} quadrados`); drag.warned = true; } return; }
     W.tiles = next;
   } else if (tool === 'remove') {
-    if (!W.tiles[k] || Object.keys(W.tiles).length <= 4) return; delete W.tiles[k];
+    if (!W.tiles[k] || Object.keys(W.tiles).length <= 4) return;
+    // igual a diminuir a sala pela borda: móvel, porta e parede não ficam fora do piso
+    if (!tileRemovable(k)) { if (!drag.warned) { toast('Tire o móvel ou a parede de cima antes de apagar esse piso'); drag.warned = true; } return; }
+    delete W.tiles[k];
   } else if (tool === 'mat') { if (W.tiles[k] && W.tiles[k] !== brushMat) W.tiles[k] = brushMat; }
   dirty();
 }

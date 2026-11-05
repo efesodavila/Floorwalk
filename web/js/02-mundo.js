@@ -82,7 +82,6 @@ function tplVitrine() {
 if (VITRINE) W = tplVitrine();
 W = normalize(W);
 syncCatalog();
-// pessoas de fora (sessões do Claude Code) não entram no escritório salvo: existem só enquanto a sessão existe
 // sessões de fora (Claude Code) não entram no escritório salvo: nem a pessoa, nem o cargo que só ela usa
 function save() {
   if (VITRINE) return;

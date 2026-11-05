@@ -1,4 +1,9 @@
-# Floorwalk
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo-dark.svg">
+    <img alt="Floorwalk" src="docs/img/logo-light.svg" width="440">
+  </picture>
+</h1>
 
 **Walk the floor and watch your AI agents work.** Every Claude Code session you run becomes a character in a 3D
 office, and it goes to the furniture that matches what it is actually doing: the desk when it edits, the bookshelf
@@ -6,7 +11,7 @@ when it reads, the server rack when it pushes, and it raises a flag when it need
 
 [Português](README.pt-BR.md)
 
-![Four Claude Code sessions in the office: one editing at a desk, one reading in the armchair, one pushing at the server rack, one blocked waiting for permission](docs/img/claude-code-room.jpg)
+![Five Claude Code sessions in the office by day: two at the desks (editing and running tests), one reading in the armchair, one pushing at the server rack, one blocked waiting for permission](docs/img/room-day.png)
 
 > Status: early open-source release. Works on Windows, macOS and Linux with Node 22.9+.
 > The interface follows your browser language (English or Portuguese); switch it in the menu (☰ → Idioma / Language).
@@ -45,6 +50,19 @@ history of its actions. The history survives a page reload.
   the room, so you can tell at a glance who is shipping, who is stuck and who is researching.
 - **Nothing to configure.** No API key, no account, no cloud: the server runs on your machine and only listens to it.
 - **Build your own office.** Empty room, your layout: furniture, walls, glass rooms, people and roles, all in 3D.
+
+## Build your own office
+
+Menu (☰) → **Edit the room and people**. Pick furniture from the catalog, drop it on the floor, and adjust the people if you
+want fixed characters besides your sessions.
+
+| Pick the furniture | Place it in the room | Adjust a character |
+|---|---|---|
+| ![Catalog of work furniture: desk, island with 4 stations, meeting table, reception desk](docs/img/editor-catalog.png) | ![Placing a sofa: the new sofa floats over a free spot of the floor, outlined in green](docs/img/editor-placing.png) | ![Editing a character: name, role, skin, gender, hair and clothes](docs/img/editor-people.png) |
+
+The lighting follows the time of day (or pick day, afternoon or night in the menu):
+
+![The same office at night](docs/img/claude-code-room.jpg)
 
 ## Safety and privacy
 

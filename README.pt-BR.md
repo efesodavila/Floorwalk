@@ -1,4 +1,9 @@
-# Floorwalk
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo-dark.svg">
+    <img alt="Floorwalk" src="docs/img/logo-light.svg" width="440">
+  </picture>
+</h1>
 
 **Ande pela sala e veja seus agentes de IA trabalhando.** Cada sessão do Claude Code que você roda vira um personagem
 num escritório 3D e vai ao móvel que combina com o que ela está fazendo de verdade: a mesa quando edita, a estante
@@ -6,7 +11,7 @@ quando lê, o rack de servidores quando publica, e levanta um alerta quando prec
 
 [English](README.md)
 
-![Quatro sessões do Claude Code no escritório: uma editando na mesa, uma lendo na poltrona, uma publicando no rack de servidores, uma bloqueada pedindo permissão](docs/img/claude-code-room.jpg)
+![Cinco sessões do Claude Code no escritório de dia: duas nas mesas (editando e rodando testes), uma lendo na poltrona, uma publicando no rack de servidores e uma bloqueada esperando permissão](docs/img/room-day.png)
 
 > Estado: primeira versão aberta. Funciona no Windows, macOS e Linux com Node 22.9 ou mais novo.
 > A interface segue o idioma do navegador (inglês ou português); dá para trocar no menu (☰ → Language / Idioma).
@@ -45,6 +50,19 @@ ações com a hora. O histórico continua lá depois de recarregar a página.
   dá para ver de longe quem está publicando, quem travou e quem está pesquisando.
 - **Nada para configurar.** Sem chave de API, sem conta, sem nuvem: o servidor roda no seu computador e só atende a ele.
 - **O escritório é seu.** Sala vazia, montada por você: móveis, paredes, salas de vidro, pessoas e papéis, tudo em 3D.
+
+## Monte o seu escritório
+
+Menu (☰) → **Editar a sala e as pessoas**. Escolha os móveis no catálogo, solte no piso e ajuste as pessoas, se quiser
+personagens fixos além das sessões.
+
+| Escolher os móveis | Colocar na sala | Ajustar um personagem |
+|---|---|---|
+| ![Catálogo de móveis de trabalho: mesa, ilha com 4 lugares, mesa de reunião, recepção](docs/img/editor-catalog.png) | ![Colocando um sofá: o sofá novo aparece sobre um ponto livre do piso, com contorno verde](docs/img/editor-placing.png) | ![Editando um personagem: nome, papel, pele, gênero, cabelo e roupa](docs/img/editor-people.png) |
+
+A iluminação acompanha a hora do dia (ou escolha dia, tarde ou noite no menu):
+
+![O mesmo escritório à noite](docs/img/claude-code-room.jpg)
 
 ## Segurança e privacidade
 

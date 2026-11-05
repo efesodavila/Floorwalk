@@ -96,6 +96,8 @@ function bindElementos() {
   body.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { filterCat = b.dataset.cat; renderCards(); });
   renderCards();
 }
+// papel que só as sessões de fora usam (ex.: "Claude Code"): não é opção para uma pessoa fixa da sala
+const extOnlyRole = (k) => W.people.some(q => q.ext && q.role === k) && !W.people.some(q => !q.ext && q.role === k);
 function pessoasHTML() {
   const p = editing && W.people.find(q => q.id === editing);
   if (p) {
@@ -108,7 +110,7 @@ function pessoasHTML() {
       <div class="row" style="justify-content:center"><button type="button" id="rand">Visual aleatório</button><button type="button" id="locate">Mostrar na sala</button></div>
       <div><label class="field-label" for="pname">Nome do agente</label><input id="pname" class="text" maxlength="16" value="${p.name.replace(/"/g, '&quot;')}"></div>
       <p class="hint" style="margin:-6px 0 0">Os eventos encontram o agente por esse nome.</p>
-      <div><span class="field-label">Papel</span><div class="looks">${Object.entries(ROLES).map(([k, r]) => `<button type="button" data-role="${k}" aria-pressed="${p.role === k}">${r.n}</button>`).join('')}</div></div>
+      <div><span class="field-label">Papel</span><div class="looks">${Object.entries(ROLES).filter(([k]) => k === p.role || !extOnlyRole(k)).map(([k, r]) => `<button type="button" data-role="${k}" aria-pressed="${p.role === k}">${r.n}</button>`).join('')}</div></div>
       ${sw('skin', SKIN, 'Pele')}
       ${chips('gender', GENDERS, 'Gênero')}
       ${chips('hairStyle', HAIRSTYLES.filter(([k]) => HAIR_G[genderOf(p)].includes(k)), 'Cabelo')}${sw('hair', HAIR, 'Cor do cabelo')}

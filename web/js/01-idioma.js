@@ -179,7 +179,13 @@ const EN_RE = [
   [/^Não consegui apagar: (.+)$/, "Couldn't delete: $1"], [/^Não consegui mudar: (.+)$/, "Couldn't change: $1"],
   [/^(\S+) Dia(.*)$/, '$1 Day$2'], [/^(\S+) Tarde(.*)$/, '$1 Afternoon$2'], [/^(\S+) Noite(.*)$/, '$1 Night$2'],
   [/^Visual 3D indisponível neste navegador \((.+)\)\.?(.*)$/, '3D view unavailable in this browser ($1).$2'],
-  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^Remover (.+)$/, 'Remove $1'],
+  // faixa do editor (19-rodape-avisos.js, renderBanner): o nome do móvel já vem traduzido
+  [/^Colocando <b>(.+)<\/b>: clique na sala · <kbd>R<\/kbd> gira$/, 'Placing <b>$1</b>: click the room · <kbd>R</kbd> rotates'],
+  [/^Desenhando <b>(.+)<\/b>: arraste ao longo da grade$/, 'Drawing <b>$1</b>: drag along the grid'],
+  [/^Arraste sobre a grade para <b>acrescentar piso<\/b>$/, 'Drag over the grid to <b>add floor</b>'],
+  [/^Arraste sobre o piso para <b>remover<\/b>$/, 'Drag over the floor to <b>remove</b>'],
+  [/^Arraste sobre o piso para aplicar <b>(.+)<\/b>$/, 'Drag over the floor to apply <b>$1</b>'],
+  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^(\d+) × (\d+) quadrados?$/, '$1 × $2 squares'], [/^Remover (.+)$/, 'Remove $1'],
   [/^Para mudar (.+) de lugar, arraste na sala e solte onde quiser\.$/, 'To move $1, drag them in the room and drop them where you want.'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
 ];
 

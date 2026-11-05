@@ -65,7 +65,8 @@ function renderBanner() {
   else if (tab === 'planta' && tool === 'mat') t = `Arraste sobre o piso para aplicar <b>${MATS[brushMat].n}</b>`;
   if (!t) { banner.hidden = true; return; }
   banner.hidden = false;
-  banner.innerHTML = `<span>${t}</span>${placing ? `<button type="button" id="b-rot">${IC.rotate}Girar</button>` : ''}<button type="button" id="b-done">${placing ? 'Cancelar' : 'Concluir'}</button>`;
+  // traduzido inteiro aqui: com <b> no meio, a tradução automática da tela pegaria a frase em pedaços
+  banner.innerHTML = `<span>${T(t)}</span>${placing ? `<button type="button" id="b-rot">${IC.rotate}Girar</button>` : ''}<button type="button" id="b-done">${placing ? 'Cancelar' : 'Concluir'}</button>`;
   const r = banner.querySelector('#b-rot'); if (r) r.onclick = rotate;
   banner.querySelector('#b-done').onclick = cancelModes;
 }

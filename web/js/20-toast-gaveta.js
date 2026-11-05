@@ -91,3 +91,32 @@ const cam3d = () => window.R3D?.active?.() && window.R3D.zoomAt;
 $('#zoom-in').onclick = () => cam3d() ? R3D.zoomAt(1.25, VW / 2, VH / 2) : zoomAt(1.25, VW / 2, VH / 2);
 $('#zoom-out').onclick = () => cam3d() ? R3D.zoomAt(1 / 1.25, VW / 2, VH / 2) : zoomAt(1 / 1.25, VW / 2, VH / 2);
 $('#fit').onclick = () => { if (cam3d()) R3D.fit(); fit(); };
+
+/* ---------- Confirmação (janela própria, no lugar do confirm() do navegador) ----------
+   askConfirm({ title, text, ok, cancel, danger }) → Promise<boolean>. Esc, Cancelar ou clique fora = não.
+   O confirm() nativo pode ser bloqueado ou fechar sozinho (alguns navegadores embutidos): a ação nunca dependia dele. */
+function askConfirm({ title, text = '', ok = 'Confirmar', cancel = 'Cancelar', danger = false }) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'dlg-wrap';
+    wrap.innerHTML = `<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-p">
+      <h2 id="dlg-t"></h2><p id="dlg-p"></p>
+      <div class="dlg-actions"><button type="button" data-v="0"></button><button type="button" data-v="1" class="${danger ? 'danger-solid' : 'primary'}"></button></div></div>`;
+    wrap.querySelector('h2').textContent = title;
+    const p = wrap.querySelector('p'); p.textContent = text; p.hidden = !text;
+    const [bNo, bYes] = wrap.querySelectorAll('button');
+    bNo.textContent = cancel; bYes.textContent = ok;
+    const done = (v) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); prev?.focus?.(); resolve(v); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+      else if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === bNo ? bYes : bNo).focus(); }
+      else e.stopPropagation();
+    };
+    wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) done(false); });
+    bNo.onclick = () => done(false); bYes.onclick = () => done(true);
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    (danger ? bNo : bYes).focus(); // ação perigosa: o foco começa em Cancelar
+  });
+}

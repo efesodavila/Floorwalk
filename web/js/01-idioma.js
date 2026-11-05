@@ -107,6 +107,13 @@ const EN = {
   'Voltar à sala de dev pronta?\n\nA sala que você montou neste navegador é trocada. As sessões do Claude Code continuam.': 'Go back to the ready-made dev room?\n\nThe room you built in this browser is replaced. Claude Code sessions continue.',
   'Só quer ver seus agentes do': 'Just want to watch your', 'trabalhando? Não precisa de chave nem de descrever um negócio.': 'agents work? No key and no business description needed.',
   'Ver o Claude Code sem IA': 'Watch Claude Code without an AI',
+  // janelas de confirmação e menu
+  'Confirmar': 'Confirm', 'Desligar': 'Turn off', 'Limpar a sala…': 'Clear the room…', 'Limpar a sala?': 'Clear the room?', 'Limpar a sala': 'Clear the room',
+  'Volta à sala de dev pronta': 'Back to the ready-made dev room', 'Apagar tudo': 'Delete everything', 'Começar do zero?': 'Start over?',
+  'A sala que você montou neste navegador volta a ser a sala de dev pronta. As sessões do Claude Code continuam.': 'The room you built in this browser goes back to the ready-made dev room. Claude Code sessions continue.',
+  'Apaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer. Continuam: a IA conectada e os arquivos que os agentes já entregaram.': 'Deletes the current business: the team, the room you built and the task history. This cannot be undone. Kept: the connected AI and the files the agents already delivered.',
+  'Desligar a equipe de IA?': 'Turn off the AI team?',
+  'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.': 'The task field goes away and the room shows only Claude Code sessions. The connected AI and the business stay saved.',
   // tour
   'Pular': 'Skip', 'Voltar': 'Back', 'Próximo': 'Next', 'Começar': 'Start',
   'Bem-vindo ao seu escritório': 'Welcome to your office', 'Passo 1 · Planta': 'Step 1 · Layout', 'Passo 2 · Elementos': 'Step 2 · Items',

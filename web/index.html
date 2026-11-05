@@ -66,23 +66,23 @@
   <div class="menu" id="menu" role="menu" aria-label="Configurações" hidden>
     <div class="menu-head" id="menu-head"></div>
     <button type="button" role="menuitem" id="m-team">Equipe</button>
-<button type="button" role="menuitem" id="m-aiteam" data-bridge>Ligar a equipe de IA</button>
     <button type="button" role="menuitem" id="m-edit"></button>
+    <button type="button" role="menuitem" id="m-aiteam" data-bridge>Ligar a equipe de IA</button>
     <button type="button" role="menuitem" id="m-office" data-bridge>Descrever o negócio de novo</button>
     <button type="button" role="menuitem" id="ai-btn" data-bridge>Trocar a IA</button>
-    <button type="button" role="menuitem" id="amb-btn" title="Iluminação por horário"></button>
-    <button type="button" role="menuitem" id="m-tour">Como usar (tour)</button>
-<button type="button" role="menuitem" id="m-lang" data-no-i18n></button>
+    <button type="button" role="menuitem" id="m-web" aria-pressed="true" data-bridge title="Os agentes podem buscar na web e ler páginas (só leitura)">Pesquisa na internet</button>
     <!-- regras e ferramentas de desenvolvimento ficam fora do menu (dono); ?dev no endereço liga o modo desenvolvedor -->
     <button type="button" role="menuitem" id="open-rules" hidden>Como os personagens se comportam</button>
     <hr>
-    <button type="button" role="menuitem" id="m-web" aria-pressed="true" data-bridge title="Os agentes podem buscar na web e ler páginas (só leitura)">Pesquisa na internet</button>
+    <button type="button" role="menuitem" id="amb-btn" title="Iluminação por horário"></button>
+    <button type="button" role="menuitem" id="m-lang" data-no-i18n></button>
+    <button type="button" role="menuitem" id="m-tour">Como usar (tour)</button>
     <!-- o visual é sempre 3D; o 2D só entra sozinho quando o navegador não tem WebGL (ou com ?2d, para testes) -->
     <button type="button" role="menuitem" id="m-3d" aria-pressed="true" hidden>Visual 3D</button>
     <button type="button" role="menuitem" id="m-dev" aria-pressed="false" hidden>Ferramentas de desenvolvimento</button>
     <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
     <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>
-    <hr data-bridge>
+    <hr>
     <button type="button" role="menuitem" id="m-reset" class="danger" data-bridge title="Apaga o negócio, a equipe, a sala e o histórico">Começar do zero…</button>
   </div>
 </div>

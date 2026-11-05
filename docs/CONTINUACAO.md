@@ -642,3 +642,8 @@ disse que está **ótimo**).
   FALTA (fase 2): telas da equipe de IA (setup, descrever o negócio, resultado, missões), "Regras"/"O que mudou" do modo
   dev, mensagens de erro do servidor, e a equipe de IA responder no idioma do usuário (prompts em server/office.mjs e
   runner.mjs estão em português). Papéis e rótulos criados pela IA de um negócio são dados e ficam como vieram.
+- SEM confirm()/alert() DO NAVEGADOR (dono, 2026-11-04): o confirm nativo fechava sozinho no navegador embutido e a
+  limpeza não acontecia. `askConfirm({ title, text, ok, cancel, danger })` (20-toast-gaveta.js, estilo `.dlg` no app.css) devolve
+  Promise<boolean>; Esc/Cancelar/clique fora = não; ação perigosa começa com o foco em Cancelar. Não use confirm/alert/prompt.
+  Menu em 3 grupos (trabalho e IA | iluminação, idioma, tour | limpar); `tidyMenuLines()` esconde a linha cujo grupo ficou
+  vazio. Com a equipe desligada o último item é "Limpar a sala…" (volta à sala de dev pronta).

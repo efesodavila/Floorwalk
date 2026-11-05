@@ -72,6 +72,8 @@ function renderMenu() {
   $('#m-dev').setAttribute('aria-pressed', String(devMode));
   $('#m-3d').setAttribute('aria-pressed', String(!!window.R3D?.wanted));
   { const v = typeof setupState !== 'undefined' ? setupState.view : null; $('#m-web').setAttribute('aria-pressed', String(v?.web !== false)); }
+  $('#m-reset').textContent = aiTeamOn() ? 'Começar do zero…' : 'Limpar a sala…';
+  $('#m-reset').title = aiTeamOn() ? 'Apaga o negócio, a equipe, a sala e o histórico' : 'Volta à sala de dev pronta';
   $('#m-lang').textContent = LANG === 'pt' ? 'Language: English' : 'Idioma: Português';
   $('#m-aiteam').textContent = aiTeamOn() ? 'Desligar a equipe de IA' : 'Ligar a equipe de IA (tarefas)';
   $('#m-edit').textContent = mode === 'build' ? 'Voltar ao trabalho (ao vivo)' : 'Editar a sala e as pessoas';
@@ -80,7 +82,18 @@ function renderMenu() {
   if (!aiTeamOn()) { $('#menu-head').innerHTML = '<b>Floorwalk</b><small>Claude Code · equipe de IA desligada</small>'; return; }
   $('#menu-head').innerHTML = name || v?.configured ? `<b>${escapeHTML(name || 'Floorwalk')}</b><small>${v?.configured ? escapeHTML(`${aiLabel()} · ${v.model}`) : 'Sem IA conectada'}</small>` : '';
 }
-function openMenu() { renderMenu(); menuEl.hidden = false; menuBtn.setAttribute('aria-expanded', 'true'); menuEl.querySelector('button:not([hidden])')?.focus(); }
+// separador só entre itens visíveis: some quando um dos lados ficou vazio (itens escondidos pelo modo)
+function tidyMenuLines() {
+  const shown = (el) => !el.hidden && getComputedStyle(el).display !== 'none';
+  let seen = false, pending = null;
+  for (const el of menuEl.children) {
+    if (el.tagName === 'HR') { el.style.display = 'none'; if (seen) pending = el; seen = false; continue; }
+    if (el.tagName !== 'BUTTON' || !shown(el)) continue;
+    if (pending) { pending.style.display = ''; pending = null; }
+    seen = true;
+  }
+}
+function openMenu() { renderMenu(); tidyMenuLines(); menuEl.hidden = false; menuBtn.setAttribute('aria-expanded', 'true'); menuEl.querySelector('button:not([hidden])')?.focus(); }
 function closeMenu(focusBtn) { menuEl.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); if (focusBtn) menuBtn.focus(); }
 menuBtn.onclick = () => (menuEl.hidden ? openMenu() : closeMenu());
 document.addEventListener('pointerdown', (e) => { if (!menuEl.hidden && !e.target.closest('.top-right')) closeMenu(); });
@@ -101,8 +114,8 @@ $('#m-lang').onclick = () => setLang(LANG === 'pt' ? 'en' : 'pt');
 $('#m-reset').onclick = async () => {
   closeMenu();
   // equipe de IA desligada: só troca a sala deste navegador pela sala de dev pronta (o negócio guardado no servidor fica)
-  if (!aiTeamOn()) { if (confirm('Voltar à sala de dev pronta?\n\nA sala que você montou neste navegador é trocada. As sessões do Claude Code continuam.')) setAiTeam(false, true); return; }
-  const ok = confirm('Começar do zero?\n\nApaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer.\n\nContinuam: a IA conectada e os arquivos que os agentes já entregaram.');
+  if (!aiTeamOn()) { if (await askConfirm({ title: 'Limpar a sala?', text: 'A sala que você montou neste navegador volta a ser a sala de dev pronta. As sessões do Claude Code continuam.', ok: 'Limpar a sala', danger: true })) setAiTeam(false, true); return; }
+  const ok = await askConfirm({ title: 'Começar do zero?', text: 'Apaga o negócio atual: a equipe, a sala que você montou e o histórico de tarefas. Não dá para desfazer. Continuam: a IA conectada e os arquivos que os agentes já entregaram.', ok: 'Apagar tudo', danger: true });
   if (!ok) return;
   try { await setupApi('/api/office/reset', {}); }
   catch (e) { toast?.('Não consegui apagar: ' + e.message); return; }

@@ -129,7 +129,7 @@ function setAiTeam(on, room) {
   location.reload();
 }
 $('#m-aiteam').onclick = () => {
-  if (aiTeamOn()) { if (confirm('Desligar a equipe de IA? O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.')) setAiTeam(false, true); }
+  if (aiTeamOn()) askConfirm({ title: 'Desligar a equipe de IA?', text: 'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A IA conectada e o negócio continuam guardados.', ok: 'Desligar' }).then(ok => ok && setAiTeam(false, true));
   else setAiTeam(true);
 };
 // os hooks estão ligados? sem eles nenhuma sessão aparece: diz o que rodar

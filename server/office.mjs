@@ -1,5 +1,6 @@
 // Monta a "ficha do escritório" a partir da descrição do serviço, usando a IA configurada.
-// A IA decide o conteúdo (equipe, papéis, nomes); a página decide o espaço (planta fixa e testada).
+// A IA decide o conteúdo (equipe, papéis, nomes, móveis novos que faltam); quem monta a sala é o dono, no editor
+// (docs/REGRAS.md E10). Cenário que a IA mandar mesmo assim (móveis, piso, paredes, salas, planta) é ignorado.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PROVIDERS } from './providers.mjs';
@@ -7,11 +8,10 @@ import { KINDS, STATES } from './protocol.mjs';
 import { CATALOG, designFurniture, slug as furnSlug } from './furniture.mjs';
 
 const FILE = path.resolve(process.env.FLOORWALK_DATA_DIR || './data', 'office.json');
-export const STYLES = ['moderno', 'aconchegante', 'clinico', 'criativo', 'industrial'];
 const LABELABLE = ['planejando', 'trabalhando', 'revisando', 'pesquisando', 'entregando'];
 export const LIMITS = { teamMin: 3, teamMax: 10, rolesMax: 6 };
-/* Biblioteca de móveis da sala (mesmos ids de web/js/01-catalogo.js ITEMS; o teste confere). A IA escolhe, daqui e do
-   CATALOG, TODOS os móveis do negócio (decisão do dono, 2026-11-04): nada de "pacote de escritório" fixo. */
+/* Biblioteca de móveis da sala (mesmos ids de web/js/01-catalogo.js ITEMS; o teste confere). Vai no pedido só para a IA
+   saber o que já existe e não pedir móvel novo repetido: quem escolhe e posiciona os móveis é o dono. */
 export const LIBRARY = {
   desk: 'mesa com computador para 1 pessoa (escrever, editar, planilhas, atender por mensagem)',
   island: 'ilha com 4 computadores (equipe que trabalha junta no computador)',
@@ -26,14 +26,6 @@ export const LIBRARY = {
   chroma: 'fundo infinito / chroma (onde se fotografa ou grava)', softbox: 'luz de estúdio (softbox)', tripod: 'tripé com câmera', colorlight: 'luz colorida decorativa',
   printer: 'impressora', rack: 'rack de servidores (só para quem publica sites ou sistemas)',
 };
-const MAX_EACH = 4, MAX_TOTAL = 28;
-// piso e cor das paredes: as mesmas opções do editor (web/js/01-catalogo.js MATS e WALLS; o teste confere)
-export const FLOORS = { lilas: 'lilás', porcelanato: 'porcelanato claro', madeira_clara: 'madeira clara', madeira_escura: 'madeira escura',
-  salvia: 'vinílico verde-sálvia', cimento: 'cimento queimado', grafite: 'carpete grafite', azul: 'carpete azul', xadrez: 'ladrilho xadrez preto e branco' };
-export const WALL_COLORS = { lilas: '#D5CED6', areia: '#ECE5D6', azul: '#C2D2DE', salvia: '#CAD8C1', pessego: '#EBCBB7', grafite: '#3A3C44' };
-// salas fechadas: tipo de parede → como fica (o gerador monta com porta ou abertura)
-export const ROOM_WALLS = { alvenaria: 'parede inteira com porta (privacidade total: consultório, cabine)', vidro: 'vidro com porta (reunião, aquário)',
-  meia: 'meia-parede com passagem (separa sem fechar)', biombo: 'painel acústico baixo com passagem (isolar barulho, estúdio)' };
 
 export function buildPrompt(description) {
   return `Você monta escritórios virtuais onde cada pessoa é um agente de IA que trabalha para um negócio.
@@ -131,41 +123,14 @@ export function normalizeSpec(raw) {
   const list = (a, n, len) => (Array.isArray(a) ? a : []).map(x => clip(x, len)).filter(Boolean).slice(0, n);
 
   if (problems.length) throw Object.assign(new Error(problems.join('; ')), { problems });
-  // móveis da sala: só ids da biblioteca ou do catálogo, no máximo MAX_EACH de cada e MAX_TOTAL no total
-  const furniture = [], count = {};
-  // só a lista nova ("moveis") liga o modo "a IA escolhe tudo"; ficha antiga ("elementos") segue o programa de antes
-  for (const x of Array.isArray(raw.moveis) ? raw.moveis : []) {
-    const id = String(x).toLowerCase().trim();
-    if (!(LIBRARY[id] || CATALOG[id]) || (count[id] || 0) >= MAX_EACH || furniture.length >= MAX_TOTAL) continue;
-    count[id] = (count[id] || 0) + 1; furniture.push(id);
-  }
-  // as áreas e a entrega seguem os móveis escolhidos (quando a IA mandou a lista)
-  const has = (id) => furniture.includes(id);
+  // nada de cenário (E10): móveis, piso, paredes, salas e planta que a IA mandar ficam de fora. Os lugares de trabalho
+  // saem da sala real que a página manda junto com cada tarefa (server/places.mjs, placesFor)
   return {
     name: clip(raw.nome, 40) || 'Meu escritório',
     service: clip(raw.servico, 200),
-    style: STYLES.includes(raw.estilo) ? raw.estilo : 'moderno',
-    delivery: furniture.length ? (has('printer') && !has('rack') ? 'impressora' : has('rack') ? 'servidor' : raw.entrega === 'impressora' ? 'impressora' : 'servidor') : raw.entrega === 'impressora' ? 'impressora' : 'servidor',
-    areas: furniture.length ? { studio: has('chroma'), reception: has('reception') } : { studio: !!raw.areas?.estudio, reception: !!raw.areas?.recepcao },
-    furniture,
-    // piso e parede escolhidos pela IA (vazios = os do estilo)
-    floor: FLOORS[raw.piso] ? raw.piso : null,
-    wallColor: WALL_COLORS[String(raw.parede || '').toLowerCase()] || null,
-    // salas fechadas: só com móveis que estão na lista; cada móvel em uma sala só
-    rooms: (() => {
-      const used = new Set(), out = [];
-      for (const r of Array.isArray(raw.salas) ? raw.salas : []) {
-        const kind = ROOM_WALLS[r?.parede] ? r.parede : 'alvenaria';
-        const items = [...new Set((Array.isArray(r?.moveis) ? r.moveis : []).map(x => String(x).toLowerCase().trim()))].filter(id => furniture.includes(id) && !used.has(id)).slice(0, 3);
-        if (!items.length) continue;
-        items.forEach(id => used.add(id)); out.push({ items, wall: kind, why: clip(r?.motivo, 60) });
-        if (out.length >= 3) break;
-      }
-      return out;
-    })(),
-    layout: /^em[_ ]?l$/i.test(String(raw.planta || '').trim()) ? 'L' : 'rect',
+    // como o negócio entrega (vale só quando a tarefa chega sem a lista da sala)
+    delivery: raw.entrega === 'impressora' ? 'impressora' : 'servidor',
     roles: finalRoles, team, labels,
-    extras: furniture.length ? [...new Set(furniture.filter(id => CATALOG[id]))] : [...new Set((Array.isArray(raw.elementos) ? raw.elementos : []).map(x => String(x).toLowerCase().trim()).filter(id => CATALOG[id]))].slice(0, 3),
     customRequests: (Array.isArray(raw.moveis_novos) ? raw.moveis_novos : []).map(m => ({ name: clip(m?.nome, 40), purpose: clip(m?.finalidade, 120), like: String(m?.parecido_com || '').toLowerCase().trim() }))
       .filter(m => m.name && !Object.values(CATALOG).some(c => furnSlug(c.name) === furnSlug(m.name))).slice(0, 2),
     tasks: list(raw.tarefas_exemplo, 8, 40),

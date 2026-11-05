@@ -109,12 +109,19 @@ itens chatos podem ficar embaixo de móveis.
 | E2 | Pergunta simples é respondida direto por quem coordena, sem chamar a equipe. | `server/runner.mjs` | ✅ |
 | E3 | Revisão reprovada volta para quem produziu; ninguém fica "bloqueado" à toa. | idem | ✅ |
 | E4 | Cancelar a tarefa para de chamar a IA. | idem | ✅ |
-| E5 | Cada pessoa faz uma coisa por vez; até 2 tarefas ao mesmo tempo, fila de até 5. | `server/locks.mjs`, `server.mjs` | ✅ travas; ❌ limite da fila |
+| E5 | Cada pessoa faz uma coisa por vez; até 2 tarefas ao mesmo tempo, fila de até 5. | `server/locks.mjs`, `server.mjs` | ✅ travas; ✅ limite da fila (`equipe.test.mjs`) |
 | E6 | Cada entrega é salva em `workspace/entregas/<data>-<tarefa>/`, um arquivo por pessoa e um `resultado.md`. | `server/runner.mjs` | ✅ "salva os arquivos" |
 | E7 | Cada passo acontece no móvel certo para aquilo (computador para produzir, quadro para planejar…). | `server/places.mjs`, `runner.mjs` | ✅ |
 | E8 | Móvel criado pela IA que não passa nas regras vira um móvel do catálogo. | `server/furniture.mjs` | ✅ |
-| E9 | Crítica visual de móvel da IA: no máximo 2 chamadas por móvel, uma vez só; na OpenAI usa sempre `gpt-6.1-sol`. | `server/furniture.mjs`, `llm.mjs` | ✅ modelo; ❌ limite de chamadas |
-| E10 | A IA **não monta o cenário**: cria equipe, papéis, rótulos e móveis novos que faltam; quem monta a sala é o dono. | `server/office.mjs`, `26-montagem.js` | ⚠️ `office.test.mjs` ainda testa "móveis escolhidos pela IA" e "piso, cor da parede e salas fechadas escolhidos pela IA" |
+| E9 | Crítica visual de móvel da IA: no máximo 2 chamadas por móvel, uma vez só, mesmo com duas abas abertas ao mesmo tempo; na OpenAI usa sempre `gpt-6.1-sol`. | `server/furniture.mjs`, `llm.mjs`, `server.mjs` (`critiquing`) | ✅ modelo; ✅ limite de chamadas (`equipe.test.mjs`) |
+| E10 | A IA **não monta o cenário**: cria equipe, papéis, rótulos e móveis novos que faltam; quem monta a sala é o dono. Móveis, piso, paredes, salas, planta ou áreas que a IA mandar mesmo assim são ignorados; o negócio novo abre numa sala vazia (piso, paredes e a porta). | `server/office.mjs` (`normalizeSpec`), `26-montagem.js` (`officeWorld`) | ✅ `office.test.mjs` (E10); 🔎 sala vazia conferida no código |
+
+**Revisão da camada E (2026-11-05):** a divergência da E10 foi resolvida pela decisão do dono (a IA não monta a sala):
+o pedido já dizia isso à IA, mas o servidor ainda aceitava e guardava móveis, piso, cor da parede, salas fechadas e
+planta se ela mandasse, e os dois testes antigos exigiam isso. Agora a ficha não guarda nada de cenário, e o teste exige
+o contrário. A E9 falhava: com duas abas abertas, a crítica visual do mesmo móvel era paga duas vezes; corrigido, com
+teste. A E5 já valia e ganhou teste. Fica no código, sem uso: o gerador de planta (`generateOffice`, `suggestOffice`),
+guardado para um futuro "sugerir planta" que o dono pediria de propósito.
 
 ## F. Idioma
 
@@ -141,7 +148,7 @@ itens chatos podem ficar embaixo de móveis.
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 42 |
+| ✅ Com teste automático (inclui parciais) | 43 |
 | 🔎 Só conferidas à mão | 11, quase todas da página (C e D), onde não há teste de interface |
-| ❌ Sem prova | 1 (G3), mais partes de A2, E5 e E9 |
-| ⚠️ Divergência conhecida | 2 (E10; A8 parcial) |
+| ❌ Sem prova | 1 (G3), mais parte de A2 |
+| ⚠️ Divergência conhecida | 1 (A8 parcial) |

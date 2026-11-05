@@ -43,6 +43,7 @@ const locks = createLocks();   // agente ocupado em outra tarefa: espera
 const queue = [];
 
 const history = new Map();   // agente -> últimos estados com a hora (a ficha mostra o histórico a quem conecta depois)
+const critiquing = new Set(); // móveis com crítica visual em andamento (E9: no máximo 2 chamadas por móvel, uma vez)
 const endedSessions = new Set(); // sessões do Claude Code encerradas: o "offline" delas é o último, e nada fica guardado
 function broadcast(m) {
   if (m.type === 'state' && m.state === 'offline' && endedSessions.delete(m.agent)) { lastState.delete(m.agent); history.delete(m.agent); }
@@ -317,6 +318,10 @@ async function api(req, res, url) {
       if (!b.candidate && c.pending) return json(res, 200, { ok: true, pending: true, custom: c });
       const cfg = await settings.active();
       if (!cfg || DEMO) return json(res, 200, { ok: false, error: 'Sem IA conectada' });
+      // a mesma crítica já está rodando (outra aba abriu junto): não paga de novo; a página só pula este móvel
+      if (critiquing.has(id)) return json(res, 200, { ok: false, busy: true });
+      critiquing.add(id);
+      try {
       const chat = (o) => llm.critiqueChat(o), save = (fields) => office.update(o => { const x = o.custom.find(k => k.id === id); if (x) { Object.assign(x, fields); if (fields.reviewed) delete x.pending; } return o; });
       const done = async (fields, msg) => { const upd = await save(fields); console.log(`[crítica visual] ${c.name}: ${msg}`); return json(res, 200, { ok: true, changed: !!fields.boxes, score: fields.score, custom: upd.custom.find(k => k.id === id) }); };
       try {
@@ -335,6 +340,7 @@ async function api(req, res, url) {
         console.error('[crítica visual]', cfg.provider, e?.model || cfg.model, e?.status, String(e?.message).slice(0, 160));
         return done({ reviewed: true, score: null }, 'sem avaliação (a IA não aceitou a imagem ou deu erro)');
       }
+      } finally { critiquing.delete(id); }
     }
     if (url.pathname === '/api/office/plan' && req.method === 'POST') {
       const b = await readJSON(req), desc = String(b.description || '').trim();

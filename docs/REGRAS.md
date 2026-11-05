@@ -145,9 +145,14 @@ Code escrevem (nomes de papéis, descrição de subagentes) chega no idioma em q
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
 | G1 | Estados, tipos de papel e lugares são os mesmos no servidor e na página. | `server/protocol.mjs`, `01-catalogo.js` | ✅ |
-| G2 | Estado desconhecido é recusado; nomes antigos e em inglês são aceitos (`codando`, `working`, `done`…). | idem | ✅ parcial |
-| G3 | Cada estado fica na tela pelo menos `MIN_DWELL_MS` (3,5 s) para o personagem chegar ao lugar; estado repetido só atualiza o texto. | `server/pacer.mjs` | ❌ |
-| G4 | Os nomes antigos do projeto continuam valendo: `PIXELHQ_*`, `--pixel-hq`, `~/.pixel-hq`, chaves `pixelhq.*` do navegador, `window.pixelHQ`. | `server/env.mjs`, instalador, `00-base.js` | ✅ variáveis e hooks; 🔎 navegador |
+| G2 | Estado desconhecido é recusado; nomes antigos e em inglês são aceitos pela página (`codando`, `working`, `done`…); o servidor só emite os oficiais. | idem (`normState`, `ALIASES`) | ✅ `protocol.test.mjs`, `pacer.test.mjs` |
+| G3 | Cada estado fica na tela pelo menos `MIN_DWELL_MS` (3,5 s) para o personagem chegar ao lugar; estado repetido só atualiza o texto, na hora e sem esticar o tempo; cada agente tem o seu ritmo. | `server/pacer.mjs` | ✅ `pacer.test.mjs` |
+| G4 | Os nomes antigos do projeto continuam valendo: `PIXELHQ_*`, `--pixel-hq`, `~/.pixel-hq`, chaves `pixelhq.*` do navegador, `window.pixelHQ`. | `server/env.mjs`, instalador, `00-base.js` | ✅ variáveis e hooks; 🔎 navegador conferido (2026-11-05) |
+
+**Revisão da camada G (2026-11-05):** a G3 não tinha prova e falhava numa parte: quando o mesmo estado chegava de novo
+com outro texto ("Editando a.js", depois "Editando b.js"), o texto novo esperava 3,5 s para aparecer, como se fosse
+outro estado. Corrigido: vai na hora, sem esticar o tempo mínimo. O resto da G3 já valia e ganhou teste com relógio
+simulado; a G2 ganhou o teste do lado da página; a G4 foi conferida no navegador com uma sala salva no nome antigo.
 
 ---
 
@@ -156,7 +161,7 @@ Code escrevem (nomes de papéis, descrição de subagentes) chega no idioma em q
 | | Regras |
 |---|---|
 | Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 43 |
+| ✅ Com teste automático (inclui parciais) | 44 |
 | 🔎 Só conferidas à mão | 11, quase todas da página (C e D), onde não há teste de interface |
-| ❌ Sem prova | 1 (G3), mais parte de A2 |
-| ⚠️ Divergência conhecida | 1 (A8 parcial) |
+| ❌ Sem prova | nenhuma inteira; falta só parte da A2 (permissão da pasta no Windows) |
+| ⚠️ Divergência conhecida | 1 (A8 parcial; ela também conta nas ✅, por isso a soma passa de 54) |

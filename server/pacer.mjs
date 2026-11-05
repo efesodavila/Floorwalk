@@ -10,7 +10,7 @@ export function createPacer(send, minDwellMs) {
     const now = Date.now();
     if (now < L.until) { L.timer = setTimeout(() => flush(k), L.until - now); return; }
     const m = L.queue.shift(); if (!m) return;
-    const { hold, ...out } = m; send(out); L.until = Date.now() + (hold ?? minDwellMs);
+    const { hold, ...out } = m; send(out); L.until = Date.now() + (hold ?? minDwellMs); L.shown = { state: out.state, task: out.task };
     if (L.queue.length) L.timer = setTimeout(() => flush(k), L.until - Date.now());
   }
 
@@ -18,6 +18,8 @@ export function createPacer(send, minDwellMs) {
     // hold: tempo mínimo deste estado (padrão minDwellMs)
     push(m, hold) {
       const L = lane(m.agent);
+      // mesmo estado que já está na tela e nada na fila: só o texto muda, vai na hora e não estica o tempo mínimo
+      if (!L.queue.length && L.shown?.state === m.state && L.shown?.task === m.task) { send(m); return; }
       const last = L.queue[L.queue.length - 1];
       // estado repetido na fila: só atualiza o texto
       if (last && last.state === m.state && last.task === m.task) { L.queue[L.queue.length - 1] = { ...m, hold }; }

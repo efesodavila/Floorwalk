@@ -104,7 +104,7 @@ function pessoasHTML() {
     const ex = p.extras || {};
     return `<div class="editor">
       <button type="button" class="back" id="back">← Todas as pessoas</button>
-      <img class="preview" src="${fullAvatar(p, 5)}" alt="Prévia de ${p.name}">
+      <img class="preview" src="${fullAvatar(p, 5)}" alt="Prévia de ${escapeHTML(p.name)}">
       <div class="row" style="justify-content:center"><button type="button" id="rand">Visual aleatório</button><button type="button" id="locate">Mostrar na sala</button></div>
       <div><label class="field-label" for="pname">Nome do agente</label><input id="pname" class="text" maxlength="16" value="${p.name.replace(/"/g, '&quot;')}"></div>
       <p class="hint" style="margin:-6px 0 0">Os eventos encontram o agente por esse nome.</p>
@@ -115,8 +115,8 @@ function pessoasHTML() {
       ${chips('top', TOPS, 'Roupa')}${sw('shirt', SHIRT, 'Cor da roupa')}
       ${sw('pants', PANTS, 'Calça')}${sw('shoes', SHOES, 'Sapato')}
       <div><span class="field-label">Acessórios</span><div class="looks">${EXTRAS.filter(([k]) => k !== 'barba' || genderOf(p) === 'm').map(([k, n]) => `<button type="button" data-extra="${k}" aria-pressed="${!!ex[k]}">${n}</button>`).join('')}</div></div>
-      <p class="hint" style="margin:0">Para mudar ${p.name} de lugar, arraste na sala e solte onde quiser.</p>
-      <div class="row"><button type="button" class="danger" id="rm">${IC.trash}Remover ${p.name}</button></div>
+      <p class="hint" style="margin:0">Para mudar ${escapeHTML(p.name)} de lugar, arraste na sala e solte onde quiser.</p>
+      <div class="row"><button type="button" class="danger" id="rm">${IC.trash}Remover ${escapeHTML(p.name)}</button></div>
     </div>`;
   }
   const items = W.people.map(q => `<li class="person"><img src="${avatar(q, 3)}" alt=""><div><b>${q.name}</b><span class="tag" style="color:${ROLES[q.role]?.c}">${ROLES[q.role]?.n || 'Sem papel'}</span></div><button type="button" data-edit="${q.id}">Editar</button></li>`).join('');
@@ -167,7 +167,7 @@ function bindPessoas() {
   };
   const rm = body.querySelector('#rm');
   rm.onclick = () => {
-    if (!rm.classList.contains('armed')) { rm.classList.add('armed'); rm.textContent = 'Clique de novo para remover'; setTimeout(() => { if (rm.isConnected) { rm.classList.remove('armed'); rm.innerHTML = `${IC.trash}Remover ${p.name}`; } }, 3000); return; }
+    if (!rm.classList.contains('armed')) { rm.classList.add('armed'); rm.textContent = 'Clique de novo para remover'; setTimeout(() => { if (rm.isConnected) { rm.classList.remove('armed'); rm.innerHTML = `${IC.trash}Remover ${escapeHTML(p.name)}`; } }, 3000); return; }
     const id = editing, nm = p.name; editing = null;
     change(() => { W.people = W.people.filter(q => q.id !== id); }, `${nm} saiu da equipe`);
   };

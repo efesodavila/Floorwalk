@@ -48,6 +48,37 @@ test('em português: nada muda', async () => {
   assert.equal(ITEMS.desk.n, 'Mesa de trabalho');
 });
 
+test('F4: nome de pasta, arquivo, comando e pessoa nunca é traduzido, mesmo igual a uma palavra do dicionário', async () => {
+  const { T } = await load('en');
+  assert.equal(T('Projeto'), 'Project', 'a palavra sozinha é do dicionário');
+  assert.equal(T('Editando Planta'), 'Editing Planta', 'arquivo chamado "Planta"');
+  assert.equal(T('Rodando: Editar'), 'Running: Editar', 'comando');
+  assert.equal(T('Projeto entrou na equipe. Arraste para onde quiser.'), 'Projeto joined the team. Drag them anywhere.', 'pessoa');
+  assert.equal(T('Iluminação: ☀ Dia · 08:30'), 'Lighting: ☀ Day · 08:30', 'onde precisa, o miolo continua traduzido');
+  // na tela: nomes de pessoas e sessões vão marcados para a tradução automática pular
+  for (const f of ['23-ficha-render.js', '27-entregas-menu.js', '16-fonte-tempo-real.js']) {
+    const s = await read(f);
+    assert.doesNotMatch(s, /<b>\$\{escapeHTML\(p\.name\)\}<\/b>/, `${f}: nome sem data-no-i18n`);
+  }
+  assert.match(idioma, /characterData[^\n]*data-no-i18n|data-no-i18n[^\n]*characterData/, 'texto alterado também respeita data-no-i18n');
+});
+
+test('F1: todo texto fixo da página (avisos, carregamento, confirmações) tem tradução', async () => {
+  const { T } = await load('en');
+  const dirs = ['js', 'js3d'], miss = [];
+  const RE = [/\btoast\??\.?\(\s*'((?:\\'|[^'])+)'/g, /\bloadStep\??\.?\(\s*[\d.]+,\s*'((?:\\'|[^'])+)'/g, /\b(?:title|text|ok|cancel):\s*'((?:\\'|[^'])+)'/g];
+  for (const d of dirs) for (const f of await fs.readdir(new URL(`../web/${d}/`, import.meta.url))) {
+    if (!f.endsWith('.js')) continue;
+    const s = await fs.readFile(new URL(`../web/${d}/${f}`, import.meta.url), 'utf8');
+    for (const re of RE) for (const m of s.matchAll(re)) {
+      let t = m[1].replace(/\\'/g, "'"); if (!/[A-Za-zÀ-ú]{3}/.test(t) || /^#[0-9a-f]{3,8}$/i.test(t)) continue;
+      if (t.endsWith('(')) t += 'x).'; else if (/[:\s]$/.test(t)) t += 'x'; // texto que continua com uma parte variável
+      if (T(t) === t) miss.push(`${d}/${f}: ${t}`);
+    }
+  }
+  assert.deepEqual(miss, []);
+});
+
 test('todo detalhe que o servidor manda das sessões do Claude Code tem tradução', async () => {
   const { T } = await load('en');
   const src = await fs.readFile(new URL('../server/claude-code.mjs', import.meta.url), 'utf8');

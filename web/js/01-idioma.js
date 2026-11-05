@@ -20,6 +20,15 @@ const EN = {
   'Carregando o escritório': 'Loading the office', 'Carregando o escritório…': 'Loading the office…', 'Preparando…': 'Getting ready…',
   'Abrindo a página…': 'Opening the page…', 'Montando a sala…': 'Setting up the room…', 'Conectando ao servidor…': 'Connecting to the server…',
   'Carregando os móveis…': 'Loading the furniture…', 'Escritório em 3D': '3D office',
+  'Carregando o 3D…': 'Loading 3D…', 'Carregando os personagens…': 'Loading the characters…', 'Quase pronto…': 'Almost ready…',
+  'Desfeito': 'Undone', 'Refeito': 'Redone',
+  'Agente desconhecido. Cadastre com esse nome no modo Construir.': 'Unknown agent. Add someone with this name in Build mode.',
+  'Projeto entregue! Recomeçando em alguns segundos.': 'Project delivered! Starting over in a few seconds.',
+  'Fim do arquivo de eventos': 'End of the event file', 'Conectado. Aguardando eventos.': 'Connected. Waiting for events.',
+  'O evento entrou, mas o player está pausado': 'The event arrived, but the player is paused',
+  'Não consegui ler esse arquivo. Confira se cada linha é um JSON válido.': "Couldn't read this file. Check that every line is valid JSON.",
+  'O endereço precisa começar com ws:// ou wss://': 'The address must start with ws:// or wss://',
+  'Mensagem ignorada: não é um evento JSON válido.': 'Message ignored: not a valid JSON event.',
   'Menu': 'Menu', 'Configurações': 'Settings', 'Equipe': 'Team', 'Como usar (tour)': 'How to use (tour)',
   'Como os personagens se comportam': 'How the characters behave', 'Pesquisa na internet': 'Web research', 'Visual 3D': '3D view',
   'Ferramentas de desenvolvimento': 'Developer tools', 'Roteiro de teste': 'Test script', 'O que mudou': "What's new",
@@ -164,17 +173,21 @@ const EN_RE = [
   [/^Já tem "(.+)" aí\. Escolha outro lugar\.$/, 'There is already "$1" there. Pick another spot.'], [/^Já tem "(.+)" ali\. Voltou para onde estava\.$/, 'There is "$1" there. It went back.'],
   [/^Girado ele ficaria em cima de "(.+)"$/, 'Rotated, it would sit on top of "$1"'], [/^Esse trecho é curto demais para "(.+)"$/, 'This stretch is too short for "$1"'],
   [/^Trocado para (.+)$/, 'Changed to $1'], [/^Nada encontrado para "(.+)"$/, 'Nothing found for "$1"'],
-  [/^Iluminação: (.+)$/, 'Lighting: $1'], [/^Iluminação fixa: (.+)$/, 'Fixed lighting: $1'], [/^(.+) \(fixo\)$/, '$1 (fixed)'],
+  // true no fim: o miolo também passa pelo dicionário (só aqui: "☀ Dia · 08:30"). Nos outros, o miolo é nome de arquivo,
+  // comando ou pessoa e fica como está (docs/REGRAS.md F4)
+  [/^Iluminação: (.+)$/, 'Lighting: $1', true], [/^Iluminação fixa: (.+)$/, 'Fixed lighting: $1', true], [/^(.+) \(fixo\)$/, '$1 (fixed)', true],
+  [/^Não consegui apagar: (.+)$/, "Couldn't delete: $1"], [/^Não consegui mudar: (.+)$/, "Couldn't change: $1"],
   [/^(\S+) Dia(.*)$/, '$1 Day$2'], [/^(\S+) Tarde(.*)$/, '$1 Afternoon$2'], [/^(\S+) Noite(.*)$/, '$1 Night$2'],
   [/^Visual 3D indisponível neste navegador \((.+)\)\.?(.*)$/, '3D view unavailable in this browser ($1).$2'],
-  [/^Prévia de (.+)$/, 'Preview of $1'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
+  [/^Prévia de (.+)$/, 'Preview of $1'], [/^Remover (.+)$/, 'Remove $1'],
+  [/^Para mudar (.+) de lugar, arraste na sala e solte onde quiser\.$/, 'To move $1, drag them in the room and drop them where you want.'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
 ];
 
 function T(s) {
   if (LANG === 'pt' || s == null) return s;
   const k = String(s);
   if (Object.prototype.hasOwnProperty.call(EN, k)) return EN[k];
-  for (const [re, r] of EN_RE) if (re.test(k)) return r == null ? k : k.replace(re, (...g) => r.replace(/\$(\d)/g, (_, i) => T(g[i]) ?? ''));
+  for (const [re, r, inner] of EN_RE) if (re.test(k)) return r == null ? k : k.replace(re, (...g) => r.replace(/\$(\d)/g, (_, i) => (inner ? T(g[i]) : g[i]) ?? ''));
   return k;
 }
 
@@ -266,7 +279,7 @@ if (LANG === 'en') {
     trEl(document.body);
     new MutationObserver((ms) => {
       for (const m of ms) {
-        if (m.type === 'characterData') trText(m.target);
+        if (m.type === 'characterData') { if (!m.target.parentElement?.closest('[data-no-i18n]')) trText(m.target); }
         else if (m.type === 'attributes') trAttrs(m.target);
         else for (const n of m.addedNodes) trEl(n);
       }

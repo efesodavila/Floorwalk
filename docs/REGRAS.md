@@ -127,10 +127,18 @@ guardado para um futuro "sugerir planta" que o dono pediria de propósito.
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| F1 | A interface segue o idioma do navegador (português ou inglês) e troca pelo menu. | `web/js/01-idioma.js` | ✅ parcial |
+| F1 | A interface segue o idioma do navegador (português ou inglês) e troca pelo menu. Todo texto fixo da página (avisos, carregamento, confirmações) tem tradução. | `web/js/01-idioma.js` | ✅ `idioma.test.mjs` (textos fixos); 🔎 telas conferidas em inglês (2026-11-05) |
 | F2 | Em português, nada muda. | idem | ✅ |
 | F3 | Todo detalhe que o servidor manda das sessões do Claude Code tem tradução. | idem (`EN_RE`) | ✅ |
-| F4 | Nomes de pessoas, arquivos e comandos nunca são traduzidos. | idem | ✅ parcial |
+| F4 | Nomes de pessoas, sessões, arquivos e comandos nunca são traduzidos, mesmo quando são iguais a uma palavra do dicionário (uma pasta "Projeto", um arquivo "Planta"). | idem (`EN_RE`, `data-no-i18n`) | ✅ `idioma.test.mjs` |
+
+**Revisão da camada F (2026-11-05):** duas regras falhavam e foram corrigidas, com teste: uma sessão na pasta "Projeto"
+aparecia como "Project" e o arquivo "Planta" como "Editing Layout", porque a tradução automática trocava todo texto
+igual a uma palavra do dicionário, inclusive nomes e o pedaço variável das frases (F4); e 17 textos da página não tinham
+tradução (carregamento do 3D, desfazer/refazer, avisos da conexão e do arquivo de eventos, botão de remover pessoa) (F1).
+De quebra: em quatro lugares o nome de pessoa ou sessão entrava na tela sem escapar o HTML (lista do painel, caixa de
+enviar evento, editor de pessoa); agora escapa. Fica de fora, por ser conteúdo e não interface: o que a IA ou o Claude
+Code escrevem (nomes de papéis, descrição de subagentes) chega no idioma em que foi escrito.
 
 ## G. Protocolo
 

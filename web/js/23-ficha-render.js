@@ -21,7 +21,7 @@ function renderFicha() {
   const hist = a.hist || [], done = hist.filter(h => h.st === 'concluido' && h.task).length, blocks = hist.filter(h => h.st === 'bloqueado').length, evs = hist.filter(h => !h.auto).length;
   const shown = fichaAll ? hist : hist.slice(0, 8);
   const html = `
-    <div class="f-head"><img src="${avatar(p, 4)}" alt="" width="48" height="56"><div><b>${escapeHTML(p.name)}</b><span style="color:${role.c}">${role.n}</span></div>
+    <div class="f-head"><img src="${avatar(p, 4)}" alt="" width="48" height="56"><div><b data-no-i18n>${escapeHTML(p.name)}</b><span style="color:${role.c}">${role.n}</span></div>
       <button type="button" class="icon" data-f="close" aria-label="Fechar ficha" title="Fechar (Esc)">✕</button></div>
     <section class="f-now"><h4>Agora</h4>
       <div class="f-state"><i class="chip" style="background:${R.c}">${R.n}</i><span>há ${fmtDur(ago)}</span></div>

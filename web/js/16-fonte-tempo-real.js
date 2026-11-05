@@ -157,13 +157,13 @@ function renderSourceBox(open, force) {
   if (!open && box.hidden) return;
   if (!kind) { box.hidden = true; return; }
   box.hidden = false; box.dataset.kind = kind;
-  const agentsOpts = sim.agents.map(a => `<option value="${nameOf(a)}">${nameOf(a)}</option>`).join('');
+  const agentsOpts = sim.agents.map(a => `<option value="${escapeHTML(nameOf(a))}" data-no-i18n>${escapeHTML(nameOf(a))}</option>`).join('');
   if (kind === 'send') {
     box.innerHTML = `<h4>Enviar um evento</h4>
       <div class="frow"><label for="ev-agent">Agente</label><select id="ev-agent">${agentsOpts}</select></div>
       <div class="frow"><label for="ev-state">Estado</label><select id="ev-state">${Object.entries(RULES).map(([k, R]) => `<option value="${k}">${R.n}</option>`).join('')}</select></div>
       <div class="frow"><label for="ev-task">Tarefa</label><input id="ev-task" class="text" placeholder="Ex.: Tela de login"></div>
-      <div class="frow"><span class="flabel">Com quem</span><div class="looks" id="ev-with">${sim.agents.map(a => `<button type="button" data-w="${nameOf(a)}" aria-pressed="false">${nameOf(a)}</button>`).join('')}</div></div>
+      <div class="frow"><span class="flabel">Com quem</span><div class="looks" id="ev-with">${sim.agents.map(a => `<button type="button" data-w="${escapeHTML(nameOf(a))}" aria-pressed="false" data-no-i18n>${escapeHTML(nameOf(a))}</button>`).join('')}</div></div>
       <p class="hint" id="ev-why" style="margin:0"></p>
       <div class="row"><button type="button" class="primary" id="ev-go">Enviar</button><button type="button" id="ev-close">Fechar</button></div>`;
     const why = () => { const R = RULES[$('#ev-state').value]; $('#ev-why').textContent = R.does; };
@@ -207,7 +207,7 @@ function renderTeam() {
   const html = sim.agents.map(a => {
     const p = personOf(a); if (!p) return '';
     const R = RULES[a.status], label = a.held ? 'Mudando de lugar' : a.pinned ? 'Fica onde você deixou' : a.decision;
-    return `<li><div class="trow"><button type="button" data-follow="${a.id}" aria-pressed="${sim.inspect === a.id}"><img src="${avatar(p, 3)}" alt=""><span><b>${p.name} <em style="color:${ROLES[a.role]?.c || '#5C5866'}">${ROLES[a.role]?.n || ''}</em></b>
+    return `<li><div class="trow"><button type="button" data-follow="${a.id}" aria-pressed="${sim.inspect === a.id}"><img src="${avatar(p, 3)}" alt=""><span><b><span data-no-i18n>${escapeHTML(p.name)}</span> <em style="color:${ROLES[a.role]?.c || '#5C5866'}">${ROLES[a.role]?.n || ''}</em></b>
       <small><i class="chip" style="background:${R.c}">${R.n}</i>${a.task ? ' ' + escapeHTML(a.task) : ''}</small><small class="dec">→ ${escapeHTML(label)}</small></span></button>
       ${a.pinned ? `<button type="button" class="pin" data-unpin="${a.id}">Voltar à rotina</button>` : ''}</div></li>`;
   }).join('') || '<li class="hint">Ninguém na equipe. Adicione pessoas no modo Construir.</li>';
@@ -219,10 +219,12 @@ function renderTeam() {
   ul.querySelectorAll('[data-unpin]').forEach(b => b.onclick = () => { const a = sim.agents.find(q => q.id === b.dataset.unpin); if (a) { a.pinned = false; const it = decide(a, a.status, {}); setIntent(a, it); } teamHTML = ''; renderTeam(); });
 }
 function escapeHTML(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+const FEED_SYS = new Set(['Conexão', 'Você', 'Equipe', 'Sistema']);
 function renderFeed() {
   if (mode !== 'live') return;
   const e0 = sim.feed[0]; $('#feed-sum').textContent = e0 ? `${e0.name}: ${e0.st ? RULES[e0.st].n : e0.text}` : 'Sem eventos';
-  const html = sim.feed.slice(0, UI.feed.b ? 60 : 12).map(e => `<li><time>${fmtClock(e.t)}</time><span><b>${escapeHTML(e.name)}</b>${e.st ? ` <i class="chip" style="background:${RULES[e.st].c}">${RULES[e.st].n}</i>` : ''}${e.task ? ` <span class="task">${escapeHTML(e.task)}</span>` : ''}<small>${e.st ? '→ ' : ''}${escapeHTML(e.text)}</small></span></li>`).join('') || '<li class="hint">Os eventos aparecem aqui, com a decisão tomada para cada um.</li>';
+  // nome de pessoa ou sessão não passa pela tradução (F4); "Conexão", "Você" e "Equipe" são da página e passam
+  const html = sim.feed.slice(0, UI.feed.b ? 60 : 12).map(e => `<li><time>${fmtClock(e.t)}</time><span><b${FEED_SYS.has(e.name) ? '' : ' data-no-i18n'}>${escapeHTML(e.name)}</b>${e.st ? ` <i class="chip" style="background:${RULES[e.st].c}">${RULES[e.st].n}</i>` : ''}${e.task ? ` <span class="task">${escapeHTML(e.task)}</span>` : ''}<small>${e.st ? '→ ' : ''}${escapeHTML(e.text)}</small></span></li>`).join('') || '<li class="hint">Os eventos aparecem aqui, com a decisão tomada para cada um.</li>';
   if (html === feedHTML) return; feedHTML = html; $('#feed-list').innerHTML = html;
 }
 function hitAgent(sx, sy) {

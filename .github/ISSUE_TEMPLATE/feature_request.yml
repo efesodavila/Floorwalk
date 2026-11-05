@@ -1,0 +1,20 @@
+name: Idea or feature request
+description: Something Floorwalk could do better or do next.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the idea! Portuguese is fine too.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to see
+      description: The problem it solves, or what you would do with it.
+      placeholder: When a subagent starts, I would like it to get its own character instead of the main session going to the meeting table.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. A sketch, a screenshot of something similar, or how you imagine it in the room.

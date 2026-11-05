@@ -45,8 +45,6 @@ function onBridgeMsg(m) {
   const t = m.type || 'state';
   if (t === 'hello') { sim.bridge = m; logFeed({ name: 'Conexão', st: null, text: `Ponte conectada: ${m.server || 'servidor'} (protocolo ${m.protocol ?? '?'})` }); return; }
   if (t === 'team') {
-    // equipe de IA desligada: a equipe do negócio que o servidor guarda não entra na sala (nem fica salva nela); só as sessões de fora
-    if (!m.source && !(typeof aiTeamOn === 'function' ? aiTeamOn() : true) && !sim.bridge?.demo) return;
     // fora do escritório (editando a sala): guarda quem é de fora para pôr na sala ao voltar
     if (mode !== 'live') {
       if (m.source) for (const [k, x] of extWaiting.team) if (x.source === m.source && !(m.agents || []).some(y => String(y.name).toLowerCase() === k)) { extWaiting.team.delete(k); extWaiting.state.delete(k); }
@@ -62,11 +60,9 @@ function onBridgeMsg(m) {
     }
     return;
   }
-  if (t === 'task') { bridgeTask(m); return; }
-  if (t === 'result') { missionResult(m); return; }
   if (t === 'log') { const a = agentByRef(m.agent); logFeed({ name: a ? nameOf(a) : String(m.agent || 'Sistema'), st: null, text: String(m.text || '') }); if (a) histPush(a, { text: String(m.text || ''), src: 'log' }); return; }
   if (t === 'state' && mode !== 'live' && extWaiting.team.has(String(m.agent).toLowerCase())) { extWaiting.state.set(String(m.agent).toLowerCase(), m); return; }
-  if (t === 'state') { applyEvent(m); if (m.run) missionAddStep(m); if (agentByRef(m.agent)?.ext && !sim.playing) { sim.playing = true; updatePlayer(); } }
+  if (t === 'state') { applyEvent(m); if (agentByRef(m.agent)?.ext && !sim.playing) { sim.playing = true; updatePlayer(); } }
 }
 // d.pixelHQ / window.pixelHQ: nome antigo do projeto, continua aceito
 window.addEventListener('message', (e) => { const d = e.data; if (d && typeof d === 'object' && (d.floorwalk || d.pixelHQ)) onBridgeMsg(d.floorwalk || d.pixelHQ); });
@@ -84,7 +80,6 @@ function simStep(dtReal) {
     sim.clock += dt; sim.playedFor += dtReal;
     if (sim.source === 'demo') demoTick(dt);
     if (sim.source === 'arquivo') replayTick(dt);
-    missionTick();
     for (const a of sim.agents) { stepAgent(a, dt); a.timeIn ||= {}; a.timeIn[a.status] = (a.timeIn[a.status] || 0) + dt; }
   }
   uiTick += dtReal; if (uiTick > .25) { uiTick = 0; updatePlayer(); renderTeam(); renderFeed(); renderFicha(); }
@@ -123,7 +118,7 @@ function setMode(m) {
   mode = m; const live = m === 'live';
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
   $('#modes').classList.toggle('live', live); document.body.classList.toggle('is-live', live);
-  $('.panel').hidden = live; $('#player').hidden = !live; $('#team').hidden = !live; $('#feed').hidden = !live; $('#ask').hidden = !live; $('#srcbox').hidden = true;
+  $('.panel').hidden = live; $('#player').hidden = !live; $('#team').hidden = !live; $('#feed').hidden = !live; $('#srcbox').hidden = true;
   placing = null; walling = null; selected = null; drag = null; tool = 'select'; closePop();
   // no escritório de verdade a equipe fica parada até chegar uma tarefa
   if (live) { startSim(); sim.playing = !quietOffice(); flushExtWaiting(); }

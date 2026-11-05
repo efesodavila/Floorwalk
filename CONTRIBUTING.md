@@ -9,7 +9,7 @@ npm install
 ```
 
 ```bash
-npm run demo
+npm start
 ```
 
 ```bash
@@ -46,12 +46,11 @@ Código que roda no carregamento (fora de funções) só pode usar o que já foi
 | `19-rodape-avisos.js` | rodapé, avisos, faixas de contexto |
 | `20-toast-gaveta.js` | mensagens rápidas, roteiro de teste |
 | `21-ficha.js`, `23-ficha-render.js` | ficha do agente |
-| `22-missoes.js` | campo de tarefa, planos e missões |
+| `22-agentes.js` | quem chega pela ponte (sessões do Claude Code) vira uma pessoa da sala |
 | `24-quadros.js` | cartões que expandem e retraem |
-| `25-configuracao.js` | tela inicial: escolher a IA, testar a conexão e descrever o serviço |
-| `26-montagem.js` | negócio novo = sala vazia (o dono monta); confere a planta; gerador de planta guardado (`suggestOffice`, sem uso) |
-| `27-entregas-menu.js` | painel de resultado da tarefa e menu do canto superior direito |
-| `28-tour.js` | tour "Como usar": abre na primeira vez e pelo menu ☰ |
+| `25-configuracao.js` | início com o servidor: aviso dos hooks, "Limpar a sala" |
+| `27-menu.js` | menu do canto superior direito, entrada e saída pela porta, gaveta das sessões |
+| `28-tour.js` | tour "Como usar", pelo menu ☰ |
 | `../js3d/cena3d.js` | cena 3D (módulo ES, padrão com o servidor): lê os mesmos dados do 2D (`worldBoxes`, `segBoxes`, `animBox`, `peopleDrawables`) e desenha com Three.js |
 | `../js3d/personagens3d-meshy.js` | **padrão**: modelos GLB de `web/modelos/` (um por penteado), acessórios por ilha de malha, repintura da textura por pessoa |
 | `../js3d/personagens3d-lowpoly.js` | personagens low-poly feitos só em código (reserva quando os modelos não carregam) |
@@ -64,42 +63,15 @@ O teste `web-structure` avisa se esquecer.
 
 | arquivo | assunto |
 |---------|---------|
-| `server.mjs` | HTTP (página, `/api/settings`, `/api/settings/web`, `/health`), WebSocket (`/events`), fila e tarefas em paralelo (`FLOORWALK_PARALELO`) |
-| `web.mjs` | acesso à internet (só leitura): `search`, `readPage`, bloqueio da rede interna, limites de tempo e tamanho |
-| `locks.mjs` | travas por agente: cada pessoa faz uma coisa por vez mesmo com tarefas em paralelo |
-| `providers.mjs` | OpenAI, Anthropic e Ollama com a mesma interface: `test()` e `chat()` |
-| `settings.mjs` | provedor, modelo e chaves em `data/settings.json` |
-| `llm.mjs` | escolhe o modelo testando de verdade e troca sozinho quando o provedor recusa |
-| `office.mjs` | pede à IA a ficha do escritório, valida, conserta e guarda em `data/office.json` |
-| `protocol.mjs` | formato das mensagens com a página |
-| `runner.mjs` | executa a tarefa: plano de quem coordena, passos de cada pessoa, pesquisa na internet (`research`), revisão, resumo e arquivos |
+| `server.mjs` | HTTP (página, `/health`, `/api/hooks/claude`, `/api/hooks/status`), WebSocket (`/events`) |
+| `claude-code.mjs` | ponte: cada evento do hook do Claude Code vira um estado na sala |
+| `claude-hooks-install.mjs` | instala e remove os hooks no `~/.claude/settings.json` |
+| `protocol.mjs`, `places.mjs` | formato das mensagens e lugares da sala |
 | `pacer.mjs` | segura cada estado alguns segundos, para o personagem ter tempo de andar |
-
-Provedor novo: implemente `test` e `chat` em `providers.mjs` e um teste em `test/providers.test.mjs`
-(os testes usam um servidor falso; não precisam de chave).
-
-## Como o escritório é montado
-
-A IA decide só o **conteúdo**: nome, estilo, equipe, papéis e tipos, nomes dos estados, áreas extras
-(estúdio, recepção), impressora ou servidor, exemplos de tarefa. O **espaço** sai de `officeWorld()`:
-a planta-base testada, com trocas que ocupam o mesmo lugar. Equipe de 7 a 10: a sala ganha uma ala à direita
-(`BIG`, `BIG_STARTS` e uma vaga a mais). `officeProblems()` confere sobreposição,
-pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móveis? Rode
-`npm run check:layouts` (precisa do Playwright), que testa todas as combinações.
 
 ## Móveis
 
 - **Catálogo** (`ITEMS` e `SPOTS` em `01-catalogo.js`): cada móvel é feito de blocos e tem pontos de uso.
-  Os móveis que a IA pode pedir para um negócio estão também em `server/furniture.mjs` (`CATALOG`),
-  com o lugar a que servem. Precisam ter 1 quadrado de fundo e o lado de uso na frente.
-- **Vagas** (`SLOTS` em `26-montagem.js`): onde os móveis extras entram na planta.
-- **Móveis criados pela IA**: só quando nada do catálogo serve, no máximo 2 por escritório.
-  Regras conferidas em `validateDesign()`: largura de 1 a 3, fundo 1, altura até 2,2, de 3 a 14 blocos,
-  só cores da paleta e nada flutuando (todo bloco ligado ao chão por blocos que se tocam). Qualidade: pelo
-  menos 2 cores, ocupar ao menos metade da largura escolhida, nenhum bloco escondido dentro de outro.
-  Os exemplos do pedido à IA precisam passar nas mesmas regras (um teste confere).
-  Falhou duas vezes: plano B com um móvel do catálogo e outro nome.
-- Móvel novo no catálogo? Rode `npm test` (confere a ligação servidor ↔ página) e `npm run check:layouts`.
 - **Visual 3D do móvel:** acrescente um modelo em `MODELS` de `web/js3d/moveis3d.js` (peças no espaço do item, sem
   giro: `box`, `cyl`, `lathe`, `ball`, `rod`, `leaf`, `garment`, `base()` para reaproveitar caixas do catálogo).
   Sem modelo, o item aparece com as caixas do catálogo. `test/moveis3d.test.mjs` confere área e giro.
@@ -113,7 +85,7 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
   Toda lógica de comportamento usa o tipo, nunca o id ou o nome do papel.
   Use `kindOf(role)` e `roleInfo(role)`.
 - Mudou a lista de estados ou tipos? Atualize também `server/protocol.mjs`. O teste `protocol` avisa.
-- **Lugares** (`PLACES`) dizem para que serve cada elemento. A IA escolhe um por passo da tarefa
+- **Lugares** (`PLACES`) dizem para que serve cada elemento. A ponte do Claude Code escolhe um por ferramenta
   (`server/places.mjs` descreve; `web/js/01-catalogo.js` diz quais elementos servem). As duas listas
   precisam ter as mesmas chaves; o teste `protocol` confere.
 
@@ -121,7 +93,6 @@ pessoas presas e lugares inalcançáveis. Mudou a planta ou o catálogo de móve
 
 - Sem dependências no navegador e sem build para rodar. O único passo de build é o opcional `build:single`
   (esbuild, só em desenvolvimento). Se uma mudança precisar de mais, abra uma issue antes.
-- Chaves de API nunca vão para a página nem para o repositório.
 - Interface e mensagens em português do Brasil.
 - Mudou o formato de eventos? Atualize `docs/PROTOCOLO.md`.
 - Rode `npm test` antes de abrir o pull request.

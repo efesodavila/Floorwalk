@@ -20,45 +20,12 @@
     <small id="loader-text">Preparando…</small>
   </div>
 </div>
-<div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title" hidden>
-  <div class="setup-card">
-    <ol class="setup-steps" aria-label="Etapas da configuração">
-      <li aria-current="step"><b>1</b>Inteligência artificial</li>
-      <li><b>2</b>Seu serviço</li>
-    </ol>
-    <h1 id="setup-title">Qual IA vai trabalhar no seu escritório?</h1>
-    <p class="setup-lead">Cada personagem será um agente dessa IA. A chave fica guardada só no servidor, neste computador.</p>
-    <form id="setup-form" autocomplete="off" novalidate>
-      <fieldset class="prov" id="setup-prov"><legend>Provedor</legend></fieldset>
-      <div class="setup-fields" id="setup-fields"></div>
-      <div class="setup-status" id="setup-status" role="status" aria-live="polite"></div>
-      <div class="setup-actions">
-        <button type="button" class="ghost" id="setup-cancel" hidden>Cancelar</button>
-        <button type="submit" class="primary" id="setup-save">Conectar</button>
-      </div>
-    </form>
-    <div class="setup-alt" id="setup-claude-box">
-      <p>Só quer ver seus agentes do <b>Claude Code</b> trabalhando? Não precisa de chave nem de descrever um negócio.</p>
-      <button type="button" id="setup-claude">Ver o Claude Code sem IA</button>
-    </div>
-    <form id="office-form" autocomplete="off" novalidate hidden>
-      <label class="f" for="office-desc">O que o seu negócio faz?</label>
-      <textarea id="office-desc" rows="4" maxlength="1500" placeholder="Ex.: Somos uma agência que cria posts, vídeos curtos e campanhas para pequenas lojas de roupa."></textarea>
-      <div class="office-ex" id="office-ex" aria-label="Exemplos"></div>
-      <div class="setup-status" id="office-status" role="status" aria-live="polite"></div>
-      <div class="setup-actions">
-        <button type="button" class="ghost" id="office-back">Trocar a IA</button>
-        <button type="submit" class="primary" id="office-go">Montar escritório</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <canvas id="scene" aria-label="Planta do escritório em visão isométrica"></canvas>
 
 <div class="brand">
   <div class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 2 16 6 9 10 2 6Z" fill="#8C4FE0"/><path d="M2 6v6l7 4v-6Z" fill="#D3CBD3"/><path d="M16 6v6l-7 4v-6Z" fill="#FFFFFF"/></svg></div>
-  <div><b>Floorwalk</b><span>Novo editor · protótipo para teste</span></div>
+  <div><b>Floorwalk</b><span>Claude Code</span></div>
 </div>
 
 <div class="top-right">
@@ -67,10 +34,6 @@
     <div class="menu-head" id="menu-head"></div>
     <button type="button" role="menuitem" id="m-team">Equipe</button>
     <button type="button" role="menuitem" id="m-edit"></button>
-    <button type="button" role="menuitem" id="m-aiteam" data-bridge>Ligar a equipe de IA</button>
-    <button type="button" role="menuitem" id="m-office" data-bridge>Descrever o negócio de novo</button>
-    <button type="button" role="menuitem" id="ai-btn" data-bridge>Trocar a IA</button>
-    <button type="button" role="menuitem" id="m-web" aria-pressed="true" data-bridge title="Os agentes podem buscar na web e ler páginas (só leitura)">Pesquisa na internet</button>
     <!-- regras e ferramentas de desenvolvimento ficam fora do menu (dono); ?dev no endereço liga o modo desenvolvedor -->
     <button type="button" role="menuitem" id="open-rules" hidden>Como os personagens se comportam</button>
     <hr>
@@ -83,7 +46,7 @@
     <button type="button" role="menuitem" id="open-test" data-dev>Roteiro de teste</button>
     <button type="button" role="menuitem" id="open-changes" data-dev>O que mudou</button>
     <hr>
-    <button type="button" role="menuitem" id="m-reset" class="danger" data-bridge title="Apaga o negócio, a equipe, a sala e o histórico">Começar do zero…</button>
+    <button type="button" role="menuitem" id="m-reset" class="danger" data-bridge title="A sala deste navegador volta a ser a sala de dev pronta">Limpar a sala…</button>
   </div>
 </div>
 
@@ -121,13 +84,6 @@
   <button type="button" id="pl-send">Enviar evento</button>
   <button type="button" id="pl-names" aria-pressed="true">Nomes</button>
 </div>
-<div class="ask" id="ask" hidden>
-  <form id="ask-form" autocomplete="off">
-    <input id="ask-in" maxlength="400" placeholder="Descreva uma tarefa para a equipe. Ex.: criar a tela de login e publicar" aria-label="Nova tarefa para a equipe">
-    <button type="submit" class="primary" id="ask-go">Delegar</button>
-  </form>
-  <div class="st" id="ask-st" role="status" aria-live="polite"></div>
-</div>
 <div class="srcbox" id="srcbox" hidden></div>
 <div class="ficha" id="ficha" role="dialog" aria-label="Ficha do agente" hidden></div>
 <aside class="feed card" id="feed" aria-label="Eventos e decisões" hidden>
@@ -155,7 +111,6 @@
 </div>
 
 <div class="drawer" id="drawer" hidden></div>
-<aside class="result" id="result" aria-labelledby="result-title" hidden></aside>
 <button type="button" class="primary" id="done-edit">Concluir edição</button>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -184,12 +139,11 @@
 <script src="js/19-rodape-avisos.js"></script>
 <script src="js/20-toast-gaveta.js"></script>
 <script src="js/21-ficha.js"></script>
-<script src="js/22-missoes.js"></script>
+<script src="js/22-agentes.js"></script>
 <script src="js/23-ficha-render.js"></script>
 <script src="js/24-quadros.js"></script>
 <script src="js/25-configuracao.js"></script>
-<script src="js/26-montagem.js"></script>
-<script src="js/27-entregas-menu.js"></script>
+<script src="js/27-menu.js"></script>
 <script src="js/28-tour.js"></script>
 <script src="js/99-inicio.js"></script>
 <script type="module" src="js3d/cena3d.js"></script>

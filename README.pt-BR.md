@@ -11,7 +11,7 @@ quando lê, o rack de servidores quando publica, e levanta um alerta quando prec
 > Estado: primeira versão aberta. Funciona no Windows, macOS e Linux com Node 22.9 ou mais novo.
 > A interface segue o idioma do navegador (inglês ou português); dá para trocar no menu (☰ → Language / Idioma).
 
-## Começo rápido (Claude Code, sem chave de IA)
+## Começo rápido
 
 ```bash
 git clone https://github.com/efesodavila/Floorwalk.git
@@ -43,9 +43,7 @@ ações com a hora. O histórico continua lá depois de recarregar a página.
 
 - **Cada ação vai ao lugar certo.** O personagem não só digita ou lê: cada tipo de trabalho tem o seu canto na sala, e
   dá para ver de longe quem está publicando, quem travou e quem está pesquisando.
-- **Também faz o trabalho.** Além de mostrar o Claude Code, o Floorwalk tem uma equipe de IA própria: descreva o seu
-  negócio, conecte OpenAI, Anthropic ou Ollama e delegue tarefas. Quem coordena divide o trabalho; as pessoas pesquisam,
-  produzem, revisam e entregam, e cada resultado é salvo em Markdown.
+- **Nada para configurar.** Sem chave de API, sem conta, sem nuvem: o servidor roda no seu computador e só atende a ele.
 - **O escritório é seu.** Sala vazia, montada por você: móveis, paredes, salas de vidro, pessoas e papéis, tudo em 3D.
 
 ## Segurança e privacidade
@@ -65,22 +63,6 @@ servidor está desligado. Os eventos só vão para o seu computador (`127.0.0.1`
 `~/.floorwalk/hook.json`. Os seus pedidos não são lidos. Os comandos aparecem cortados e sem nada que pareça senha,
 chave ou token. As sessões nunca entram no escritório salvo.
 
-## A equipe de IA (opcional, desligada por padrão)
-
-Menu (☰) → **Ligar a equipe de IA** liga; o mesmo item desliga de novo (a chave e o negócio continuam guardados).
-Desligada, não há campo de tarefa nem configuração de IA. Ligada, escolha OpenAI, Anthropic ou Ollama e cole a chave. O servidor testa os modelos da sua conta e fica
-com um que responde (`FLOORWALK_MODEL` no `.env` força um). Depois descreva o seu negócio: a IA cria a equipe, os papéis
-e os rótulos, e você monta a sala. Escreva uma tarefa no campo de baixo e veja a equipe trabalhar.
-
-- A chave fica em `data/settings.json`, no seu computador; a página nunca a recebe de volta. Também dá para usar o
-  `.env` (veja `.env.example`).
-- **Pesquisa na internet:** na pesquisa, a equipe busca (DuckDuckGo, ou Brave Search com `BRAVE_API_KEY`), lê até 4
-  páginas e cita as fontes. Só leitura: os agentes não executam código nem preenchem formulários, e endereços da rede
-  local são bloqueados. Liga e desliga no menu, ou `FLOORWALK_WEB=0`.
-- **Tarefas em paralelo:** até 2 ao mesmo tempo (`FLOORWALK_PARALELO`), fila de 5.
-- **Custo:** cada tarefa faz de 3 a 8 chamadas ao modelo. Acompanhe no painel do provedor.
-- `npm run demo` roda o mesmo fluxo com eventos simulados, sem chave e sem custo.
-
 ## Controles
 
 Arrastar move a sala, a roda aproxima na direção do cursor, botão direito (ou Shift + arrastar) gira em passos de 90°;
@@ -92,9 +74,7 @@ servidor (`dist/floorwalk.html`, cerca de 10 MB com os modelos 3D; `--sem-modelo
 ## Como funciona
 
 ```
-Claude Code ──hooks──▶ ┐
-                       ├─▶ servidor (server/) ──eventos──▶ página (web/, Three.js)
-sua equipe de IA ─────▶ ┘
+Claude Code ──hooks──▶ servidor (server/) ──eventos──▶ página (web/, Three.js)
 ```
 
 O servidor transforma tudo em eventos do [protocolo Floorwalk](docs/PROTOCOLO.md) por WebSocket. Qualquer sistema de
@@ -104,17 +84,16 @@ personagem vai até um computador.
 | pasta | o que tem |
 |-------|-----------|
 | `web/` | a página: `index.html`, `css/app.css`, `js/` (um arquivo por assunto), `js3d/` (cena 3D, móveis, personagens) |
-| `server/` | servidor HTTP + WebSocket, ponte do Claude Code, equipe de IA, protocolo |
+| `server/` | servidor HTTP + WebSocket, ponte do Claude Code, protocolo |
 | `scripts/` | script do hook, instalador dos hooks, arquivo único, conferências |
-| `test/` | `npm test` (sem chamar nenhuma IA) |
+| `test/` | `npm test` |
 | `docs/` | protocolo e notas de desenvolvimento |
 
 ## Limites conhecidos
 
 - O Claude Code é o único agente de código suportado hoje. Codex e Gemini CLI vêm a seguir.
 - Subagentes ainda não ganham personagem próprio; a sessão principal vai à mesa de reunião quando delega.
-- Um escritório por servidor. A equipe de IA roda até 2 tarefas ao mesmo tempo; a qualidade depende do modelo conectado.
-- A pesquisa na internet é só leitura, e o DuckDuckGo pode limitar buscas automáticas.
+- Um escritório por servidor.
 - **Modelos 3D dos personagens** em `web/modelos/` foram gerados no [Meshy](https://www.meshy.ai) num plano pago, que dá
   direito de uso comercial, e são distribuídos com o projeto sob a mesma licença MIT. Quem preferir não usá-los pode
   apagar a pasta: os personagens low-poly feitos em código assumem.

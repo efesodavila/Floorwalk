@@ -649,3 +649,11 @@ disse que está **ótimo**).
   vazio. Com a equipe desligada o último item é "Limpar a sala…" (volta à sala de dev pronta).
 - REGRAS (2026-11-04): [`docs/REGRAS.md`](REGRAS.md) lista as 54 regras de negócio conferíveis (onde vivem e como provar). Decisão
   nova do dono entra lá também. Base da revisão de conformidade (skill spec-to-code-compliance, camada por camada).
+- EQUIPE DE IA FORA DO MAIN (dono, 2026-11-05): o Floorwalk publicado é só para quem usa Claude Code. A equipe de IA
+  própria (conectar OpenAI/Anthropic/Ollama, descrever o negócio, campo de tarefa, missões, resultados, móveis criados pela
+  IA, pesquisa na internet) foi guardada no branch `equipe-ia` (commit c341591, antes da remoção) e tirada do `main`:
+  servidor (providers, settings, office, llm, furniture, runner, web, locks; rotas /api/settings e /api/office; tarefas pelo
+  WebSocket, que agora só transmite), página (22-missoes e 26-montagem apagados; 22-agentes guarda addAgentLive/syncAgent;
+  25-configuracao ficou com setupInit, hooksHint e resetRoom; 27-entregas-menu virou 27-menu), CSS, README, PROTOCOLO,
+  CONTRIBUTING, .env.example e dependências (openai, @anthropic-ai/sdk). Sala salva com móvel c_… da IA abre sem ele
+  (normalize filtra pelo catálogo). As seções acima que falam da equipe de IA descrevem o branch, não o main.

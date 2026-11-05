@@ -19,14 +19,11 @@ Fontes: decisões do dono em [`CONTINUACAO.md`](CONTINUACAO.md) (seções 1, 2, 
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| A1 | A chave da IA nunca volta para a página (só os 4 últimos caracteres, para a pessoa reconhecer qual é), e a chave guardada só vai para o endereço do provedor que já estava salvo: endereço novo exige a chave digitada no mesmo pedido. | `server/settings.mjs` (`publicView`), `server/server.mjs` (`cfgFor`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
-| A2 | `data/settings.json` só pode ser lido pelo dono (modo 0600). No Windows quem protege é a permissão da pasta. | `server/settings.mjs` | ✅ fora do Windows; ❌ no Windows |
-| A3 | Rota que muda alguma coisa (`POST /api/*`) só aceita pedido da própria página (mesma origem). Todo pedido, de qualquer rota, só é atendido se o endereço usado for o do próprio computador (`localhost`, IP) ou um nome listado em `FLOORWALK_ALLOWED_HOSTS`: barra o "DNS rebinding". | `server/server.mjs` (`sameOrigin`, `hostOk`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
-| A4 | O WebSocket `/events` só aceita conexão da própria página: outro site aberto no navegador não manda tarefa nem gasta a chave. | `server/server.mjs` (`upgrade`) | ✅ `seguranca.test.mjs` |
+| A3 | Todo pedido, de qualquer rota, só é atendido se o endereço usado for o do próprio computador (`localhost`, IP) ou um nome listado em `FLOORWALK_ALLOWED_HOSTS`: barra o "DNS rebinding" (um site cujo nome passa a apontar para 127.0.0.1). | `server/server.mjs` (`hostOk`) | ✅ `seguranca.test.mjs` |
+| A4 | O WebSocket `/events` só aceita conexão da própria página: outro site aberto no navegador não vê o que as suas sessões estão fazendo. | `server/server.mjs` (`upgrade`) | ✅ `seguranca.test.mjs` |
 | A5 | O servidor escuta só em `127.0.0.1`, a não ser que `HOST` diga outra coisa; com outro `HOST`, avisa no terminal que ficou aberto para a rede. | `server/server.mjs` | ✅ `seguranca.test.mjs` (endereço padrão) |
-| A6 | A rota dos hooks (`POST /api/hooks/claude`) exige a senha de `~/.floorwalk/hook.json`. Sem ela: 403. | `server/server.mjs` (`hookAuth`) | ✅ "sem a senha, é recusado" |
-| A7 | Arquivos estáticos nunca saem da pasta `web/`; o Three.js só sai de `build/` e `examples/jsm/`. Nenhum pedido derruba o servidor: endereço malformado recebe 400. | `server/server.mjs` (`handle`) | ✅ `providers.test.mjs`, `seguranca.test.mjs` |
-| A8 | Internet dos agentes é só leitura (buscar e ler páginas); endereços da rede interna e protocolos estranhos são recusados. | `server/web.mjs` (`checkURL`) | ✅ `web.test.mjs` ⚠️ ver nota abaixo |
+| A6 | A rota dos hooks (`POST /api/hooks/claude`) exige a senha de `~/.floorwalk/hook.json` (só o dono lê). Sem ela, ou com outra: 403. | `server/server.mjs` (`hookAuth`) | ✅ `seguranca.test.mjs`, "sem a senha, é recusado" |
+| A7 | Arquivos estáticos nunca saem da pasta `web/`; o Three.js só sai de `build/` e `examples/jsm/`. Nenhum pedido derruba o servidor: endereço malformado recebe 400. | `server/server.mjs` (`handle`) | ✅ `seguranca.test.mjs` |
 | A9 | O repositório não contém segredos, dados do usuário (`data/`, `workspace/`, `.env`) nem e-mail pessoal nos commits. | `.gitignore`, histórico do git | 🔎 conferido antes do primeiro envio |
 
 **Revisão da camada A (2026-11-04):** quatro regras falhavam e foram corrigidas, com teste: um site qualquer conseguia se
@@ -34,6 +31,11 @@ passar pelo endereço do Floorwalk (DNS rebinding) e mandar a chave guardada par
 aceitava esse site (A4); um endereço malformado derrubava o servidor (A7). Ficam em aberto: A2 no Windows (depende da
 permissão da pasta); A8 confere o IP antes de baixar, mas o download resolve o nome de novo (um site pode trocar o IP
 entre as duas consultas) e, atrás de proxy, a checagem fica só pelo nome.
+
+**Equipe de IA fora do main (2026-11-05):** A1 (chave da IA), A2 (arquivo da chave) e A8 (internet dos agentes) eram
+regras da equipe de IA própria e saíram com ela; o código e os testes estão no branch `equipe-ia`. Sem chave guardada, o
+ataque que a A3 barrava (mandar a chave para um servidor qualquer) deixou de existir, mas a checagem do endereço
+continua: ela também protege as sessões.
 
 ## B. Ponte com o Claude Code
 
@@ -65,15 +67,15 @@ procura o servidor em `127.0.0.1` (com `HOST` apontando para outro endereço, os
 
 | # | Regra | Onde | Prova hoje |
 |---|-------|------|------------|
-| C1 | A equipe de IA vem **desligada**: sem campo de tarefa, sem tela de conectar IA, sem descrever negócio. Liga e desliga pelo menu; a chave e o negócio ficam guardados. | `02-mundo.js` (`aiTeamOn`), `25-configuracao.js` | 🔎 conferido (2026-11-05) |
-| C2 | Com a equipe desligada, a primeira visita abre a sala de dev pronta, e o negócio salvo no servidor não toma a sala: nem a sala, nem a equipe dele (que entra só com a equipe ligada). | `02-mundo.js` (`tplClaude`), `25-configuracao.js` (`setupInit`), `16-fonte-tempo-real.js` (`team`) | 🔎 conferido (2026-11-05) |
+| C1 | Não há equipe de IA própria: nenhum campo de tarefa, nenhuma tela de conectar IA, nenhum pedido para descrever um negócio. A página só mostra as sessões do Claude Code, e o servidor não tem as rotas da IA. | `web/index.html`, `server/server.mjs` | ✅ `seguranca.test.mjs` (rotas); 🔎 página conferida (2026-11-05) |
+| C2 | A primeira visita abre a sala de dev pronta. | `02-mundo.js` (`tplClaude`) | 🔎 conferido (2026-11-05) |
 | C3 | Sessões do Claude Code nunca entram no escritório salvo no navegador: nem a pessoa, nem o cargo "Claude Code". | `02-mundo.js` (`save`) | 🔎 conferido (2026-11-05) |
-| C4 | A sessão aberta fica na sala; só sai quando termina, e então sai mesmo com o modo desenvolvedor ligado ou com uma tarefa da equipe de IA em andamento. | `27-entregas-menu.js`, `16-fonte-tempo-real.js` | 🔎 conferido (2026-11-05) |
-| C5 | A gaveta Equipe separa as sessões do Claude Code da equipe do negócio; com a equipe desligada (ou sem tarefa delegada), a equipe do negócio fica recolhida. Cada um aparece com a foto do próprio personagem 3D. | `27-entregas-menu.js` (`renderTeamDrawer`) | 🔎 conferido (2026-11-05) |
+| C4 | A sessão aberta fica na sala; só sai quando termina, e então sai mesmo com o modo desenvolvedor ligado. | `27-menu.js`, `16-fonte-tempo-real.js` | 🔎 conferido (2026-11-05) |
+| C5 | A gaveta Equipe lista as sessões do Claude Code abertas, cada uma com a foto do próprio personagem 3D. | `27-menu.js` (`renderTeamDrawer`) | 🔎 conferido (2026-11-05) |
 | C6 | Clicar num personagem abre a ficha com o que ele está fazendo agora, onde, o tempo em cada atividade e o histórico com hora. Vale para todos, não só no modo desenvolvedor. Para sessões do Claude Code, o tempo é o do relógio de verdade: conta com a aba em segundo plano e continua depois de recarregar. | `23-ficha-render.js` (`wallTimes`), `13-sim-agentes.js` (`sinceAt`) | 🔎 conferido (2026-11-05) |
-| C7 | "Limpar a sala" (equipe desligada) troca só a sala deste navegador pela sala de dev; nada é apagado no servidor. | `27-entregas-menu.js` (`m-reset`) | 🔎 conferido (2026-11-05) |
+| C7 | "Limpar a sala" troca só a sala deste navegador pela sala de dev pronta; as sessões continuam e nada é apagado no servidor. | `27-menu.js` (`m-reset`), `25-configuracao.js` (`resetRoom`) | 🔎 conferido (2026-11-05) |
 | C8 | Nenhum `confirm`, `alert` ou `prompt` do navegador. Toda ação que apaga ou troca algo pede confirmação na janela própria, com o foco começando em "Cancelar". | `20-toast-gaveta.js` (`askConfirm`) | ✅ `pagina.test.mjs` (nenhum nativo); 🔎 foco e Esc conferidos |
-| C9 | No menu, a linha separadora só aparece entre grupos com item visível. | `27-entregas-menu.js` (`tidyMenuLines`) | 🔎 conferido (2026-11-05) |
+| C9 | No menu, a linha separadora só aparece entre grupos com item visível. | `27-menu.js` (`tidyMenuLines`) | 🔎 conferido (2026-11-05) |
 | C10 | A experiência normal é toda em 3D: o 2D só aparece sozinho sem WebGL (ou com `?2d`) e nunca pisca antes do 3D ao abrir. | `00-base.js`, `js3d/cena3d.js` | 🔎 conferido no código (2026-11-05) |
 
 **Revisão da camada C (2026-11-05):** cinco regras falhavam e foram corrigidas, conferidas no navegador antes e depois:
@@ -90,7 +92,7 @@ se o próprio arquivo do 3D não carregar (erro de rede ou de sintaxe), a tela f
 |---|-------|------|------------|
 | D1 | A sala tem exatamente uma porta de entrada, encostada numa parede externa (esquerda ou fundo), com piso livre na frente. Ela não pode ser apagada, e nenhuma parede pode passar por cima dela nem trancá-la (na linha da parede dela ou colada na frente); num salvo antigo trancado, a porta muda de lugar sozinha. | `03-geometria.js` (`doorFits`, `wallBlocksDoor`, `fixDoor`), `17-entrada.js` | ✅ `sala.test.mjs` |
 | D2 | Móvel não fica fora do piso nem em cima de outro móvel ou parede; girar não pode fazê-lo sair do piso; a borracha de piso, como diminuir a sala, não apaga o chão embaixo de móvel, da porta ou de parede. | `03-geometria.js` (`footprintOk`, `tileRemovable`), `17-entrada.js` | ✅ `sala.test.mjs` |
-| D3 | A sala que o dono montou nunca é refeita sozinha. Ligar e desligar a equipe de IA não perde sala: cada modo guarda a sua e ela volta quando se volta ao modo. | `25-configuracao.js` (`setupInit`, `switchAiTeam`) | 🔎 conferido (2026-11-05) |
+| D3 | A sala que o dono montou nunca é refeita sozinha. Sala salva com um móvel que não existe mais no catálogo (ex.: criado pela antiga equipe de IA) abre sem esse móvel, em vez de quebrar a página. | `02-mundo.js` (`normalize`) | 🔎 conferido (2026-11-05) |
 | D4 | Todo móvel do catálogo tem modelo 3D, com geometria dentro da área dele. | `js3d/moveis3d.js` | ✅ `moveis3d.test.mjs` |
 
 **Revisão da camada D (2026-11-05):** três regras falhavam e foram corrigidas: dava para desenhar uma parede por cima
@@ -101,27 +103,10 @@ do negócio, e desligar a trocava pela sala de dev pronta, sem volta e sem aviso
 automáticos; D3 foi conferida no navegador nos dois sentidos. Fica como está, por ser de propósito: tapete e outros
 itens chatos podem ficar embaixo de móveis.
 
-## E. Equipe de IA (opcional)
+## E. Equipe de IA
 
-| # | Regra | Onde | Prova hoje |
-|---|-------|------|------------|
-| E1 | O usuário não escolhe o modelo: o servidor testa e fica com um que responde, e troca sozinho se ele passar a ser recusado. | `server/llm.mjs` | ✅ `llm.test.mjs` |
-| E2 | Pergunta simples é respondida direto por quem coordena, sem chamar a equipe. | `server/runner.mjs` | ✅ |
-| E3 | Revisão reprovada volta para quem produziu; ninguém fica "bloqueado" à toa. | idem | ✅ |
-| E4 | Cancelar a tarefa para de chamar a IA. | idem | ✅ |
-| E5 | Cada pessoa faz uma coisa por vez; até 2 tarefas ao mesmo tempo, fila de até 5. | `server/locks.mjs`, `server.mjs` | ✅ travas; ✅ limite da fila (`equipe.test.mjs`) |
-| E6 | Cada entrega é salva em `workspace/entregas/<data>-<tarefa>/`, um arquivo por pessoa e um `resultado.md`. | `server/runner.mjs` | ✅ "salva os arquivos" |
-| E7 | Cada passo acontece no móvel certo para aquilo (computador para produzir, quadro para planejar…). | `server/places.mjs`, `runner.mjs` | ✅ |
-| E8 | Móvel criado pela IA que não passa nas regras vira um móvel do catálogo. | `server/furniture.mjs` | ✅ |
-| E9 | Crítica visual de móvel da IA: no máximo 2 chamadas por móvel, uma vez só, mesmo com duas abas abertas ao mesmo tempo; na OpenAI usa sempre `gpt-6.1-sol`. | `server/furniture.mjs`, `llm.mjs`, `server.mjs` (`critiquing`) | ✅ modelo; ✅ limite de chamadas (`equipe.test.mjs`) |
-| E10 | A IA **não monta o cenário**: cria equipe, papéis, rótulos e móveis novos que faltam; quem monta a sala é o dono. Móveis, piso, paredes, salas, planta ou áreas que a IA mandar mesmo assim são ignorados; o negócio novo abre numa sala vazia (piso, paredes e a porta). | `server/office.mjs` (`normalizeSpec`), `26-montagem.js` (`officeWorld`) | ✅ `office.test.mjs` (E10); 🔎 sala vazia conferida no código |
-
-**Revisão da camada E (2026-11-05):** a divergência da E10 foi resolvida pela decisão do dono (a IA não monta a sala):
-o pedido já dizia isso à IA, mas o servidor ainda aceitava e guardava móveis, piso, cor da parede, salas fechadas e
-planta se ela mandasse, e os dois testes antigos exigiam isso. Agora a ficha não guarda nada de cenário, e o teste exige
-o contrário. A E9 falhava: com duas abas abertas, a crítica visual do mesmo móvel era paga duas vezes; corrigido, com
-teste. A E5 já valia e ganhou teste. Fica no código, sem uso: o gerador de planta (`generateOffice`, `suggestOffice`),
-guardado para um futuro "sugerir planta" que o dono pediria de propósito.
+Saiu do `main` em 2026-11-05 (decisão do dono: o Floorwalk publicado é só para quem usa Claude Code). As regras
+E1 a E10, o código e os testes dela estão no branch `equipe-ia`.
 
 ## F. Idioma
 
@@ -160,8 +145,8 @@ simulado; a G2 ganhou o teste do lado da página; a G4 foi conferida no navegado
 
 | | Regras |
 |---|---|
-| Total | 54 |
-| ✅ Com teste automático (inclui parciais) | 44 |
-| 🔎 Só conferidas à mão | 11, quase todas da página (C e D), onde não há teste de interface |
-| ❌ Sem prova | nenhuma inteira; falta só parte da A2 (permissão da pasta no Windows) |
-| ⚠️ Divergência conhecida | 1 (A8 parcial; ela também conta nas ✅, por isso a soma passa de 54) |
+| Total | 41 |
+| ✅ Com teste automático (inclui parciais) | 31 |
+| 🔎 Só conferidas à mão | 10, quase todas da página (C e D), onde não há teste de interface |
+| ❌ Sem prova | 0 |
+| ⚠️ Divergência conhecida | 0 |

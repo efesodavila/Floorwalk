@@ -11,7 +11,7 @@ when it reads, the server rack when it pushes, and it raises a flag when it need
 > Status: early open-source release. Works on Windows, macOS and Linux with Node 22.9+.
 > The interface follows your browser language (English or Portuguese); switch it in the menu (☰ → Idioma / Language).
 
-## Quick start (Claude Code, no API key)
+## Quick start
 
 ```bash
 git clone https://github.com/efesodavila/Floorwalk.git
@@ -43,9 +43,7 @@ history of its actions. The history survives a page reload.
 
 - **Actions go to the right place.** The character does not just type or read; each kind of work has its own spot in
   the room, so you can tell at a glance who is shipping, who is stuck and who is researching.
-- **It can also do the work.** Besides watching Claude Code, Floorwalk has its own AI team: describe your business,
-  connect OpenAI, Anthropic or Ollama, and delegate tasks. A coordinator splits the work, people research, produce,
-  review and deliver, and every result is saved as Markdown.
+- **Nothing to configure.** No API key, no account, no cloud: the server runs on your machine and only listens to it.
 - **Build your own office.** Empty room, your layout: furniture, walls, glass rooms, people and roles, all in 3D.
 
 ## Safety and privacy
@@ -65,23 +63,6 @@ when the server is not running. Events only go to your own machine (`127.0.0.1`)
 in `~/.floorwalk/hook.json`. Your prompts are not read. Commands are shown truncated, with anything that looks like a
 token, key or password removed. Sessions are never saved into your office layout.
 
-## The AI team (optional, off by default)
-
-Menu (☰) → **Ligar a equipe de IA** turns it on; the same item turns it off again (your key and business stay saved).
-When it is off there is no task field and no AI setup. When it is on, pick OpenAI, Anthropic or Ollama and paste your key. The server tests the models on your
-account and picks one that answers (set `FLOORWALK_MODEL` in `.env` to force one). Then describe your business: the
-AI creates the team, roles and labels, and you build the room. Type a task in the field at the bottom and watch the
-team work.
-
-- The key stays in `data/settings.json` on your machine; the page never receives it back. You can also use `.env`
-  (see `.env.example`).
-- **Web research:** during research the team can search (DuckDuckGo, or Brave Search with `BRAVE_API_KEY`), read up to
-  4 pages and cite sources. Read-only: agents do not run code or submit forms, and local network addresses are blocked.
-  Toggle it in the menu, or set `FLOORWALK_WEB=0`.
-- **Parallel tasks:** up to 2 at a time (`FLOORWALK_PARALELO`), queue of 5.
-- **Cost:** each task makes 3 to 8 model calls. Check usage on your provider's dashboard.
-- `npm run demo` runs the same flow with simulated events, no key and no cost.
-
 ## Controls
 
 Drag to pan, scroll to zoom toward the cursor, right-drag (or Shift + drag) to rotate in 90° steps; arrows/WASD also
@@ -93,9 +74,7 @@ Without WebGL the page falls back to a 2D view. `npm run build:single` creates a
 ## How it works
 
 ```
-Claude Code ──hooks──▶ ┐
-                       ├─▶ server (server/) ──events──▶ page (web/, Three.js)
-your AI team ─────────▶ ┘
+Claude Code ──hooks──▶ server (server/) ──events──▶ page (web/, Three.js)
 ```
 
 The server turns everything into events of the [Floorwalk protocol](docs/PROTOCOLO.md) over a WebSocket. Any agent
@@ -105,18 +84,17 @@ to a computer.
 | folder | contents |
 |--------|----------|
 | `web/` | the page: `index.html`, `css/app.css`, `js/` (one file per topic), `js3d/` (3D scene, furniture, characters) |
-| `server/` | HTTP + WebSocket server, Claude Code bridge, AI team, protocol |
+| `server/` | HTTP + WebSocket server, Claude Code bridge, protocol |
 | `scripts/` | hook script, hook installer, single-file build, checks |
-| `test/` | `npm test` (no AI calls) |
+| `test/` | `npm test` |
 | `docs/` | protocol and development notes (Portuguese) |
 
 ## Known limits
 
-- The optional AI team screens (setup, business description, results) and the protocol's state names are still in Portuguese.
+- The protocol's state names are in Portuguese (English aliases such as `working` and `done` are accepted).
 - Claude Code is the only coding agent supported today. Codex and Gemini CLI are next.
 - Subagents do not get their own character yet; the main session goes to the meeting table when it delegates.
-- One office per server. The AI team runs up to 2 tasks at once; quality depends on the model you connect.
-- Web research is read-only, and DuckDuckGo may rate-limit automated searches.
+- One office per server.
 - **3D character models** in `web/modelos/` were generated with [Meshy](https://www.meshy.ai) on a paid plan, which grants
   commercial-use rights, and are distributed with the project under the same MIT license. If you prefer not to use them,
   delete the folder and the code-built low-poly characters take over.

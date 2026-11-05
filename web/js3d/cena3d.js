@@ -490,8 +490,6 @@ sun.shadow.bias = .0015; sun.shadow.normalBias = .05; // evita "acne" (listras) 
     if (mode === 'build' && typeof renderPanel === 'function') renderPanel();
   } catch (e) { console.warn('[3D] miniaturas 3D falharam; ficam as 2D:', e); }
   // móveis criados pela IA depois do início também ganham miniatura 3D
-  const reg0 = window.registerCustom;
-  if (typeof reg0 === 'function') window.registerCustom = (c) => { const r = reg0(c); if (r) try { THUMBS[c.id] = thumbs3d.item(c.id); } catch {} return r; };
 
   // contorno dos personagens: ligado por padrão; ?contorno=0 desliga (para comparar)
   const CHAR_OUTLINE = qs.get('contorno') !== '0';
@@ -961,10 +959,6 @@ sun.shadow.bias = .0015; sun.shadow.normalBias = .05; // evita "acne" (listras) 
   const active = () => mode === 'live' || mode === 'build';
   window.R3D = {
     active, editing, wanted: true, stats: { fps: 0 }, fit: fit3d, ...camAPI,
-    // imagem de um móvel para a crítica visual (PNG, fundo claro, ~384×288)
-    itemShot: (k) => thumbs3d.item(k, 192, 144, 0xF2F1F4),
-    // refaz a sala na próxima volta do laço (ex.: o desenho de um móvel mudou no catálogo)
-    rebuild: () => { sig = ''; },
   };
   let sig = '', frames = 0, fpsT = performance.now(), n = 0, lastHid = null;
   function loop(now) {

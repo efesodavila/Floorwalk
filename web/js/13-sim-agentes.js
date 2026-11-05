@@ -10,7 +10,7 @@ function makeAgent(p) {
 }
 function startSim() {
   buildNav(); sim.reserved.clear(); sim.groups = new Map(); sim.feed = []; sim.clock = 0;
-  sim.agents = W.people.map(makeAgent); feedHTML = ''; teamHTML = ''; MISSIONS.length = 0;
+  sim.agents = W.people.map(makeAgent); feedHTML = ''; teamHTML = '';
   if (sim.source === 'demo') demoReset();
   if (sim.source === 'arquivo' && sim.replay) sim.replay.i = 0, sim.replay.t = 0;
 }

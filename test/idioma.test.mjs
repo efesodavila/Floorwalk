@@ -56,7 +56,7 @@ test('F4: nome de pasta, arquivo, comando e pessoa nunca é traduzido, mesmo igu
   assert.equal(T('Projeto entrou na equipe. Arraste para onde quiser.'), 'Projeto joined the team. Drag them anywhere.', 'pessoa');
   assert.equal(T('Iluminação: ☀ Dia · 08:30'), 'Lighting: ☀ Day · 08:30', 'onde precisa, o miolo continua traduzido');
   // na tela: nomes de pessoas e sessões vão marcados para a tradução automática pular
-  for (const f of ['23-ficha-render.js', '27-entregas-menu.js', '16-fonte-tempo-real.js']) {
+  for (const f of ['23-ficha-render.js', '27-menu.js', '16-fonte-tempo-real.js']) {
     const s = await read(f);
     assert.doesNotMatch(s, /<b>\$\{escapeHTML\(p\.name\)\}<\/b>/, `${f}: nome sem data-no-i18n`);
   }

@@ -33,7 +33,6 @@ function renderFicha() {
         <dt class="f-dev">Por quê</dt><dd class="f-dev">${escapeHTML(a.decision || '')}</dd>
         ${withN.length ? `<dt>Com</dt><dd>${withN.map(escapeHTML).join(', ')}</dd>` : ''}
       </dl></section>
-    ${missionHTML(a)}
     <section><h4>Tempo por atividade</h4>
       ${times.length ? `<div class="f-bar">${times.map(([k, v]) => `<span style="width:${(v / total * 100).toFixed(1)}%;background:${RULES[k].c}" title="${RULES[k].n}: ${fmtDur(v)}"></span>`).join('')}</div>
       <ul class="f-legend">${times.slice(0, 5).map(([k, v]) => `<li><i style="background:${RULES[k].c}"></i>${RULES[k].n}<b>${Math.round(v / total * 100)}%</b><small>${fmtDur(v)}</small></li>`).join('')}</ul>` : '<p class="muted">Ainda sem dados: aparece conforme o trabalho acontece.</p>'}

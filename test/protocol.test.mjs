@@ -21,14 +21,6 @@ test('mensagem state recusa estado desconhecido e aceita os universais', () => {
   assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', task: 'x' }).state, 'trabalhando');
 });
 
-test('mensagem result leva o texto inteiro; página pode cancelar', async () => {
-  const r = msg.result('run-1', { agent: 'Bia', action: 'produzir', title: 'Produção · Bia', text: 'x'.repeat(50000) });
-  assert.equal(r.type, 'result'); assert.equal(r.text.length, 40000);
-  const { parseClientMessage } = await import('../server/protocol.mjs');
-  assert.deepEqual(parseClientMessage('{"type":"cancel","id":"run-1"}'), { cancel: 'run-1' });
-  assert.equal(parseClientMessage('{"type":"cancel","id":"../x"}'), null);
-});
-
 test('mensagem team exige tipo de papel válido', () => {
   assert.throws(() => msg.team([{ name: 'Ana', role: 'chefe', kind: 'manda' }]), /tipo/);
   const t = msg.team([{ name: 'Ana', role: 'chefe', roleName: 'Chefia', kind: 'coordena' }]);
@@ -46,12 +38,4 @@ test('lugares: mesma lista no servidor e na página, e todo lugar aponta para el
 test('state leva o lugar só se ele existir', () => {
   assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', place: 'estudio' }).place, 'estudio');
   assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', place: 'piscina' }).place, undefined);
-  assert.equal(msg.state({ agent: 'Bia', state: 'trabalhando', place: 'p_forno_de_pizza' }).place, 'p_forno_de_pizza', 'lugar de móvel criado pela IA');
-});
-
-test('tarefa da página: a lista de móveis da sala é validada', async () => {
-  const { parseClientMessage } = await import('../server/protocol.mjs');
-  const t = parseClientMessage(JSON.stringify({ type: 'task', id: 'r1', text: 'oi', room: ['desk', 'desk', 'chroma', '../x', 'C_maiusc', 7] }));
-  assert.deepEqual(t.room, ['desk', 'chroma', '7']);
-  assert.equal(parseClientMessage(JSON.stringify({ type: 'task', id: 'r2', text: 'oi' })).room, undefined);
 });

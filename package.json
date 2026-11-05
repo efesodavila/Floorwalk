@@ -1,7 +1,7 @@
 {
   "name": "floorwalk",
   "version": "0.1.0",
-  "description": "Escritório em pixel art onde agentes de IA trabalham à vista: você delega tarefas e vê cada personagem executar a sua parte.",
+  "description": "See your Claude Code sessions at work in a 3D office: each session is a character that walks to the right desk as it edits, reads, tests and ships.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,17 +18,13 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server/server.mjs",
-    "demo": "node --env-file-if-exists=.env server/server.mjs --demo",
     "test": "node --test",
     "build:single": "node scripts/build-single.mjs",
-    "check:layouts": "node scripts/check-layouts.mjs",
     "hooks:install": "node scripts/claude-hooks.mjs install",
     "hooks:uninstall": "node scripts/claude-hooks.mjs uninstall",
     "hooks:status": "node scripts/claude-hooks.mjs status"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.137.0",
-    "openai": "7.39.0",
     "three": "0.170.0",
     "ws": "8.22.1"
   },

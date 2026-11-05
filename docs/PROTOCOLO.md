@@ -7,12 +7,10 @@ Transporte: WebSocket em `/events`, mensagens JSON, uma por frame (um array tamb
 
 | `type`  | Quando | Campos |
 |---------|--------|--------|
-| `hello` | ao conectar | `protocol` (1), `server`, `demo` |
+| `hello` | ao conectar | `protocol` (1), `server` |
 | `team`  | ao conectar e quando alguém entra | `agents: [{ name, role, roleName, kind, source? }]`. A página cria quem não existe, cria papéis novos e corrige o papel de quem existe. `source` (ex.: `claude-code`) marca agente de fora: fica na sala enquanto existir e não é salvo no escritório. |
-| `state` | um agente muda o que está fazendo | `agent`, `state`, `task`, `with?`, `detail?`, `run?` |
+| `state` | um agente muda o que está fazendo | `agent`, `state`, `task`, `with?`, `detail?`, `place?`, `run?` |
 | `log`   | algo útil sem mudar o estado (resultado de ferramenta) | `agent`, `text`, `run?` |
-| `result` | uma pessoa terminou a sua parte | `run`, `agent`, `action` (pesquisar, produzir, revisar, entregar), `title`, `text` (o texto completo) |
-| `task`  | a tarefa do usuário muda de situação | `id`, `status`, `text`, `output?`, `folder?`, `error?` |
 
 Uma mensagem **sem `type`** é tratada como `state`, para continuar compatível com o formato antigo
 (`{ "agent": "Bia", "state": "codando", "task": "Login" }`).
@@ -49,7 +47,7 @@ Uma mensagem **sem `type`** é tratada como `state`, para continuar compatível 
 - `task`: rótulo curto, até 60 caracteres. Aparece na lista da equipe e na ficha.
 - `with`: nomes de outros agentes envolvidos. Obrigatório em `reuniao`.
 - `detail`: o que exatamente está acontecendo ("Lendo README.md"). Vai para o histórico da ficha.
-- `run`: id da tarefa do usuário. Liga o passo à seção **Missão** da ficha.
+- `run` (opcional): id do trabalho a que o estado pertence, para quem emite vários ao mesmo tempo.
 - `place` (opcional): **onde** aquilo é feito. A pessoa vai ao elemento que serve para isso;
   sem `place`, vale o lugar padrão do estado. Se o lugar não existir na sala ou não tiver acesso,
   ela usa o próximo elemento da lista.
@@ -70,7 +68,6 @@ Uma mensagem **sem `type`** é tratada como `state`, para continuar compatível 
   | `estoque` | prateleira de estoque, arara, mesa de embalagem | separar e embalar produtos |
   | `loja` | caixa, vitrine | vender e cobrar |
   | `oficina` | bancada de ferramentas, cavalete | consertar, montar, pintar |
-  | `p_…` | móvel criado pela IA para este escritório | a finalidade dada a ele |
 
 ### Papéis e tipos
 
@@ -91,30 +88,12 @@ comportamento no escritório é o **tipo** (`kind`), que é sempre um destes:
   { "name": "Bia", "role": "redacao", "roleName": "Redação", "kind": "produz" } ] }
 ```
 
-### `task`
-
-`status` segue esta ordem: `na_fila` → `em_andamento` → `concluida`, `erro` **ou** `cancelada`.
-Em `concluida`, `output` traz o resumo final e `folder` a pasta onde as entregas foram salvas.
-
-## Página → servidor
-
-```json
-{ "type": "task", "id": "run-lq3x9", "text": "Criar a tela de login e publicar" }
-```
-
-`id` é opcional: o servidor cria um se faltar. Texto com até 2000 caracteres.
-O servidor responde com mensagens `task` usando o mesmo `id`. Para cancelar:
-
-```json
-{ "type": "cancel", "id": "run-lq3x9" }
-```
-
 ## Claude Code → servidor
 
 Os hooks do Claude Code (`npm run hooks:install`) rodam `scripts/claude-hook.mjs`, que repassa cada evento em
 `POST /api/hooks/claude` com o cabeçalho `x-floorwalk-token` (senha de `~/.floorwalk/hook.json`, gravada pelo
 servidor ao subir; `FLOORWALK_HOME` troca a pasta). Sem a senha: 403. `server/claude-code.mjs` traduz o evento em
-`team` + `state` (tabela no README). Eventos: SessionStart, SessionEnd, UserPromptSubmit, PreToolUse,
+`team` + `state` (tabela no README). A página só escuta: o que ela mandar pelo WebSocket é ignorado. Eventos: SessionStart, SessionEnd, UserPromptSubmit, PreToolUse,
 PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, SubagentStop.
 
 ## Regras de convivência
@@ -123,14 +102,5 @@ PostToolUseFailure, PermissionRequest, Notification, Stop, SubagentStart, Subage
   por alguns segundos (a ponte usa `MIN_DWELL_MS`, 3,5 s por padrão), senão o personagem
   troca de destino antes de sair do lugar. Isso atrasa a imagem em relação à realidade; o
   resultado final não muda.
-- **Tarefas em paralelo.** A ponte de referência roda até 2 tarefas ao mesmo tempo (`FLOORWALK_PARALELO`;
-  1 volta ao comportamento antigo, uma por vez). Pedidos além disso entram na fila (máx. 5).
-  Mensagens `state`, `log`, `result` e `task` de tarefas diferentes chegam intercaladas: use `run`
-  para saber a que tarefa cada uma pertence. Cada agente faz uma coisa por vez — se duas tarefas
-  precisam da mesma pessoa, a segunda espera ela ficar livre.
-- **Internet.** Na pesquisa, a ponte pode buscar na web e ler páginas (só leitura). O agente aparece
-  em `pesquisando` com `detail` "Buscando: …" e "Lendo <site>". O texto final cita as fontes como
-  [1], [2] e termina com "Fontes:". Liga e desliga no menu (**Pesquisa na internet**) ou com
-  `FLOORWALK_WEB=0`.
 - **Origem.** O WebSocket só aceita a página servida pelo próprio servidor. Sem isso,
-  qualquer site aberto no seu navegador poderia mandar tarefas e gastar sua chave.
+  qualquer site aberto no seu navegador poderia ver o que as suas sessões estão fazendo.

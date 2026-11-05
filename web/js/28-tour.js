@@ -1,21 +1,20 @@
 'use strict';
 
 /* ---------- Tour: mostra o que o dono pode fazer e como ----------
-   Abre sozinho na primeira vez que um negócio é criado (applyOffice) e fica no menu ☰ ("Como usar").
+   Fica no menu ☰ ("Como usar").
    Cada passo destaca uma parte da tela e explica em uma ou duas frases. Esc ou "Pular" fecha; setas navegam. */
 const TOUR_KEY = 'floorwalk.tour.v1';
 const TOUR = [
-  { t: 'Bem-vindo ao seu escritório', x: 'A IA montou a equipe do seu negócio. Agora é a sua vez de montar o lugar onde ela trabalha. Este tour leva um minuto.' },
-  { sel: '#modes', mode: 'build', t: 'Construir e Ao vivo', x: '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: a equipe trabalha e você acompanha. Você pode trocar a qualquer hora.' },
+  { t: 'Bem-vindo ao Floorwalk', x: 'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Este tour mostra como montar a sala. Leva um minuto.' },
+  { sel: '#modes', mode: 'build', t: 'Construir e Ao vivo', x: '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: as sessões trabalham e você acompanha. Você pode trocar a qualquer hora.' },
   { sel: '#tab-planta', mode: 'build', tab: 'planta', t: 'Passo 1 · Planta', x: 'Mude o tamanho da sala (botões + e −, ou os + roxos nas bordas), o piso e a cor das paredes. Aqui também se desenham paredes internas, portas, vidro e divisórias: escolha o tipo e arraste no piso.' },
-  { sel: '#tab-elementos', mode: 'build', tab: 'elementos', t: 'Passo 2 · Elementos', x: 'Escolha um móvel na lista e clique no piso para colocar. Arraste para mudar de lugar. Clique num móvel para girar, trocar a cor ou apagar. Monte com o que o seu negócio usa: é para esses móveis que a equipe vai.' },
-  { sel: '#tab-pessoas', mode: 'build', tab: 'pessoas', t: 'Passo 3 · Pessoas', x: 'Sua equipe aparece aqui. Mude a aparência, o papel e onde cada pessoa começa. Fora desta aba, os avatares saem da frente para você montar a sala.' },
+  { sel: '#tab-elementos', mode: 'build', tab: 'elementos', t: 'Passo 2 · Elementos', x: 'Escolha um móvel na lista e clique no piso para colocar. Arraste para mudar de lugar. Clique num móvel para girar, trocar a cor ou apagar. Quem edita vai ao computador, quem lê vai à estante e quem publica vai aos servidores.' },
+  { sel: '#tab-pessoas', mode: 'build', tab: 'pessoas', t: 'Passo 3 · Pessoas', x: 'Pessoas fixas da sala, se quiser alguma. As sessões do Claude Code entram sozinhas e não ficam salvas aqui.' },
   { sel: '.panel-foot', mode: 'build', tab: 'planta', t: 'Errou? Tem volta', x: '<b>Desfazer</b> (Ctrl+Z) e <b>Refazer</b>. O aviso ao lado mostra se algum móvel ficou sem passagem ou encavalado.' },
   { sel: '.zoom', mode: 'build', t: 'Olhar a sala', x: 'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem. <b>Centralizar</b> volta ao começo.' },
   { sel: '#done-edit', mode: 'build', t: 'Terminou de montar?', x: '<b>Concluir edição</b> leva para o modo Ao vivo. Dá para voltar e mexer depois.' },
-  { sel: '#ask', mode: 'live', t: 'Pedir trabalho à equipe', x: 'No Ao vivo, escreva o que a equipe deve fazer e clique em <b>Delegar</b>. A IA divide em passos, cada pessoa vai até o móvel certo e você vê tudo acontecer. O resultado aparece nas entregas.' },
-  { sel: '#menu-btn', mode: 'build', t: 'Menu', x: 'Equipe, trocar a IA, pesquisa na internet, rever este tour e <b>começar do zero</b>.' },
-  { t: 'Pronto!', x: 'Comece pela <b>Planta</b> e depois coloque os <b>Elementos</b>. Bom trabalho!', mode: 'build', tab: 'planta' },
+  { sel: '#menu-btn', mode: 'build', t: 'Menu', x: 'As sessões abertas, o idioma, a iluminação, rever este tour e <b>limpar a sala</b>.' },
+  { t: 'Pronto!', x: 'Abra uma sessão do Claude Code no terminal e veja o personagem entrar. Bom trabalho!', mode: 'build', tab: 'planta' },
 ];
 let tourAt = -1, tourEl = null;
 function tourStart() {
@@ -40,12 +39,13 @@ function tourGo(i) {
   tourAt = i; const s = TOUR[i];
   // deixa a tela no estado do passo (modo e aba) antes de destacar
   try { if (s.mode && mode !== s.mode) setMode(s.mode); if (s.tab && tab !== s.tab) setTab(s.tab); } catch {}
-  tourEl.querySelector('.tour-n').textContent = `${i + 1} de ${TOUR.length}`;
-  tourEl.querySelector('h3').textContent = s.t;
-  tourEl.querySelector('p').innerHTML = s.x;
+  tourEl.querySelector('.tour-n').textContent = T(`${i + 1} de ${TOUR.length}`);
+  // traduzido aqui, inteiro: a tradução automática da tela pegaria o parágrafo em pedaços (texto e <b>) e não acharia a frase
+  tourEl.querySelector('h3').textContent = T(s.t);
+  tourEl.querySelector('p').innerHTML = T(s.x);
   tourEl.querySelector('.tour-back').hidden = i === 0;
   tourEl.querySelector('.tour-next').textContent = i === TOUR.length - 1 ? 'Começar' : 'Próximo';
-  requestAnimationFrame(() => { tourPlace(); tourEl.querySelector('.tour-next').focus(); });
+  requestAnimationFrame(() => { tourPlace(); tourEl?.querySelector('.tour-next').focus(); }); // o tour pode ter fechado nesse meio-tempo
 }
 // recorte em volta do elemento do passo e o cartão ao lado (abaixo, acima ou no meio, o que couber)
 function tourPlace() {
@@ -70,6 +70,5 @@ function tourEnd() {
   removeEventListener('resize', tourPlace); removeEventListener('keydown', tourKey, true);
   try { localStorage.setItem(TOUR_KEY, '1'); } catch {}
 }
-// primeira vez (negócio novo): abre sozinho, uma vez só
-function tourMaybe() { let seen = false; try { seen = localStorage.getItem(TOUR_KEY) === '1'; } catch {} if (!seen) setTimeout(tourStart, 600); }
+// menu ☰ → Como usar
 $('#m-tour')?.addEventListener('click', () => { closeMenu(); tourStart(); });

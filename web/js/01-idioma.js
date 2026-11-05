@@ -128,24 +128,24 @@ const EN = {
   'O campo de tarefa some e a sala passa a mostrar só as sessões do Claude Code. A sala da equipe, a IA conectada e o negócio continuam guardados e voltam quando você ligar de novo.': "The task field goes away and the room shows only Claude Code sessions. The team's room, the connected AI and the business stay saved and come back when you turn it on again.",
   // tour
   'Pular': 'Skip', 'Voltar': 'Back', 'Próximo': 'Next', 'Começar': 'Start',
-  'Bem-vindo ao seu escritório': 'Welcome to your office', 'Passo 1 · Planta': 'Step 1 · Layout', 'Passo 2 · Elementos': 'Step 2 · Items',
-  'Passo 3 · Pessoas': 'Step 3 · People', 'Olhar a sala': 'Look around', 'Terminou de montar?': 'Done building?', 'Pedir trabalho à equipe': 'Ask the team for work',
-  'A IA montou a equipe do seu negócio. Agora é a sua vez de montar o lugar onde ela trabalha. Este tour leva um minuto.': "The AI put together your business team. Now it's your turn to build the place where they work. This tour takes a minute.",
+  'Construir e Ao vivo': 'Build and Live', 'Errou? Tem volta': 'Made a mistake? Undo it', 'Pronto!': 'All set!',
+  'Bem-vindo ao Floorwalk': 'Welcome to Floorwalk', 'Passo 1 · Planta': 'Step 1 · Layout', 'Passo 2 · Elementos': 'Step 2 · Items',
+  'Passo 3 · Pessoas': 'Step 3 · People', 'Olhar a sala': 'Look around', 'Terminou de montar?': 'Done building?',
+  'Cada sessão do Claude Code vira um personagem que entra pela porta e vai até o móvel do que está fazendo. Este tour mostra como montar a sala. Leva um minuto.': 'Each Claude Code session becomes a character who walks in through the door and goes to the furniture for what it is doing. This tour shows how to set up the room. It takes a minute.',
   'Mude o tamanho da sala (botões + e −, ou os + roxos nas bordas), o piso e a cor das paredes. Aqui também se desenham paredes internas, portas, vidro e divisórias: escolha o tipo e arraste no piso.': 'Change the room size (+ and − buttons, or the purple + on the edges), the floor and the wall color. This is also where you draw inner walls, doors, glass and partitions: pick the type and drag on the floor.',
-  'Escolha um móvel na lista e clique no piso para colocar. Arraste para mudar de lugar. Clique num móvel para girar, trocar a cor ou apagar. Monte com o que o seu negócio usa: é para esses móveis que a equipe vai.': 'Pick a piece of furniture from the list and click the floor to place it. Drag to move it. Click it to rotate, recolor or delete. Use what your work needs: that furniture is where the team goes.',
-  'Sua equipe aparece aqui. Mude a aparência, o papel e onde cada pessoa começa. Fora desta aba, os avatares saem da frente para você montar a sala.': 'Your team shows up here. Change each person’s look, role and starting spot. Outside this tab, the avatars step aside so you can build the room.',
+  'Escolha um móvel na lista e clique no piso para colocar. Arraste para mudar de lugar. Clique num móvel para girar, trocar a cor ou apagar. Quem edita vai ao computador, quem lê vai à estante e quem publica vai aos servidores.': 'Pick a piece of furniture from the list and click the floor to place it. Drag to move it. Click it to rotate, recolor or delete. Editing goes to the computer, reading to the bookshelf and shipping to the servers.',
+  'Pessoas fixas da sala, se quiser alguma. As sessões do Claude Code entram sozinhas e não ficam salvas aqui.': 'Fixed people for the room, if you want any. Claude Code sessions walk in on their own and are not saved here.',
   // rótulos de estado usados pelos escritórios prontos
   'Codando': 'Coding', 'Fazendo deploy': 'Deploying', 'Atuando': 'Working', 'Concluiu': 'Done',
 };
 /* trechos com tags (o elemento inteiro tem este HTML) */
 const EN_HTML = {
-  '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: a equipe trabalha e você acompanha. Você pode trocar a qualquer hora.': '<b>Build</b>: you set up the room. <b>Live</b>: the team works and you watch. Switch any time.',
+  '<b>Construir</b>: você monta a sala. <b>Ao vivo</b>: as sessões trabalham e você acompanha. Você pode trocar a qualquer hora.': '<b>Build</b>: you set up the room. <b>Live</b>: the sessions work and you watch. Switch any time.',
   '<b>Desfazer</b> (Ctrl+Z) e <b>Refazer</b>. O aviso ao lado mostra se algum móvel ficou sem passagem ou encavalado.': '<b>Undo</b> (Ctrl+Z) and <b>Redo</b>. The notice next to them shows if furniture is blocked or overlapping.',
   'Arraste com o botão <b>esquerdo</b> para girar a sala e com o <b>direito</b> para mover. A roda do mouse aproxima. Setas ou W A S D também movem. <b>Centralizar</b> volta ao começo.': 'Drag with the <b>left</b> button to rotate the room and with the <b>right</b> one to move it. The mouse wheel zooms. Arrows or W A S D also move. <b>Center</b> resets the view.',
   '<b>Concluir edição</b> leva para o modo Ao vivo. Dá para voltar e mexer depois.': '<b>Done editing</b> takes you to Live mode. You can come back and change things later.',
-  'No Ao vivo, escreva o que a equipe deve fazer e clique em <b>Delegar</b>. A IA divide em passos, cada pessoa vai até o móvel certo e você vê tudo acontecer. O resultado aparece nas entregas.': 'In Live mode, write what the team should do and click <b>Delegate</b>. The AI splits it into steps, each person goes to the right furniture and you watch it happen. The result shows up in deliveries.',
-  'Equipe, trocar a IA, pesquisa na internet, rever este tour e <b>começar do zero</b>.': 'Team, change the AI, web research, replay this tour and <b>start over</b>.',
-  'Comece pela <b>Planta</b> e depois coloque os <b>Elementos</b>. Bom trabalho!': 'Start with the <b>Layout</b>, then place the <b>Items</b>. Have fun!',
+  'As sessões abertas, o idioma, a iluminação, rever este tour e <b>limpar a sala</b>.': 'Open sessions, language, lighting, replay this tour and <b>clear the room</b>.',
+  'Abra uma sessão do Claude Code no terminal e veja o personagem entrar. Bom trabalho!': 'Open a Claude Code session in the terminal and watch the character walk in. Have fun!',
 };
 /* frases com partes variáveis (arquivo, comando, pessoa, número); null = deixa como está */
 const EN_RE = [
@@ -179,7 +179,7 @@ const EN_RE = [
   [/^Não consegui apagar: (.+)$/, "Couldn't delete: $1"], [/^Não consegui mudar: (.+)$/, "Couldn't change: $1"],
   [/^(\S+) Dia(.*)$/, '$1 Day$2'], [/^(\S+) Tarde(.*)$/, '$1 Afternoon$2'], [/^(\S+) Noite(.*)$/, '$1 Night$2'],
   [/^Visual 3D indisponível neste navegador \((.+)\)\.?(.*)$/, '3D view unavailable in this browser ($1).$2'],
-  [/^Prévia de (.+)$/, 'Preview of $1'], [/^Remover (.+)$/, 'Remove $1'],
+  [/^Prévia de (.+)$/, 'Preview of $1'], [/^(\d+) de (\d+)$/, '$1 of $2'], [/^Remover (.+)$/, 'Remove $1'],
   [/^Para mudar (.+) de lugar, arraste na sala e solte onde quiser\.$/, 'To move $1, drag them in the room and drop them where you want.'], [/^Diminuir para (.+)$/, 'Shrink to $1'], [/^Aumentar para (.+)$/, 'Grow to $1'],
 ];
 
@@ -187,6 +187,7 @@ function T(s) {
   if (LANG === 'pt' || s == null) return s;
   const k = String(s);
   if (Object.prototype.hasOwnProperty.call(EN, k)) return EN[k];
+  if (Object.prototype.hasOwnProperty.call(EN_HTML, k)) return EN_HTML[k]; // frase com <b>: quem chama põe em innerHTML
   for (const [re, r, inner] of EN_RE) if (re.test(k)) return r == null ? k : k.replace(re, (...g) => r.replace(/\$(\d)/g, (_, i) => (inner ? T(g[i]) : g[i]) ?? ''));
   return k;
 }
